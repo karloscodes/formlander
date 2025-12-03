@@ -9,7 +9,7 @@
   },
   "dependencies": {
     "sqlite3": "^5.1.6",
-    "bcrypt": "^5.1.1"
+    "bcrypt": "^6.0.0"
   },
   "devDependencies": {
     "@playwright/test": "^1.47.2"
