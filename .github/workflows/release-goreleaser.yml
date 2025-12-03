@@ -73,6 +73,21 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Scan Docker image for vulnerabilities
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'karloscodes/formlander:${{ github.ref_name }}'
+          format: 'sarif'
+          output: 'trivy-docker-results.sarif'
+        continue-on-error: true
+
+      - name: Upload Docker scan results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-docker-results.sarif'
+        continue-on-error: true
+
       - name: Release summary
         run: |
           echo "## 🚀 Release Complete" >> $GITHUB_STEP_SUMMARY
