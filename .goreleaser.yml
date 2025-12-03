@@ -10,9 +10,9 @@ before:
 builds:
   - skip: true
 
-# Skip archives since we're not building binaries
+# No archives needed for Docker-only release
 archives:
-  - format: binary
+  - id: skip-archives
 
 # Skip checksums since we're not distributing binaries
 checksum:
