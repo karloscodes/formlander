@@ -10,6 +10,14 @@ before:
 builds:
   - skip: true
 
+# Skip archives since we're not building binaries
+archives:
+  - format: binary
+
+# Skip checksums since we're not distributing binaries
+checksum:
+  disable: true
+
 changelog:
   sort: asc
   use: github
