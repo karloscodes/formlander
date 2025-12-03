@@ -162,4 +162,6 @@ Contributions are welcome! Please open an issue first to discuss proposed change
 
 ## License
 
-MIT License — see [LICENSE](LICENSE) file for details.
+Formlander License Agreement — see [LICENSE](LICENSE) file for details.
+
+This license is based on MIT but includes a restriction: you cannot offer Formlander (or a modified version) as a competing hosted/SaaS product. You can still use, modify, distribute, and run it for your own purposes, including commercial use.
