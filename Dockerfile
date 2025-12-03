@@ -25,7 +25,7 @@ RUN CGO_ENABLED=1 GOOS=linux go build \
   ./cmd/formlander
 # Runtime stage
 ###############################################################################
-FROM alpine:3.20
+FROM alpine:3.22
 
 WORKDIR /app
 
