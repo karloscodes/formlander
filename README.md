@@ -75,11 +75,9 @@ Access the admin dashboard at `http://localhost:8080` with default credentials:
 
 ## Releases
 
-Formlander uses semantic versioning. Docker images and binaries are published via GitHub Releases when version tags are pushed.
+Formlander uses semantic versioning. Docker images are published via GitHub Releases when version tags are pushed.
 
 ### Docker Images
-
-Once the first release is published, images will be available at:
 
 ```bash
 # Latest stable release
@@ -94,11 +92,20 @@ docker pull karloscodes/formlander:v1
 
 **Note:** Docker images are published automatically via GitHub Actions when a version tag (e.g., `v1.0.0`) is pushed to the repository.
 
-### Binaries
+### Building from Source
 
-Download platform-specific binaries from the [Releases page](https://github.com/karloscodes/formlander/releases).
+If you prefer to run a native binary instead of Docker:
 
-Supported platforms:
+```bash
+git clone https://github.com/karloscodes/formlander.git
+cd formlander
+make build
+export FORMLANDER_SESSION_SECRET=$(openssl rand -hex 32)
+export FORMLANDER_ANON_SALT=$(openssl rand -hex 32)
+./bin/formlander
+```
+
+**Supported platforms for building from source:**
 - Linux (amd64, arm64)
 - macOS (amd64, arm64)
 

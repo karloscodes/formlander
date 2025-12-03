@@ -4,37 +4,11 @@ before:
   hooks:
     - go mod tidy
 
+# Disable binary builds - Docker only for now
+# CGO cross-compilation for SQLite is complex and requires platform-specific toolchains
+# Users can build from source if they need native binaries
 builds:
-  - id: formlander
-    main: ./cmd/formlander
-    binary: formlander
-    env:
-      - CGO_ENABLED=1
-    goos:
-      - linux
-      - darwin
-    goarch:
-      - amd64
-      - arm64
-    ldflags:
-      - -s -w
-      - -X main.version={{.Version}}
-      - -X main.commit={{.Commit}}
-      - -X main.date={{.Date}}
-    flags:
-      - -trimpath
-
-archives:
-  - id: default
-    format: tar.gz
-    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
-    files:
-      - LICENSE
-      - README.md
-      - .env.example
-
-checksum:
-  name_template: "checksums.txt"
+  - skip: true
 
 changelog:
   sort: asc
@@ -113,19 +87,36 @@ release:
   header: |
     ## Formlander {{ .Tag }}
     
-    ### Quick Start
+    Self-hosted form backend with SQLite storage.
     
-    **Docker:**
+    ### Quick Start with Docker
+    
     ```bash
-    docker run -d -p 8080:8080 -v $(pwd)/storage:/app/storage karloscodes/formlander:{{ .Version }}
+    docker run -d \
+      -p 8080:8080 \
+      -e FORMLANDER_SESSION_SECRET=$(openssl rand -hex 32) \
+      -e FORMLANDER_ANON_SALT=$(openssl rand -hex 32) \
+      -v $(pwd)/storage:/app/storage \
+      karloscodes/formlander:{{ .Version }}
     ```
     
-    **Binary:**
-    Download the appropriate archive for your platform below, extract, and run:
+    Then visit `http://localhost:8080` with default credentials:
+    - Email: `admin@formlander.local`
+    - Password: `formlander`
+    
+    ### Building from Source
+    
     ```bash
-    ./formlander
+    git clone https://github.com/karloscodes/formlander.git
+    cd formlander
+    git checkout {{ .Tag }}
+    make build
+    export FORMLANDER_SESSION_SECRET=$(openssl rand -hex 32)
+    export FORMLANDER_ANON_SALT=$(openssl rand -hex 32)
+    ./bin/formlander
     ```
   footer: |
     ---
     
+    **Documentation**: https://formlander.com/docs
     **Full Changelog**: https://github.com/karloscodes/formlander/compare/{{ .PreviousTag }}...{{ .Tag }}
