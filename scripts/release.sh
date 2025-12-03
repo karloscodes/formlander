@@ -1,17 +1,26 @@
 #!/bin/bash
-set -euo pipefail
+# This script is deprecated - releases are now handled by GoReleaser via GitHub Actions
+# See: .github/workflows/release-goreleaser.yml
+#
+# To create a release:
+#   git tag -a v1.x.x -m "Release v1.x.x"
+#   git push origin v1.x.x
+#
+# GoReleaser will automatically:
+#   - Build multi-arch Docker images
+#   - Publish to Docker Hub
+#   - Create GitHub Release with changelog
 
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m'
-
-DOCKERHUB_USERNAME="${DOCKERHUB_USERNAME:-karloscodes}"
-REPO="${DOCKERHUB_USERNAME}/formlander-beta"
-SHA=$(git rev-parse HEAD)
-SHORT_SHA=$(git rev-parse --short HEAD)
-TIMESTAMP=$(date -u +"%Y%m%d%H%M%S")
+echo "This script is deprecated."
+echo ""
+echo "Releases are now automated via GitHub Actions."
+echo "To create a release:"
+echo ""
+echo "  git tag -a v1.x.x -m 'Release v1.x.x'"
+echo "  git push origin v1.x.x"
+echo ""
+echo "GitHub Actions will handle the rest."
+exit 1
 
 echo -e "${GREEN}🚀 Formlander Release Pipeline${NC}\n"
 
