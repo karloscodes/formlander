@@ -4,11 +4,16 @@ before:
   hooks:
     - go mod tidy
 
-# Disable binary builds - Docker only for now
-# CGO cross-compilation for SQLite is complex and requires platform-specific toolchains
-# Users can build from source if they need native binaries
+# Minimal build config - just for file context in Docker builds
+# Actual build happens inside Docker
 builds:
-  - skip: true
+  - id: formlander
+    skip: true
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm64
 
 # No archives needed for Docker-only release
 archives:
@@ -51,6 +56,13 @@ dockers:
       - "--label=org.opencontainers.image.title={{.ProjectName}}"
       - "--label=org.opencontainers.image.revision={{.FullCommit}}"
       - "--label=org.opencontainers.image.version={{.Version}}"
+    extra_files:
+      - go.mod
+      - go.sum
+      - cmd
+      - internal
+      - pkg
+      - web
 
   - image_templates:
       - "karloscodes/formlander:{{ .Version }}-arm64"
@@ -64,6 +76,13 @@ dockers:
       - "--label=org.opencontainers.image.title={{.ProjectName}}"
       - "--label=org.opencontainers.image.revision={{.FullCommit}}"
       - "--label=org.opencontainers.image.version={{.Version}}"
+    extra_files:
+      - go.mod
+      - go.sum
+      - cmd
+      - internal
+      - pkg
+      - web
 
 docker_manifests:
   - name_template: "karloscodes/formlander:{{ .Version }}"

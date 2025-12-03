@@ -16,6 +16,7 @@ RUN go mod download
 # Copy application source (excluding storage/tests via .dockerignore)
 COPY cmd ./cmd
 COPY internal ./internal
+COPY pkg ./pkg
 COPY web ./web
 
 # Build binary (dynamic linking like Fusionaly)
