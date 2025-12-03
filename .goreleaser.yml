@@ -1,0 +1,131 @@
+version: 2
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: formlander
+    main: ./cmd/formlander
+    binary: formlander
+    env:
+      - CGO_ENABLED=1
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.date={{.Date}}
+    flags:
+      - -trimpath
+
+archives:
+  - id: default
+    format: tar.gz
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - LICENSE
+      - README.md
+      - .env.example
+
+checksum:
+  name_template: "checksums.txt"
+
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+      - "^ci:"
+      - Merge pull request
+      - Merge branch
+  groups:
+    - title: Features
+      regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
+      order: 0
+    - title: Bug Fixes
+      regexp: '^.*?fix(\([[:word:]]+\))??!?:.+$'
+      order: 1
+    - title: Others
+      order: 999
+
+dockers:
+  - image_templates:
+      - "karloscodes/formlander:{{ .Version }}-amd64"
+      - "karloscodes/formlander:latest-amd64"
+    use: buildx
+    dockerfile: Dockerfile
+    build_flag_templates:
+      - "--platform=linux/amd64"
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.title={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version={{.Version}}"
+
+  - image_templates:
+      - "karloscodes/formlander:{{ .Version }}-arm64"
+      - "karloscodes/formlander:latest-arm64"
+    use: buildx
+    goarch: arm64
+    dockerfile: Dockerfile
+    build_flag_templates:
+      - "--platform=linux/arm64"
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.title={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version={{.Version}}"
+
+docker_manifests:
+  - name_template: "karloscodes/formlander:{{ .Version }}"
+    image_templates:
+      - "karloscodes/formlander:{{ .Version }}-amd64"
+      - "karloscodes/formlander:{{ .Version }}-arm64"
+  
+  - name_template: "karloscodes/formlander:v{{ .Major }}"
+    image_templates:
+      - "karloscodes/formlander:{{ .Version }}-amd64"
+      - "karloscodes/formlander:{{ .Version }}-arm64"
+  
+  - name_template: "karloscodes/formlander:v{{ .Major }}.{{ .Minor }}"
+    image_templates:
+      - "karloscodes/formlander:{{ .Version }}-amd64"
+      - "karloscodes/formlander:{{ .Version }}-arm64"
+  
+  - name_template: "karloscodes/formlander:latest"
+    image_templates:
+      - "karloscodes/formlander:latest-amd64"
+      - "karloscodes/formlander:latest-arm64"
+
+release:
+  github:
+    owner: karloscodes
+    name: formlander
+  prerelease: auto
+  mode: replace
+  header: |
+    ## Formlander {{ .Tag }}
+    
+    ### Quick Start
+    
+    **Docker:**
+    ```bash
+    docker run -d -p 8080:8080 -v $(pwd)/storage:/app/storage karloscodes/formlander:{{ .Version }}
+    ```
+    
+    **Binary:**
+    Download the appropriate archive for your platform below, extract, and run:
+    ```bash
+    ./formlander
+    ```
+  footer: |
+    ---
+    
+    **Full Changelog**: https://github.com/karloscodes/formlander/compare/{{ .PreviousTag }}...{{ .Tag }}

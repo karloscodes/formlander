@@ -1,0 +1,17 @@
+{
+  "name": "formlander-e2e",
+  "version": "1.0.0",
+  "description": "E2E tests for formlander",
+  "scripts": {
+    "setup": "node setup-test-env.js",
+    "test": "npx playwright test",
+    "test:all": "npm run test"
+  },
+  "dependencies": {
+    "sqlite3": "^5.1.6",
+    "bcrypt": "^5.1.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.47.2"
+  }
+}

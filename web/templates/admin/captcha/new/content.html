@@ -1,0 +1,122 @@
+{{ define "admin/captcha/new/content" }}
+<div class="mx-auto max-w-3xl space-y-8 px-4 py-8 sm:px-6 lg:px-8">
+    <!-- Header -->
+    <div>
+        <h1 class="text-3xl font-bold tracking-tight text-gray-900">{{ if .IsEdit }}Edit{{ else }}New{{ end }} Captcha Profile</h1>
+        <p class="mt-2 text-sm text-gray-600">Configure Turnstile settings for multi-domain form protection</p>
+    </div>
+
+    {{ if .Error }}
+    <div class="rounded-lg border-2 border-rose-500 bg-rose-50 px-4 py-3">
+        <p class="text-sm font-medium text-rose-900">✗ {{ .Error }}</p>
+    </div>
+    {{ end }}
+
+    <form method="POST" action="{{ if .IsEdit }}/admin/settings/captcha/{{ .Profile.ID }}{{ else }}/admin/settings/captcha{{ end }}" class="space-y-6">
+        <!-- Basic Info -->
+        <div class="rounded-xl border border-gray-200 bg-white shadow-sm">
+            <div class="border-b border-gray-200 px-6 py-4">
+                <h2 class="text-lg font-semibold text-gray-900">Basic Information</h2>
+            </div>
+            <div class="space-y-6 p-6">
+                <div>
+                    <label for="name" class="block text-sm font-medium text-gray-700">Profile Name</label>
+                    <input type="text" id="name" name="name" value="{{ if .Profile }}{{ .Profile.Name }}{{ end }}" required
+                        class="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 shadow-sm transition-colors focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20">
+                    <p class="mt-1 text-xs text-gray-500">Unique identifier for this profile (e.g., "public_forms")</p>
+                </div>
+
+                <div>
+                    <label for="provider" class="block text-sm font-medium text-gray-700">Provider</label>
+                    <select id="provider" name="provider" required
+                        class="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 shadow-sm transition-colors focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20">
+                        <option value="turnstile" {{ if and .Profile (eq .Profile.Provider "turnstile") }}selected{{ end }}>Cloudflare Turnstile</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Provider Configuration -->
+        <div class="rounded-xl border border-gray-200 bg-white shadow-sm">
+            <div class="border-b border-gray-200 px-6 py-4">
+                <h2 class="text-lg font-semibold text-gray-900">Provider Configuration</h2>
+            </div>
+            <div class="space-y-6 p-6">
+                <div>
+                    <label for="secret_key" class="block text-sm font-medium text-gray-700">Secret Key</label>
+                    <input type="password" id="secret_key" name="secret_key" value="{{ if .Profile }}{{ .Profile.SecretKey }}{{ end }}"
+                        class="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 font-mono text-sm shadow-sm transition-colors focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                        placeholder="0x4A...">
+                    <p class="mt-1 text-xs text-gray-500">Turnstile secret key for server-side verification</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Site Keys -->
+        <div class="rounded-xl border border-gray-200 bg-white shadow-sm">
+            <div class="border-b border-gray-200 px-6 py-4">
+                <h2 class="text-lg font-semibold text-gray-900">Site Keys (Multi-Domain)</h2>
+                <p class="mt-1 text-sm text-gray-600">Configure different site keys for different domains</p>
+            </div>
+            <div class="p-6">
+                <label for="site_keys_json" class="block text-sm font-medium text-gray-700">
+                    Site Keys Configuration <span class="font-mono text-xs text-gray-500">[ JSON Array ]</span>
+                </label>
+                <textarea id="site_keys_json" name="site_keys_json" rows="8" required
+                    class="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 font-mono text-sm shadow-sm transition-colors focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                    placeholder='[
+  {"host_pattern": "example.com", "site_key": "0x4A..."},
+  {"host_pattern": "*.example.com", "site_key": "0x4B..."}
+]'>{{ if .Profile }}{{ .Profile.SiteKeysJSON }}{{ end }}</textarea>
+                <div class="mt-2 rounded-lg border border-blue-200 bg-blue-50 p-3">
+                    <p class="text-xs font-medium text-blue-900">Format:</p>
+                    <ul class="mt-1 space-y-1 text-xs text-blue-800">
+                        <li>• <code class="rounded bg-blue-100 px-1 py-0.5">host_pattern</code>: Domain or wildcard pattern (e.g., "example.com", "*.example.com")</li>
+                        <li>• <code class="rounded bg-blue-100 px-1 py-0.5">site_key</code>: Turnstile site key for that domain</li>
+                        <li>• System matches the embedding domain against patterns to select the correct site key</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Policy Settings -->
+        <div class="rounded-xl border border-gray-200 bg-white shadow-sm">
+            <div class="border-b border-gray-200 px-6 py-4">
+                <h2 class="text-lg font-semibold text-gray-900">Policy Settings</h2>
+                <p class="mt-1 text-sm text-gray-600">Default verification policy for forms</p>
+            </div>
+            <div class="p-6">
+                <label for="policy_json" class="block text-sm font-medium text-gray-700">
+                    Policy Configuration <span class="font-mono text-xs text-gray-500">{ JSON }</span>
+                </label>
+                <textarea id="policy_json" name="policy_json" rows="6"
+                    class="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 font-mono text-sm shadow-sm transition-colors focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                    placeholder='{"required": true, "action": "form_submit", "theme": "light"}'>{{ if .Profile }}{{ .Profile.PolicyJSON }}{{ end }}</textarea>
+                <div class="mt-2 rounded-lg border border-amber-200 bg-amber-50 p-3">
+                    <p class="text-xs font-medium text-amber-900">Optional Fields:</p>
+                    <ul class="mt-1 space-y-1 text-xs text-amber-800">
+                        <li>• <code class="rounded bg-amber-100 px-1 py-0.5">required</code>: Whether captcha is mandatory (boolean)</li>
+                        <li>• <code class="rounded bg-amber-100 px-1 py-0.5">action</code>: Turnstile action identifier (string)</li>
+                        <li>• <code class="rounded bg-amber-100 px-1 py-0.5">theme</code>: Widget theme: "light", "dark", or "auto"</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="flex justify-end gap-3">
+            <a href="/admin/settings/captcha"
+                class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-5 py-2.5 text-sm font-medium text-gray-700 shadow-sm transition-all hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                Cancel
+            </a>
+            <button type="submit"
+                class="inline-flex items-center rounded-lg border border-transparent bg-blue-600 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition-all hover:bg-blue-700 hover:shadow focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                </svg>
+                {{ if .IsEdit }}Save Changes{{ else }}Create Profile{{ end }}
+            </button>
+        </div>
+    </form>
+</div>
+{{ end }}

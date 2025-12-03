@@ -1,0 +1,174 @@
+{{ define "admin/settings/content" }}
+<div class="max-w-5xl mx-auto space-y-8">
+    <!-- Header -->
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-900">Settings</h1>
+            <p class="mt-1 text-sm text-gray-600">Manage your account</p>
+        </div>
+    </div>
+
+    {{ if .Success }}
+    <div class="rounded-lg border-2 border-emerald-500 bg-emerald-50 px-4 py-3">
+        <p class="text-sm font-medium text-emerald-900">✓ {{ .Success }}</p>
+    </div>
+    {{ end }}
+
+    {{ if .Error }}
+    <div class="rounded-lg border-2 border-rose-500 bg-rose-50 px-4 py-3">
+        <p class="text-sm font-medium text-rose-900">✗ {{ .Error }}</p>
+    </div>
+    {{ end }}
+
+    <!-- Account Section -->
+    <div class="rounded-xl border border-gray-200 bg-white shadow-sm">
+        <div class="border-b border-gray-200 px-6 py-4">
+            <h2 class="text-lg font-semibold text-gray-900">Account</h2>
+            <p class="mt-1 text-sm text-gray-600">Update your password and account details</p>
+        </div>
+
+        <div class="p-6">
+            <form action="/admin/settings/password" method="post" class="space-y-6">
+                <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                    <div class="sm:col-span-2">
+                        <label for="email" class="block text-sm font-medium text-gray-700">
+                            Email <span class="text-xs text-gray-500">(read-only)</span>
+                        </label>
+                        <input type="email" id="email" value="{{ .User.Email }}" disabled
+                            class="mt-1 block w-full rounded-lg border-gray-300 bg-gray-50 px-4 py-2.5 text-gray-600 shadow-sm cursor-not-allowed">
+                    </div>
+
+                    <div class="sm:col-span-2">
+                        <label for="current_password" class="block text-sm font-medium text-gray-700">
+                            Current Password
+                        </label>
+                        <input type="password" name="current_password" id="current_password" required
+                            class="mt-1 block w-full rounded-lg border-gray-300 px-4 py-2.5 shadow-sm transition-colors focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20">
+                    </div>
+
+                    <div>
+                        <label for="new_password" class="block text-sm font-medium text-gray-700">
+                            New Password
+                        </label>
+                        <input type="password" name="new_password" id="new_password" required minlength="8"
+                            class="mt-1 block w-full rounded-lg border-gray-300 px-4 py-2.5 shadow-sm transition-colors focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20">
+                        <p class="mt-1 text-xs text-gray-500">Min. 8 characters</p>
+                    </div>
+
+                    <div>
+                        <label for="confirm_password" class="block text-sm font-medium text-gray-700">
+                            Confirm New Password
+                        </label>
+                        <input type="password" name="confirm_password" id="confirm_password" required minlength="8"
+                            class="mt-1 block w-full rounded-lg border-gray-300 px-4 py-2.5 shadow-sm transition-colors focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20">
+                    </div>
+                </div>
+
+                <div class="flex justify-end">
+                    <button type="submit"
+                        class="inline-flex items-center rounded-lg border border-transparent bg-blue-600 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition-all hover:bg-blue-700 hover:shadow focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                        <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                        </svg>
+                        Update Password
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Quick Links Section -->
+    <div class="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+        <div class="border-b border-gray-200 px-6 py-4">
+            <h2 class="text-lg font-semibold text-gray-900">Configuration</h2>
+            <p class="mt-1 text-sm text-gray-600">Manage integrations and services</p>
+        </div>
+
+        <div class="divide-y divide-gray-200">
+            <!-- Pro Settings Extension Point -->
+            {{ if .ProSettingsItems }}
+            {{ range .ProSettingsItems }}
+            <a href="{{ .URL }}" class="block px-6 py-4 hover:bg-gray-50 transition-colors group">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            {{ .Icon | safeHTML }}
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-sm font-medium text-gray-900 group-hover:text-{{ .Color }}-600 transition-colors">
+                                {{ .Title }}</p>
+                            <p class="text-sm text-gray-500">{{ .Description }}</p>
+                        </div>
+                    </div>
+                    <svg class="h-5 w-5 text-gray-400 group-hover:text-gray-600 transition-colors" fill="none"
+                        stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                    </svg>
+                </div>
+            </a>
+            {{ end }}
+            {{ end }}
+
+            <!-- Mailers Link -->
+            <a href="/admin/settings/mailers" class="block px-6 py-4 hover:bg-gray-50 transition-colors group">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <svg class="h-6 w-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                            </svg>
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-sm font-medium text-gray-900 group-hover:text-green-600 transition-colors">
+                                Email Configuration</p>
+                            <p class="text-sm text-gray-500">SMTP and email delivery settings</p>
+                        </div>
+                    </div>
+                    <svg class="h-5 w-5 text-gray-400 group-hover:text-gray-600 transition-colors" fill="none"
+                        stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                    </svg>
+                </div>
+            </a>
+
+            <!-- Captcha Link -->
+            <a href="/admin/settings/captcha" class="block px-6 py-4 hover:bg-gray-50 transition-colors group">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <svg class="h-6 w-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                            </svg>
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-sm font-medium text-gray-900 group-hover:text-purple-600 transition-colors">
+                                Captcha Configuration</p>
+                            <p class="text-sm text-gray-500">Bot protection and spam prevention</p>
+                        </div>
+                    </div>
+                    <svg class="h-5 w-5 text-gray-400 group-hover:text-gray-600 transition-colors" fill="none"
+                        stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                    </svg>
+                </div>
+            </a>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Client-side password matching validation
+    document.getElementById('confirm_password').addEventListener('input', function () {
+        const newPassword = document.getElementById('new_password').value;
+        const confirmPassword = this.value;
+
+        if (confirmPassword && newPassword !== confirmPassword) {
+            this.setCustomValidity('Passwords do not match');
+        } else {
+            this.setCustomValidity('');
+        }
+    });
+</script>
+{{ end }}

@@ -1,0 +1,85 @@
+{{ define "admin/mailers/index" }}
+<div class="mx-auto max-w-7xl space-y-8 px-4 py-8 sm:px-6 lg:px-8">
+    <!-- Header -->
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-3xl font-bold tracking-tight text-gray-900">Mailer Profiles</h1>
+            <p class="mt-2 text-sm text-gray-600">Manage email provider configurations for your forms</p>
+        </div>
+        <a href="/admin/settings/mailers/new"
+            class="inline-flex items-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-all hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+            <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+            </svg>
+            New Profile
+        </a>
+    </div>
+
+    {{ if not .Profiles }}
+    <!-- Empty State -->
+    <div class="rounded-xl border-2 border-dashed border-gray-300 bg-white p-12 text-center">
+        <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+        </svg>
+        <h3 class="mt-4 text-lg font-medium text-gray-900">No mailer profiles</h3>
+        <p class="mt-2 text-sm text-gray-500">Get started by creating a new mailer profile.</p>
+        <a href="/admin/settings/mailers/new"
+            class="mt-6 inline-flex items-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
+            <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+            </svg>
+            Create Profile
+        </a>
+    </div>
+    {{ else }}
+    <!-- Profiles List -->
+    <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        {{ range .Profiles }}
+        <div
+            class="group relative rounded-xl border border-gray-200 bg-white p-6 shadow-sm transition-all hover:shadow-md min-w-0">
+            <div class="min-w-0">
+                <div class="flex items-center gap-3 mb-4">
+                    <div
+                        class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-purple-100 text-purple-600">
+                        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                        </svg>
+                    </div>
+                    <div class="min-w-0 flex-1">
+                        <h3 class="font-semibold text-gray-900 truncate">{{ .Name }}</h3>
+                        <p class="text-xs text-gray-500 capitalize">{{ .Provider }}</p>
+                    </div>
+                </div>
+
+                <div class="space-y-3 min-w-0">
+                    <div class="min-w-0">
+                        <span class="block text-xs font-medium text-gray-500 mb-1">Domain</span>
+                        <p class="font-mono text-xs text-gray-900 truncate break-all" title="{{ .Domain }}">{{ if
+                            .Domain }}{{ .Domain }}{{ else }}-{{ end }}</p>
+                    </div>
+                    <div class="min-w-0">
+                        <span class="block text-xs font-medium text-gray-500 mb-1">From</span>
+                        <p class="text-xs text-gray-900 truncate break-all" title="{{ .DefaultFromEmail }}">{{ if
+                            .DefaultFromEmail }}{{ .DefaultFromEmail }}{{ else }}-{{ end }}</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-6 flex items-center gap-2">
+                <a href="/admin/settings/mailers/{{ .ID }}"
+                    class="flex-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-center text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50">
+                    View
+                </a>
+                <a href="/admin/settings/mailers/{{ .ID }}/edit"
+                    class="flex-1 rounded-lg border border-blue-600 bg-blue-600 px-3 py-2 text-center text-xs font-medium text-white transition-colors hover:bg-blue-700">
+                    Edit
+                </a>
+            </div>
+        </div>
+        {{ end }}
+    </div>
+    {{ end }}
+</div>
+{{ end }}

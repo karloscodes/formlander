@@ -1,0 +1,184 @@
+{{ define "admin/submissions/show/content" }}
+<div class="max-w-5xl mx-auto space-y-8">
+    <!-- Header -->
+    <div class="flex items-start justify-between">
+        <div>
+            <div class="flex items-center gap-3 mb-2">
+                <h1 class="text-3xl font-bold text-gray-900">Submission #{{ .Submission.ID }}</h1>
+                {{ if .Submission.IsSpam }}
+                <span
+                    class="inline-flex items-center rounded-full bg-red-50 px-3 py-1 text-xs font-medium text-red-700 ring-1 ring-inset ring-red-600/20">
+                    <svg class="mr-1 h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd"
+                            d="M13.477 14.89A6 6 0 015.11 6.524l8.367 8.368zm1.414-1.414L6.524 5.11a6 6 0 018.367 8.367zM18 10a8 8 0 11-16 0 8 8 0 0116 0z"
+                            clip-rule="evenodd" />
+                    </svg>
+                    Spam
+                </span>
+                {{ else }}
+                <span
+                    class="inline-flex items-center rounded-full bg-green-50 px-3 py-1 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-600/20">
+                    <svg class="mr-1 h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd"
+                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                            clip-rule="evenodd" />
+                    </svg>
+                    Valid
+                </span>
+                {{ end }}
+            </div>
+            <p class="text-sm text-gray-600">Received {{ .Submission.CreatedAt.Format "Jan 2, 2006 at 3:04 PM" }}</p>
+        </div>
+        <a href="/admin/forms/{{ .Submission.FormID }}"
+            class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition-all hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+            <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+            Back to Form
+        </a>
+    </div>
+
+    <!-- Payload -->
+    <div class="rounded-xl border border-gray-200 bg-white shadow-sm">
+        <div class="border-b border-gray-200 px-6 py-4">
+            <h2 class="text-lg font-semibold text-gray-900">Payload</h2>
+            <p class="text-sm text-gray-500">Form submission data</p>
+        </div>
+        <div class="p-6">
+            <pre
+                class="max-h-96 overflow-auto rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-900 font-mono">{{ .JSON }}</pre>
+        </div>
+    </div>
+
+    <!-- Metadata -->
+    <div class="rounded-xl border border-gray-200 bg-white shadow-sm">
+        <div class="border-b border-gray-200 px-6 py-4">
+            <h2 class="text-lg font-semibold text-gray-900">Metadata</h2>
+            <p class="text-sm text-gray-500">Request information</p>
+        </div>
+        <div class="divide-y divide-gray-200">
+            <div class="grid grid-cols-1 gap-4 px-6 py-4 sm:grid-cols-3">
+                <div class="sm:col-span-1">
+                    <dt class="text-sm font-medium text-gray-500">User Agent</dt>
+                </div>
+                <div class="sm:col-span-2">
+                    <dd class="text-sm text-gray-900 break-words">{{ .Submission.UserAgent }}</dd>
+                </div>
+            </div>
+            <div class="grid grid-cols-1 gap-4 px-6 py-4 sm:grid-cols-3">
+                <div class="sm:col-span-1">
+                    <dt class="text-sm font-medium text-gray-500">Form</dt>
+                </div>
+                <div class="sm:col-span-2">
+                    <dd class="text-sm text-gray-900">
+                        {{ if .Submission.Form }}
+                        <a href="/admin/forms/{{ .Submission.Form.ID }}"
+                            class="text-blue-600 hover:text-blue-700 hover:underline">
+                            {{ .Submission.Form.Name }}
+                        </a>
+                        {{ else }}
+                        Unknown
+                        {{ end }}
+                    </dd>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Webhook Events -->
+    {{ if .Submission.WebhookEvents }}
+    <div class="rounded-xl border border-gray-200 bg-white shadow-sm">
+        <div class="border-b border-gray-200 px-6 py-4">
+            <h2 class="text-lg font-semibold text-gray-900">Webhook Deliveries</h2>
+            <p class="text-sm text-gray-500">Forwarding attempts to external endpoints</p>
+        </div>
+        <div class="divide-y divide-gray-200">
+            {{ range .Submission.WebhookEvents }}
+            <div class="px-6 py-4">
+                <div class="flex items-start justify-between mb-2">
+                    <div class="flex items-center gap-2">
+                        {{ if eq .Status "completed" }}
+                        <span
+                            class="inline-flex items-center rounded-full bg-green-50 px-2.5 py-0.5 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-600/20">
+                            ✓ Delivered
+                        </span>
+                        {{ else if eq .Status "failed" }}
+                        <span
+                            class="inline-flex items-center rounded-full bg-red-50 px-2.5 py-0.5 text-xs font-medium text-red-700 ring-1 ring-inset ring-red-600/20">
+                            × Failed
+                        </span>
+                        {{ else }}
+                        <span
+                            class="inline-flex items-center rounded-full bg-yellow-50 px-2.5 py-0.5 text-xs font-medium text-yellow-700 ring-1 ring-inset ring-yellow-600/20">
+                            ⟳ {{ .Status }}
+                        </span>
+                        {{ end }}
+                        <span class="text-sm text-gray-600">{{ .AttemptCount }} attempt{{ if ne .AttemptCount 1 }}s{{
+                            end }}</span>
+                    </div>
+                    {{ if .LastAttemptAt }}
+                    <span class="text-xs text-gray-500">{{ .LastAttemptAt.Format "Jan 2 at 3:04 PM" }}</span>
+                    {{ end }}
+                </div>
+                {{ if .LastAttemptErr }}
+                <div class="mt-2">
+                    <p class="text-xs font-medium text-gray-700 mb-1">Error:</p>
+                    <pre
+                        class="text-xs text-red-600 bg-red-50 rounded px-2 py-1 overflow-x-auto">{{ .LastAttemptErr }}</pre>
+                </div>
+                {{ end }}
+            </div>
+            {{ end }}
+        </div>
+    </div>
+    {{ end }}
+
+    <!-- Email Events -->
+    {{ if .Submission.EmailEvents }}
+    <div class="rounded-xl border border-gray-200 bg-white shadow-sm">
+        <div class="border-b border-gray-200 px-6 py-4">
+            <h2 class="text-lg font-semibold text-gray-900">Email Deliveries</h2>
+            <p class="text-sm text-gray-500">Notification emails sent via Mailgun</p>
+        </div>
+        <div class="divide-y divide-gray-200">
+            {{ range .Submission.EmailEvents }}
+            <div class="px-6 py-4">
+                <div class="flex items-start justify-between mb-2">
+                    <div class="flex items-center gap-2">
+                        {{ if eq .Status "completed" }}
+                        <span
+                            class="inline-flex items-center rounded-full bg-green-50 px-2.5 py-0.5 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-600/20">
+                            ✓ Sent
+                        </span>
+                        {{ else if eq .Status "failed" }}
+                        <span
+                            class="inline-flex items-center rounded-full bg-red-50 px-2.5 py-0.5 text-xs font-medium text-red-700 ring-1 ring-inset ring-red-600/20">
+                            × Failed
+                        </span>
+                        {{ else }}
+                        <span
+                            class="inline-flex items-center rounded-full bg-yellow-50 px-2.5 py-0.5 text-xs font-medium text-yellow-700 ring-1 ring-inset ring-yellow-600/20">
+                            ⟳ {{ .Status }}
+                        </span>
+                        {{ end }}
+                        <span class="text-sm text-gray-600">{{ .AttemptCount }} attempt{{ if ne .AttemptCount 1 }}s{{
+                            end }}</span>
+                    </div>
+                    {{ if .LastAttemptAt }}
+                    <span class="text-xs text-gray-500">{{ .LastAttemptAt.Format "Jan 2 at 3:04 PM" }}</span>
+                    {{ end }}
+                </div>
+                {{ if .LastAttemptErr }}
+                <div class="mt-2">
+                    <p class="text-xs font-medium text-gray-700 mb-1">Error:</p>
+                    <pre
+                        class="text-xs text-red-600 bg-red-50 rounded px-2 py-1 overflow-x-auto">{{ .LastAttemptErr }}</pre>
+                </div>
+                {{ end }}
+            </div>
+            {{ end }}
+        </div>
+    </div>
+    {{ end }}
+</div>
+{{ end }}

@@ -1,0 +1,111 @@
+{{ define "admin/mailers/new/content" }}
+<div class="mx-auto max-w-3xl space-y-8 px-4 py-8 sm:px-6 lg:px-8">
+    <!-- Header -->
+    <div>
+        <h1 class="text-3xl font-bold tracking-tight text-gray-900">{{ if .IsEdit }}Edit{{ else }}New{{ end }} Mailer Profile</h1>
+        <p class="mt-2 text-sm text-gray-600">Configure email provider settings for form submissions</p>
+    </div>
+
+    {{ if .Error }}
+    <div class="rounded-lg border-2 border-rose-500 bg-rose-50 px-4 py-3">
+        <p class="text-sm font-medium text-rose-900">✗ {{ .Error }}</p>
+    </div>
+    {{ end }}
+
+    <form method="POST" action="{{ if .IsEdit }}/admin/settings/mailers/{{ .Profile.ID }}{{ else }}/admin/settings/mailers{{ end }}" class="space-y-6">
+        <!-- Basic Info -->
+        <div class="rounded-xl border border-gray-200 bg-white shadow-sm">
+            <div class="border-b border-gray-200 px-6 py-4">
+                <h2 class="text-lg font-semibold text-gray-900">Basic Information</h2>
+            </div>
+            <div class="space-y-6 p-6">
+                <div>
+                    <label for="name" class="block text-sm font-medium text-gray-700">Profile Name</label>
+                    <input type="text" id="name" name="name" value="{{ if .Profile }}{{ .Profile.Name }}{{ end }}" required
+                        class="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 shadow-sm transition-colors focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20">
+                    <p class="mt-1 text-xs text-gray-500">Unique identifier for this profile (e.g., "support_mailgun")</p>
+                </div>
+
+                <div>
+                    <label for="provider" class="block text-sm font-medium text-gray-700">Provider</label>
+                    <select id="provider" name="provider" required
+                        class="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 shadow-sm transition-colors focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20">
+                        <option value="mailgun" {{ if and .Profile (eq .Profile.Provider "mailgun") }}selected{{ end }}>Mailgun</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Provider Configuration -->
+        <div class="rounded-xl border border-gray-200 bg-white shadow-sm">
+            <div class="border-b border-gray-200 px-6 py-4">
+                <h2 class="text-lg font-semibold text-gray-900">Provider Configuration</h2>
+                <p class="mt-1 text-sm text-gray-600">API credentials and domain settings</p>
+            </div>
+            <div class="space-y-6 p-6">
+                <div>
+                    <label for="api_key" class="block text-sm font-medium text-gray-700">API Key</label>
+                    <input type="password" id="api_key" name="api_key" value="{{ if .Profile }}{{ .Profile.APIKey }}{{ end }}"
+                        class="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 font-mono text-sm shadow-sm transition-colors focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                        placeholder="key-xxxxxxxxxxxxxxxxxxxxxxxx">
+                </div>
+
+                <div>
+                    <label for="domain" class="block text-sm font-medium text-gray-700">Domain</label>
+                    <input type="text" id="domain" name="domain" value="{{ if .Profile }}{{ .Profile.Domain }}{{ end }}"
+                        class="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 shadow-sm transition-colors focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                        placeholder="mg.example.com">
+                </div>
+            </div>
+        </div>
+
+        <!-- Default Settings -->
+        <div class="rounded-xl border border-gray-200 bg-white shadow-sm">
+            <div class="border-b border-gray-200 px-6 py-4">
+                <h2 class="text-lg font-semibold text-gray-900">Default Email Settings</h2>
+                <p class="mt-1 text-sm text-gray-600">Default sender information for emails</p>
+            </div>
+            <div class="space-y-6 p-6">
+                <div>
+                    <label for="default_from_name" class="block text-sm font-medium text-gray-700">From Name</label>
+                    <input type="text" id="default_from_name" name="default_from_name" value="{{ if .Profile }}{{ .Profile.DefaultFromName }}{{ end }}"
+                        class="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 shadow-sm transition-colors focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                        placeholder="Formlander">
+                </div>
+
+                <div>
+                    <label for="default_from_email" class="block text-sm font-medium text-gray-700">From Email</label>
+                    <input type="email" id="default_from_email" name="default_from_email" value="{{ if .Profile }}{{ .Profile.DefaultFromEmail }}{{ end }}"
+                        class="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 shadow-sm transition-colors focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                        placeholder="no-reply@example.com">
+                </div>
+
+                <div>
+                    <label for="defaults_json" class="block text-sm font-medium text-gray-700">
+                        Additional Defaults <span class="font-mono text-xs text-gray-500">{ JSON }</span>
+                    </label>
+                    <textarea id="defaults_json" name="defaults_json" rows="4"
+                        class="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 font-mono text-sm shadow-sm transition-colors focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                        placeholder='{"tags": ["form-submission"], "headers": {"X-Custom": "value"}}'>{{ if .Profile }}{{ .Profile.DefaultsJSON }}{{ end }}</textarea>
+                    <p class="mt-1 text-xs text-gray-500">Optional: JSON object for tags, headers, or other provider-specific settings</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="flex justify-end gap-3">
+            <a href="/admin/settings/mailers"
+                class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-5 py-2.5 text-sm font-medium text-gray-700 shadow-sm transition-all hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                Cancel
+            </a>
+            <button type="submit"
+                class="inline-flex items-center rounded-lg border border-transparent bg-blue-600 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition-all hover:bg-blue-700 hover:shadow focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                </svg>
+                {{ if .IsEdit }}Save Changes{{ else }}Create Profile{{ end }}
+            </button>
+        </div>
+    </form>
+</div>
+{{ end }}

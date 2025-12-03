@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Oops! Something went wrong</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    }
+
+    .container {
+      background: white;
+      padding: 60px 40px;
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      text-align: center;
+      max-width: 500px;
+    }
+
+    .error-icon {
+      font-size: 80px;
+      margin-bottom: 20px;
+    }
+
+    h1 {
+      color: #111827;
+      margin: 0 0 10px 0;
+      font-size: 32px;
+    }
+
+    p {
+      color: #6b7280;
+      font-size: 16px;
+      line-height: 1.6;
+    }
+
+    .buttons {
+      margin-top: 30px;
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+    }
+
+    a {
+      padding: 12px 24px;
+      text-decoration: none;
+      border-radius: 6px;
+      font-weight: 600;
+    }
+
+    .primary {
+      background: #ec4899;
+      color: white;
+    }
+
+    .primary:hover {
+      background: #db2777;
+    }
+
+    .secondary {
+      background: #f3f4f6;
+      color: #374151;
+    }
+
+    .secondary:hover {
+      background: #e5e7eb;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <div class="error-icon">⚠️</div>
+
+    <h1>Oops! Something went wrong</h1>
+    <p>We couldn't process your submission. This might be due to a temporary issue. Please try again.</p>
+
+    <div class="buttons">
+      <a href="javascript:history.back()" class="secondary">← Go Back</a>
+      <a href="/" class="primary">Home</a>
+    </div>
+  </div>
+</body>
+
+</html>

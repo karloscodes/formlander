@@ -1,0 +1,11 @@
+# Playwright
+node_modules/
+playwright-report/
+test-results/
+.playwright/
+
+# Test artifacts
+*.log
+screenshots/
+videos/
+traces/

@@ -1,0 +1,62 @@
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  enable:
+    - govet
+    - errcheck
+    - staticcheck
+    - unused
+    - ineffassign
+    - misspell
+    - gocyclo
+    - unconvert
+    - bodyclose
+    - nilerr
+    - prealloc
+    - revive
+
+linters-settings:
+  gocyclo:
+    min-complexity: 20
+  
+  revive:
+    rules:
+      - name: package-comments
+        disabled: true
+
+issues:
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - errcheck
+        - gocyclo
+    
+    # Allow unexported constants in config
+    - path: internal/config/
+      linters:
+        - revive
+      text: "exported.*should have comment"
+    
+    # Allow unused ctx parameters in GORM logger (interface requirement)
+    - path: internal/pkg/logger/
+      linters:
+        - revive
+      text: "unused-parameter.*ctx"
+    
+    # Allow missing package comments in small utility packages
+    - path: internal/pkg/(ratelimit|testsupport)/
+      linters:
+        - revive
+      text: "package-comments"
+    
+    # Allow missing package comment in web embed
+    - path: web/embed.go
+      linters:
+        - revive
+      text: "package-comments"
+  
+  max-issues-per-linter: 0
+  max-same-issues: 0

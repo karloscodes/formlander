@@ -1,0 +1,122 @@
+{{ define "admin/forms/index/content" }}
+<div class="max-w-7xl mx-auto space-y-8">
+    <!-- Header -->
+    <div class="flex items-center justify-between">
+        <div>
+            <div class="flex items-center gap-3 mb-2">
+                <h1 class="text-3xl font-bold text-gray-900">Forms</h1>
+                <span
+                    class="inline-flex items-center rounded-md bg-blue-50 px-2 py-1 text-xs font-mono text-blue-700 ring-1 ring-inset ring-blue-600/20">
+                    endpoints
+                </span>
+            </div>
+            <p class="text-sm text-gray-600">Manage form endpoints and review submissions</p>
+        </div>
+        <a href="/admin/forms/new"
+            class="inline-flex items-center rounded-lg border border-transparent bg-blue-600 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition-all hover:bg-blue-700 hover:shadow focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+            <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+            </svg>
+            New Form
+        </a>
+    </div>
+
+    {{ if not .Forms }}
+    <div class="rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 px-6 py-12 text-center">
+        <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+        <p class="mt-4 text-sm font-medium text-gray-900">No forms yet</p>
+        <p class="mt-1 text-sm text-gray-500">Get started by creating your first form endpoint</p>
+        <p class="mt-1 text-xs font-mono text-gray-400">{ POST /forms/:slug/submit }</p>
+    </div>
+    {{ else }}
+    <div class="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th scope="col"
+                        class="w-7/12 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Name</th>
+                    <th scope="col"
+                        class="w-2/12 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Created
+                    </th>
+                    <th scope="col" class="w-2/12 relative px-6 py-3"><span class="sr-only">Actions</span></th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200 bg-white">
+                {{ range .Forms }}
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-6 py-4 align-top">
+                        <div class="space-y-2">
+                            <a href="/admin/forms/{{ .ID }}" class="flex items-center gap-3 group">
+                                <div
+                                    class="flex-shrink-0 h-10 w-10 flex items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 group-hover:from-blue-600 group-hover:to-blue-700 transition-colors">
+                                    <svg class="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                    </svg>
+                                </div>
+                                <div class="truncate">
+                                    <div
+                                        class="text-sm font-semibold text-gray-900 truncate group-hover:text-blue-600 transition-colors">
+                                        {{ .Name }}
+                                    </div>
+                                </div>
+                            </a>
+                            <code
+                                class="inline-flex items-center rounded-md bg-gray-100 px-2.5 py-1 text-xs font-mono text-gray-700 ring-1 ring-inset ring-gray-300">
+                                /{{ .Slug }}
+                            </code>
+                            <div class="flex flex-wrap gap-2 text-xs">
+                                {{ $captchaEnabled := .CaptchaProfileID }}
+                                {{ $emailEnabled := and .EmailDelivery .EmailDelivery.Enabled }}
+                                {{ $webhookEnabled := and .WebhookDelivery .WebhookDelivery.Enabled }}
+                                <span
+                                    class="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-medium {{ if $captchaEnabled }}border-emerald-200 bg-emerald-50 text-emerald-700{{ else }}border-gray-200 bg-gray-100 text-gray-500{{ end }}">
+                                    <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M12 3l7 4v6c0 4-2.5 7-7 8-4.5-1-7-4-7-8V7l7-4zm-2 9l2 2 4-4" />
+                                    </svg>
+                                    Captcha
+                                </span>
+                                <span
+                                    class="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-medium {{ if $emailEnabled }}border-blue-200 bg-blue-50 text-blue-700{{ else }}border-gray-200 bg-gray-100 text-gray-500{{ end }}">
+                                    <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M4 6h16v12H4z" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M22 6l-10 7L2 6" />
+                                    </svg>
+                                    Email
+                                </span>
+                                <span
+                                    class="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-medium {{ if $webhookEnabled }}border-indigo-200 bg-indigo-50 text-indigo-700{{ else }}border-gray-200 bg-gray-100 text-gray-500{{ end }}">
+                                    <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M15 10a3 3 0 11-3-3v8a3 3 0 103-3h6" />
+                                    </svg>
+                                    Webhook
+                                </span>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <span class="font-mono text-xs">{{ .CreatedAt.Format "2006-01-02" }}</span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <a href="/admin/forms/{{ .ID }}"
+                            class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                            View →
+                        </a>
+                    </td>
+                </tr>
+                {{ end }}
+            </tbody>
+        </table>
+    </div>
+    {{ end }}
+</div>
+{{ end }}

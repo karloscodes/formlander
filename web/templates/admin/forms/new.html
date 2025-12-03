@@ -1,0 +1,313 @@
+{{ define "admin/forms/new/content" }}
+{{ $form := .Form }}
+{{ $webhookDelivery := .WebhookDelivery }}
+{{ $emailDelivery := .EmailDelivery }}
+{{ $previewHTML := .PreviewHTML }}
+{{ $action := "/admin/forms" }}
+{{ if .IsEdit }}{{ $action = printf "/admin/forms/%d" $form.ID }}{{ end }}
+<div class="max-w-5xl mx-auto space-y-8">
+    <!-- Header -->
+    <div class="flex items-center justify-between">
+        <div>
+            <div class="flex items-center gap-3 mb-2">
+                <h1 class="text-3xl font-bold text-gray-900">{{ if .IsEdit }}Edit Form{{ else }}Create Form{{ end }}
+                </h1>
+                <span
+                    class="inline-flex items-center rounded-md bg-green-50 px-2 py-1 text-xs font-mono text-green-700 ring-1 ring-inset ring-green-600/20">
+                    {{ if .IsEdit }}update{{ else }}POST /forms/:slug{{ end }}
+                </span>
+            </div>
+            <p class="text-sm text-gray-600">{{ if .IsEdit }}Update form configuration and delivery settings{{ else
+                }}Define a new endpoint for form submissions{{ end }}</p>
+        </div>
+    </div>
+
+    {{ if .Error }}
+    <div class="rounded-lg border-2 border-rose-500 bg-rose-50 px-4 py-3">
+        <p class="text-sm font-medium text-rose-900">✗ {{ .Error }}</p>
+    </div>
+    {{ end }}
+
+    <form action="{{ $action }}" method="post" class="space-y-8">
+        {{ if and .TemplateID (not .IsEdit) }}
+        <input type="hidden" name="template_id" value="{{ .TemplateID }}">
+        {{ end }}
+        <!-- Basic Configuration -->
+        <div class="rounded-xl border border-gray-200 bg-white shadow-sm">
+            <div class="border-b border-gray-200 px-6 py-4">
+                <h2 class="text-lg font-semibold text-gray-900">Basic Configuration</h2>
+                <p class="mt-1 text-sm text-gray-600">Form identity and endpoint settings</p>
+            </div>
+            <div class="p-6 space-y-6">
+                <div>
+                    <label for="name" class="block text-sm font-medium text-gray-700">Form Name</label>
+                    <input type="text" id="name" name="name"
+                        value="{{ if $form }}{{ $form.Name }}{{ else }}{{ .FormName }}{{ end }}" required
+                        class="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 shadow-sm transition-colors focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20">
+                </div>
+                <div>
+                    <label for="slug" class="block text-sm font-medium text-gray-700">
+                        Slug <span class="font-mono text-xs text-gray-500">{ /forms/:slug/submit }</span>
+                    </label>
+                    <input type="text" id="slug" name="slug" placeholder="contact"
+                        value="{{ if $form }}{{ $form.Slug }}{{ else }}{{ .DefaultSlug }}{{ end }}" {{ if .IsEdit
+                        }}disabled{{ end }}
+                        class="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 font-mono shadow-sm transition-colors focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 {{ if .IsEdit }}bg-gray-50 cursor-not-allowed{{ end }}">
+                    <p class="mt-1 text-xs text-gray-500">Used in the endpoint URL, cannot be changed after creation</p>
+                </div>
+                <div>
+                    <label for="allowed_origins" class="block text-sm font-medium text-gray-700">
+                        Allowed Origins <span class="font-mono text-xs text-gray-500">{ Domain Security }</span>
+                    </label>
+                    <input type="text" id="allowed_origins" name="allowed_origins"
+                        placeholder="example.com, *.example.com"
+                        value="{{ if $form }}{{ $form.AllowedOrigins }}{{ end }}"
+                        class="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 font-mono text-sm shadow-sm transition-colors focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20">
+                    <p class="mt-1 text-xs text-gray-500">Comma-separated domains allowed to submit. Supports wildcards
+                        (*.example.com). Leave empty to allow all origins (not recommended).</p>
+                </div>
+                <div>
+                    <label for="captcha_profile_id" class="block text-sm font-medium text-gray-700">
+                        Captcha Profile <span class="font-mono text-xs text-gray-500">{ Turnstile }</span>
+                    </label>
+                    <select name="captcha_profile_id" id="captcha_profile_id"
+                        class="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 shadow-sm transition-colors focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20">
+                        <option value="">None (no captcha protection)</option>
+                        {{ range .CaptchaProfiles }}
+                        <option value="{{ .ID }}" {{ if eq $.SelectedCaptchaProfileID .ID }}selected{{ end }}>{{ .Name
+                            }}</option>
+                        {{ end }}
+                    </select>
+                    <p class="mt-1 text-xs text-gray-500">Configure captcha profiles in <a
+                            href="/admin/settings/captcha" class="text-blue-600 hover:text-blue-700 font-medium">Captcha
+                            Settings</a></p>
+                </div>
+            </div>
+        </div>
+
+        {{ if $previewHTML }}
+        <!-- Preview & Embed Code -->
+        <div class="rounded-xl border border-gray-200 bg-white shadow-sm">
+            <div class="border-b border-gray-200 px-6 py-4">
+                <h2 class="text-lg font-semibold text-gray-900">Form Preview & Embed Code</h2>
+                <p class="mt-1 text-sm text-gray-600">
+                    Use this snippet on your site. The preview uses placeholder endpoints until the form is saved.
+                </p>
+            </div>
+            <div class="border-b border-gray-200 flex -mb-px px-6" aria-label="Tabs">
+                <button type="button" data-embed-tab="preview"
+                    class="embed-tab border-b-2 border-blue-500 py-4 px-4 text-sm font-medium text-blue-600">
+                    Preview
+                </button>
+                <button type="button" data-embed-tab="code"
+                    class="embed-tab border-b-2 border-transparent py-4 px-4 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300">
+                    Source Code
+                </button>
+            </div>
+            <div class="p-6">
+                <div id="embed-panel-preview">
+                    <div class="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                        <iframe id="formEmbedPreviewFrame" class="w-full rounded-lg border border-gray-200 bg-white"
+                            style="min-height: 420px;" sandbox="allow-scripts allow-same-origin"></iframe>
+                    </div>
+                </div>
+                <div id="embed-panel-code" class="hidden">
+                    <div class="flex items-center justify-between mb-3">
+                        <p class="text-sm text-gray-600">Copy and paste this HTML into your site.</p>
+                        <button type="button" id="copyEmbedCodeBtn"
+                            class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 shadow-sm transition-all hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            Copy
+                        </button>
+                    </div>
+                    <pre class="overflow-x-auto rounded-lg border border-gray-200 bg-gray-900 p-4 font-mono text-xs text-gray-100"
+                        style="max-height: 600px;"><code id="formEmbedCode">{{ $previewHTML }}</code></pre>
+                </div>
+            </div>
+        </div>
+        <textarea id="formEmbedHTMLSource" class="hidden">{{ $previewHTML }}</textarea>
+        {{ end }}
+
+        <!-- Webhook Delivery -->
+        <div class="rounded-xl border border-gray-200 bg-white shadow-sm">
+            <div class="border-b border-gray-200 px-6 py-4">
+                <div class="flex items-center">
+                    <h2 class="text-lg font-semibold text-gray-900">Webhook Delivery</h2>
+                    <span
+                        class="ml-3 inline-flex items-center rounded-md bg-indigo-50 px-2 py-1 text-xs font-mono text-indigo-700 ring-1 ring-inset ring-indigo-600/20">
+                        HTTP POST
+                    </span>
+                </div>
+                <p class="mt-1 text-sm text-gray-600">Forward submissions to your backend</p>
+            </div>
+            <div class="p-6 space-y-6">
+                <div class="flex items-center">
+                    <input type="checkbox" name="webhook_enabled" id="webhook_enabled"
+                        class="h-4 w-4 rounded border-gray-300 text-indigo-600 transition-colors focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                        {{ if $webhookDelivery }}{{ if $webhookDelivery.Enabled }}checked{{ end }}{{ end }}>
+                    <label for="webhook_enabled" class="ml-2 block text-sm font-medium text-gray-900">
+                        Enable webhook delivery
+                    </label>
+                </div>
+                <div class="grid gap-6 md:grid-cols-2">
+                    <div class="md:col-span-2">
+                        <label for="webhook_url" class="block text-sm font-medium text-gray-700">Webhook URL</label>
+                        <input type="url" id="webhook_url" name="webhook_url"
+                            value="{{ if $webhookDelivery }}{{ $webhookDelivery.URL }}{{ end }}"
+                            placeholder="https://api.example.com/webhooks"
+                            class="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 font-mono text-sm shadow-sm transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20">
+                    </div>
+                    <div>
+                        <label for="webhook_secret" class="block text-sm font-medium text-gray-700">
+                            Secret <span class="font-mono text-xs text-gray-500">{ HMAC signature }</span>
+                        </label>
+                        <input type="text" id="webhook_secret" name="webhook_secret"
+                            value="{{ if $webhookDelivery }}{{ $webhookDelivery.Secret }}{{ end }}"
+                            placeholder="your-secret-key"
+                            class="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 font-mono text-sm shadow-sm transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20">
+                    </div>
+                </div>
+                <div>
+                    <label for="webhook_headers" class="block text-sm font-medium text-gray-700">
+                        Custom Headers <span class="font-mono text-xs text-gray-500">{ JSON }</span>
+                    </label>
+                    <textarea id="webhook_headers" name="webhook_headers" rows="3"
+                        placeholder='{"Authorization": "Bearer token"}'
+                        class="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 font-mono text-sm shadow-sm transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20">{{ if $webhookDelivery }}{{ $webhookDelivery.HeadersJSON }}{{ end }}</textarea>
+                </div>
+            </div>
+        </div>
+
+        <!-- Email Forwarding -->
+        <div class="rounded-xl border border-gray-200 bg-white shadow-sm">
+            <div class="border-b border-gray-200 px-6 py-4">
+                <div class="flex items-center">
+                    <h2 class="text-lg font-semibold text-gray-900">Email Forwarding</h2>
+                    <span
+                        class="ml-3 inline-flex items-center rounded-md bg-purple-50 px-2 py-1 text-xs font-mono text-purple-700 ring-1 ring-inset ring-purple-600/20">
+                        Mailgun
+                    </span>
+                </div>
+                <p class="mt-1 text-sm text-gray-600">Send submissions to an email address</p>
+            </div>
+            <div class="p-6 space-y-6">
+                <div class="flex items-center">
+                    <input type="checkbox" name="email_enabled" id="email_enabled"
+                        class="h-4 w-4 rounded border-gray-300 text-purple-600 transition-colors focus:ring-2 focus:ring-purple-500 focus:ring-offset-2"
+                        {{ if $emailDelivery }}{{ if $emailDelivery.Enabled }}checked{{ end }}{{ end }}>
+                    <label for="email_enabled" class="ml-2 block text-sm font-medium text-gray-900">
+                        Send submissions as email
+                    </label>
+                </div>
+                <div>
+                    <label for="mailer_profile_id" class="block text-sm font-medium text-gray-700">Mailer
+                        Profile</label>
+                    <select name="mailer_profile_id" id="mailer_profile_id"
+                        class="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 shadow-sm transition-colors focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/20">
+                        <option value="">Select mailer profile...</option>
+                        {{ range .MailerProfiles }}
+                        <option value="{{ .ID }}" {{ if eq $.SelectedMailerProfileID .ID }}selected{{ end }}>{{ .Name }}
+                        </option>
+                        {{ end }}
+                    </select>
+                    <p class="mt-1 text-xs text-gray-500">Configure mailer profiles in <a href="/admin/settings/mailers"
+                            class="text-purple-600 hover:text-purple-700 font-medium">Mailer Settings</a></p>
+                </div>
+                <div>
+                    <label for="email_recipient" class="block text-sm font-medium text-gray-700">Send To</label>
+                    <input type="email" id="email_recipient" name="email_recipient" value="{{ .EmailRecipient }}"
+                        placeholder="admin@example.com"
+                        class="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 shadow-sm transition-colors focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/20">
+                    <p class="mt-1 text-xs text-gray-500">Required: recipient email address</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="flex justify-end gap-3">
+            <a href="/admin/forms"
+                class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-5 py-2.5 text-sm font-medium text-gray-700 shadow-sm transition-all hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                Cancel
+            </a>
+            <button type="submit"
+                class="inline-flex items-center rounded-lg border border-transparent bg-blue-600 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition-all hover:bg-blue-700 hover:shadow focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+                {{ if .IsEdit }}Save Changes{{ else }}Create Form{{ end }}
+            </button>
+        </div>
+    </form>
+</div>
+
+{{ if $previewHTML }}
+<script>
+    (function () {
+        const sourceEl = document.getElementById('formEmbedHTMLSource');
+        if (!sourceEl) {
+            return;
+        }
+
+        const snippet = sourceEl.value.trim();
+        const iframe = document.getElementById('formEmbedPreviewFrame');
+        if (iframe && snippet) {
+            const doc = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>body{margin:0;padding:24px;font-family:system-ui,-apple-system,sans-serif;background:#f1f5f9;}</style>
+</head>
+<body>
+${snippet}
+</body>
+</html>`;
+            iframe.srcdoc = doc;
+        }
+
+        const panels = {
+            preview: document.getElementById('embed-panel-preview'),
+            code: document.getElementById('embed-panel-code')
+        };
+
+        function switchEmbedTab(target) {
+            document.querySelectorAll('[data-embed-tab]').forEach(btn => {
+                if (btn.getAttribute('data-embed-tab') === target) {
+                    btn.classList.remove('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'hover:border-gray-300');
+                    btn.classList.add('border-blue-500', 'text-blue-600');
+                } else {
+                    btn.classList.add('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'hover:border-gray-300');
+                    btn.classList.remove('border-blue-500', 'text-blue-600');
+                }
+            });
+
+            Object.keys(panels).forEach(key => {
+                if (panels[key]) {
+                    panels[key].classList.toggle('hidden', key !== target);
+                }
+            });
+
+            if (target === 'code') {
+                const codeEl = document.getElementById('formEmbedCode');
+                if (codeEl) {
+                    codeEl.textContent = snippet;
+                }
+            }
+        }
+
+        document.querySelectorAll('[data-embed-tab]').forEach(btn => {
+            btn.addEventListener('click', () => switchEmbedTab(btn.getAttribute('data-embed-tab')));
+        });
+        switchEmbedTab('preview');
+
+        const copyBtn = document.getElementById('copyEmbedCodeBtn');
+        if (copyBtn) {
+            copyBtn.addEventListener('click', () => {
+                navigator.clipboard.writeText(snippet).then(() => {
+                    alert('Code copied to clipboard!');
+                }).catch(err => console.error('Copy failed', err));
+            });
+        }
+    })();
+</script>
+{{ end }}
+{{ end }}

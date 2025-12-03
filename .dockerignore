@@ -1,0 +1,52 @@
+# Version control
+.git
+.gitignore
+.github
+
+# Build artifacts
+.gocache
+bin
+formlander
+
+# Runtime data
+storage
+logs
+tmp
+*.db
+*.db-shm
+*.db-wal
+
+# Tests
+tests
+e2e
+*.test
+
+# Node/Frontend
+node_modules
+dist
+.vite
+.astro
+
+# Documentation
+*.md
+docs
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Scripts (not needed in container)
+scripts
+Makefile
+
+# Misc
+*.log
+.env
+.env.*

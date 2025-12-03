@@ -1,0 +1,209 @@
+{{ define "admin/dashboard/content" }}
+<div class="max-w-7xl mx-auto space-y-8">
+    <!-- Header -->
+    <div>
+        <div class="flex items-center gap-3 mb-2">
+            <h1 class="text-3xl font-bold text-gray-900">Dashboard</h1>
+            <span
+                class="inline-flex items-center rounded-md bg-blue-50 px-2 py-1 text-xs font-mono text-blue-700 ring-1 ring-inset ring-blue-600/20">
+                overview
+            </span>
+        </div>
+        <p class="text-sm text-gray-600">Quick overview of your forms and recent activity</p>
+    </div>
+
+    <!-- Stats Grid -->
+    <div class="grid grid-cols-1 gap-6 sm:grid-cols-3">
+        <!-- Total Forms -->
+        <div class="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-600">Total Forms</p>
+                    <p class="mt-2 text-3xl font-bold text-gray-900">{{ .Stats.TotalForms }}</p>
+                </div>
+                <div class="rounded-lg bg-blue-50 p-3">
+                    <svg class="h-6 w-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                </div>
+            </div>
+            <div class="mt-4">
+                <a href="/admin/forms" class="text-sm font-medium text-blue-600 hover:text-blue-700">
+                    View all →
+                </a>
+            </div>
+        </div>
+
+        <!-- Total Submissions -->
+        <div class="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-600">Total Submissions</p>
+                    <p class="mt-2 text-3xl font-bold text-gray-900">{{ .Stats.TotalSubmissions }}</p>
+                </div>
+                <div class="rounded-lg bg-green-50 p-3">
+                    <svg class="h-6 w-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                    </svg>
+                </div>
+            </div>
+            <div class="mt-4">
+                <a href="/admin/submissions" class="text-sm font-medium text-green-600 hover:text-green-700">
+                    View all →
+                </a>
+            </div>
+        </div>
+
+        <!-- Last 24h -->
+        <div class="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-600">Last 24 Hours</p>
+                    <p class="mt-2 text-3xl font-bold text-gray-900">{{ .Stats.SubmissionsLast24h }}</p>
+                </div>
+                <div class="rounded-lg bg-purple-50 p-3">
+                    <svg class="h-6 w-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                    </svg>
+                </div>
+            </div>
+            <div class="mt-4">
+                <span class="text-sm text-gray-500">submissions received</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Two Column Layout -->
+    <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <!-- Recent Submissions -->
+        <div class="rounded-xl border border-gray-200 bg-white shadow-sm">
+            <div class="border-b border-gray-200 px-6 py-4">
+                <h2 class="text-lg font-semibold text-gray-900">Recent Submissions</h2>
+                <p class="text-sm text-gray-500">Latest form submissions</p>
+            </div>
+            <div class="divide-y divide-gray-200">
+                {{ if not .RecentSubmissions }}
+                <div class="px-6 py-8 text-center">
+                    <p class="text-sm text-gray-500">No submissions yet</p>
+                </div>
+                {{ else }}
+                {{ range .RecentSubmissions }}
+                <a href="/admin/submissions/{{ .ID }}"
+                    class="block px-6 py-4 hover:bg-gray-50 transition-colors">
+                    <div class="flex items-center justify-between">
+                        <div class="flex-1 min-w-0">
+                            <p class="text-sm font-medium text-gray-900 truncate">
+                                {{ if .Form }}{{ .Form.Name }}{{ else }}Unknown Form{{ end }}
+                            </p>
+                            <p class="text-xs text-gray-500 mt-1">
+                                {{ .CreatedAt.Format "Jan 2, 2006 at 3:04 PM" }}
+                            </p>
+                        </div>
+                        <div class="ml-4">
+                            {{ if .IsSpam }}
+                            <span
+                                class="inline-flex items-center rounded-full bg-red-50 px-2 py-1 text-xs font-medium text-red-700 ring-1 ring-inset ring-red-600/20">
+                                spam
+                            </span>
+                            {{ else }}
+                            <span
+                                class="inline-flex items-center rounded-full bg-green-50 px-2 py-1 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-600/20">
+                                valid
+                            </span>
+                            {{ end }}
+                        </div>
+                    </div>
+                </a>
+                {{ end }}
+                {{ end }}
+            </div>
+            {{ if .RecentSubmissions }}
+            <div class="border-t border-gray-200 px-6 py-3 bg-gray-50">
+                <a href="/admin/submissions" class="text-sm font-medium text-blue-600 hover:text-blue-700">
+                    View all submissions →
+                </a>
+            </div>
+            {{ end }}
+        </div>
+
+        <!-- Top Forms & Quick Actions -->
+        <div class="space-y-6">
+            <!-- Top Forms -->
+            <div class="rounded-xl border border-gray-200 bg-white shadow-sm">
+                <div class="border-b border-gray-200 px-6 py-4">
+                    <h2 class="text-lg font-semibold text-gray-900">Most Active Forms</h2>
+                    <p class="text-sm text-gray-500">Forms by submission count</p>
+                </div>
+                <div class="divide-y divide-gray-200">
+                    {{ if not .TopForms }}
+                    <div class="px-6 py-8 text-center">
+                        <p class="text-sm text-gray-500">No forms yet</p>
+                    </div>
+                    {{ else }}
+                    {{ range .TopForms }}
+                    <a href="/admin/forms/{{ .ID }}" class="block px-6 py-4 hover:bg-gray-50 transition-colors">
+                        <div class="flex items-center justify-between">
+                            <div class="flex-1 min-w-0">
+                                <p class="text-sm font-medium text-gray-900 truncate">{{ .Name }}</p>
+                                <p class="text-xs text-gray-500 font-mono mt-1">{{ .Slug }}</p>
+                            </div>
+                            <div class="ml-4 flex items-center">
+                                <span class="text-sm font-semibold text-gray-900">{{ .SubmissionCount }}</span>
+                                <span class="ml-1 text-xs text-gray-500">submissions</span>
+                            </div>
+                        </div>
+                    </a>
+                    {{ end }}
+                    {{ end }}
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="rounded-xl border border-gray-200 bg-white shadow-sm">
+                <div class="border-b border-gray-200 px-6 py-4">
+                    <h2 class="text-lg font-semibold text-gray-900">Quick Actions</h2>
+                </div>
+                <div class="p-4 space-y-2">
+                    <a href="/admin/forms/new"
+                        class="flex items-center gap-3 rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-all">
+                        <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M12 4v16m8-8H4" />
+                        </svg>
+                        Create New Form
+                    </a>
+                    <a href="/admin/settings"
+                        class="flex items-center gap-3 rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-all">
+                        <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                        Configure Settings
+                    </a>
+                    <a href="/admin/settings/mailers"
+                        class="flex items-center gap-3 rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-all">
+                        <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                        </svg>
+                        Manage Mailer Profiles
+                    </a>
+                    <a href="/admin/settings/captcha"
+                        class="flex items-center gap-3 rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-all">
+                        <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                        </svg>
+                        Manage Captcha Profiles
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{{ end }}

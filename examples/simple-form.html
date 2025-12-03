@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Simple Form Example - Formlander</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      max-width: 600px;
+      margin: 50px auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+
+    .container {
+      background: white;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    h1 {
+      margin-top: 0;
+      color: #333;
+    }
+
+    label {
+      display: block;
+      margin-top: 15px;
+      font-weight: 600;
+      color: #555;
+    }
+
+    input,
+    textarea {
+      width: 100%;
+      padding: 10px;
+      margin-top: 5px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      box-sizing: border-box;
+      font-size: 16px;
+    }
+
+    button {
+      margin-top: 20px;
+      padding: 12px 24px;
+      background: #ec4899;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #db2777;
+    }
+
+    .note {
+      margin-top: 20px;
+      padding: 15px;
+      background: #f0f9ff;
+      border-left: 4px solid #3b82f6;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    code {
+      background: #f1f5f9;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-family: monospace;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <h1>📝 Simple Form Example</h1>
+
+    <!-- 
+            Replace YOUR_FORM_SLUG and YOUR_FORM_TOKEN with actual values.
+            You can find these in your Formlander admin panel.
+        -->
+    <form action="http://localhost:8080/forms/YOUR_FORM_SLUG/submit?token=YOUR_FORM_TOKEN" method="POST">
+
+      <label for="name">Name</label>
+      <input type="text" id="name" name="name" required>
+
+      <label for="email">Email</label>
+      <input type="email" id="email" name="email" required>
+
+      <label for="message">Message</label>
+      <textarea id="message" name="message" rows="5" required></textarea>
+
+      <!-- Custom redirect URLs (optional) -->
+      <input type="hidden" name="_success_url" value="/thank-you.html">
+      <input type="hidden" name="_error_url" value="/error.html">
+
+      <button type="submit">Send Message</button>
+    </form>
+
+    <div class="note">
+      <strong>💡 How it works:</strong>
+      <ul style="margin: 10px 0; padding-left: 20px;">
+        <li>Replace <code>YOUR_FORM_SLUG</code> and <code>YOUR_FORM_TOKEN</code> in the form action</li>
+        <li>Use <code>_success_url</code> to redirect after successful submission</li>
+        <li>Use <code>_error_url</code> to redirect on errors (optional)</li>
+        <li>No JavaScript needed - works with plain HTML forms!</li>
+        <li>These special fields (<code>_success_url</code>, <code>_error_url</code>) won't be saved in your submission
+          data</li>
+      </ul>
+    </div>
+  </div>
+</body>
+
+</html>
