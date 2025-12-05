@@ -4,7 +4,7 @@ package extension
 import (
 	"html/template"
 	"sync"
-	
+
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -18,8 +18,8 @@ type SettingsItem struct {
 }
 
 var (
-	settingsItems []SettingsItem
-	settingsMutex sync.RWMutex
+	settingsItems        []SettingsItem
+	settingsMutex        sync.RWMutex
 	settingsDataProvider func() fiber.Map
 )
 

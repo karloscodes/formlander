@@ -3,13 +3,13 @@ package formlander
 
 import (
 	"time"
-	
+
 	"formlander/internal"
 	"formlander/internal/accounts"
 	"formlander/internal/auth"
 	"formlander/internal/database"
 	"formlander/internal/pkg/cartridge"
-	
+
 	"github.com/gofiber/fiber/v2"
 	"gorm.io/gorm"
 )
@@ -28,7 +28,7 @@ func NewApp() (*App, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return &App{internal: app}, nil
 }
 

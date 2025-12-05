@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"os/signal"
-	"syscall"
 	"time"
 
 	"github.com/joho/godotenv"
@@ -165,37 +163,6 @@ func (a *App) StartAsync() error {
 func (a *App) Shutdown(ctx context.Context) error {
 	a.dispatcher.Stop()
 	return a.Application.Shutdown(ctx)
-}
-
-// Run starts the application and waits for termination signals.
-// It handles graceful shutdown with a default timeout of 10 seconds.
-func (a *App) Run() error {
-	return a.RunWithTimeout(10 * time.Second)
-}
-
-// RunWithTimeout starts the application and waits for termination signals.
-// It handles graceful shutdown with the specified timeout.
-func (a *App) RunWithTimeout(timeout time.Duration) error {
-	if err := a.Start(); err != nil {
-		return err
-	}
-
-	stop := make(chan os.Signal, 1)
-	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
-	<-stop
-
-	a.Logger.Info("shutting down gracefully...")
-
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-
-	if err := a.Shutdown(ctx); err != nil {
-		a.Logger.Error("graceful shutdown failed", zap.Error(err))
-		return err
-	}
-
-	a.Logger.Info("shutdown complete")
-	return nil
 }
 
 // GetConfig returns the application configuration.
