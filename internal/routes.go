@@ -78,7 +78,7 @@ func MountRoutes(server *cartridge.Server) {
 	}, publicConfig)
 
 	server.Get("/admin/login", httphandlers.AdminLoginPage)
-	
+
 	// Rate limit login attempts: 5 per minute per IP (disabled in test mode)
 	loginRateLimiter := limiter.New(limiter.Config{
 		Max:        5,
@@ -103,7 +103,7 @@ func MountRoutes(server *cartridge.Server) {
 			return false
 		},
 	})
-	
+
 	server.Post("/admin/login", httphandlers.AdminLoginSubmit, &cartridge.RouteConfig{
 		CustomMiddleware: []fiber.Handler{loginRateLimiter},
 	})
@@ -133,7 +133,7 @@ func MountRoutes(server *cartridge.Server) {
 	server.Get("/admin/forms/:id/edit", httphandlers.AdminFormsEdit, authConfig)
 	server.Post("/admin/forms/:id", httphandlers.AdminFormsUpdate, authConfig)
 	server.Get("/admin/submissions/:id", httphandlers.AdminSubmissionShow, authConfig)
-	
+
 	// Pro feature paywall pages
 
 	// Settings routes

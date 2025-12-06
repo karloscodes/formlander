@@ -36,7 +36,7 @@ func AdminSettingsPage(ctx *cartridge.Context) error {
 		"ContentView": "admin/settings/content",
 		"User":        user,
 	}
-	
+
 	// Allow pro to extend settings data
 	proData := extension.GetSettingsData()
 	if proData != nil {
