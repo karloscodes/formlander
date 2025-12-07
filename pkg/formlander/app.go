@@ -17,6 +17,9 @@ import (
 // Context is the public alias for cartridge.Context
 type Context = cartridge.Context
 
+// Server is the public alias for cartridge.Server
+type Server = cartridge.Server
+
 // App wraps the internal application with a public API
 type App struct {
 	internal *internal.App
@@ -35,6 +38,11 @@ func NewApp() (*App, error) {
 // GetFiber returns the underlying Fiber app for adding routes
 func (a *App) GetFiber() *fiber.App {
 	return a.internal.Server.App()
+}
+
+// GetServer returns the cartridge server for registering routes with context
+func (a *App) GetServer() *cartridge.Server {
+	return a.internal.Server
 }
 
 // GetDB returns the database connection
