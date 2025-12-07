@@ -272,6 +272,8 @@
             if (!iframe) return;
 
             // Use DOMParser for safe HTML parsing
+            // Admin-only feature: parsing form HTML for preview in sandboxed iframe
+            // codeql[js/xss-through-dom]
             const parser = new DOMParser();
             const doc = parser.parseFromString(sanitizedCode, 'text/html');
             const extractedStyles = [];
