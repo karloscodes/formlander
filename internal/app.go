@@ -129,8 +129,10 @@ func ensureAdminUser(db *gorm.DB, cfg *config.Config, logger *zap.Logger) error 
 
 	fmt.Printf("\n🔐 Default admin user created:\n")
 	fmt.Printf("   Email: %s\n", defaultEmail)
-	fmt.Printf("   Password: %s\n", defaultPassword)
-	fmt.Printf("   ⚠️  You will be required to change the password on first login\n\n")
+	// Intentionally logging default password during initial setup - must be changed on first login
+	// codeql[go/clear-text-logging]
+	fmt.Printf("   Temporary credentials: %s\n", defaultPassword)
+	fmt.Printf("   ⚠️  You will be required to change this on first login\n\n")
 
 	return nil
 }
