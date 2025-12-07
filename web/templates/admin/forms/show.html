@@ -265,7 +265,7 @@
 
             const rawCode = codeElement.textContent;
             const turnstileScriptPattern = /<script[^>]*https:\/\/challenges\.cloudflare\.com\/turnstile\/v0\/api\.js[^>]*><\/script>/gi;
-            const sanitizedCode = rawCode.replace(turnstileScriptPattern, '');
+            const sanitizedCode = rawCode.replaceAll(turnstileScriptPattern, '');
             const hasTurnstile = /cf-turnstile/.test(rawCode);
 
             const iframe = document.getElementById('form-preview');
