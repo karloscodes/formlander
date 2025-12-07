@@ -47,10 +47,8 @@ type Config struct {
 	LogsMaxBackups   int      `envconfig:"FORMLANDER_LOGS_MAX_BACKUPS" default:"10"`
 	LogsMaxAgeInDays int      `envconfig:"FORMLANDER_LOGS_MAX_AGE_DAYS" default:"30"`
 
-	// Security: HMAC secret for signing session cookies. Auto-generated if not provided.
-	SessionSecret string `envconfig:"FORMLANDER_SESSION_SECRET"`
-	// Security: Salt for hashing IP addresses before storage (privacy). Auto-generated if not provided.
-	AnonSalt              string `envconfig:"FORMLANDER_ANON_SALT"`
+	// Security: HMAC secret for signing session cookies. Required in production.
+	SessionSecret         string `envconfig:"FORMLANDER_SESSION_SECRET"`
 	SessionTimeoutSeconds int    `envconfig:"FORMLANDER_SESSION_TIMEOUT_SECONDS" default:"604800"` // 1 week
 
 	DataDirectory         string `envconfig:"FORMLANDER_DATA_DIR" default:"storage"`
@@ -103,23 +101,16 @@ func Get() *Config {
 func (c *Config) Validate() error {
 	var problems []string
 
-	// In production, REQUIRE session secret and anon salt
+	// In production, REQUIRE session secret
 	if c.IsProduction() {
 		if c.SessionSecret == "" {
-			problems = append(problems, "FORMLANDER_SESSION_SECRET is REQUIRED in production (generate with: openssl rand -hex 32)")
-		}
-		if c.AnonSalt == "" {
-			problems = append(problems, "FORMLANDER_ANON_SALT is REQUIRED in production (generate with: openssl rand -hex 32)")
+			problems = append(problems, "FORMLANDER_SESSION_SECRET is REQUIRED in production (generate once with: openssl rand -hex 32)")
 		}
 	} else {
-		// Auto-generate secrets in non-production (with warnings)
+		// Auto-generate secret in non-production (with warning)
 		if c.SessionSecret == "" {
 			c.SessionSecret = generateSecret()
 			log.Println("⚠️  FORMLANDER_SESSION_SECRET not set - generated random secret (sessions will be invalidated on restart)")
-		}
-		if c.AnonSalt == "" {
-			c.AnonSalt = generateSecret()
-			log.Println("⚠️  FORMLANDER_ANON_SALT not set - generated random salt (IP hashes will change on restart)")
 		}
 	}
 

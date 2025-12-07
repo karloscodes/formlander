@@ -21,18 +21,25 @@ Formlander enables developers running static or serverless sites to handle form 
 
 ### Using Docker (Recommended)
 
+**First, generate and save your session secret:**
+
+```bash
+# Generate once and save this value securely
+export FORMLANDER_SESSION_SECRET=$(openssl rand -hex 32)
+echo "Save this secret: $FORMLANDER_SESSION_SECRET"
+```
+
+**Then run the container with your saved secret:**
+
 ```bash
 docker run -d \
   -p 8080:8080 \
-  -e FORMLANDER_SESSION_SECRET=$(openssl rand -hex 32) \
-  -e FORMLANDER_ANON_SALT=$(openssl rand -hex 32) \
+  -e FORMLANDER_SESSION_SECRET="your-saved-secret-here" \
   -v $(pwd)/storage:/app/storage \
   karloscodes/formlander:latest
 ```
 
-**Required Environment Variables:**
-- `FORMLANDER_SESSION_SECRET` - HMAC secret for signing session cookies (generate with `openssl rand -hex 32`)
-- `FORMLANDER_ANON_SALT` - Salt for hashing IP addresses (generate with `openssl rand -hex 32`)
+**Important:** Use the same `FORMLANDER_SESSION_SECRET` value across restarts to prevent logging out all users.
 
 Access the admin dashboard at `http://localhost:8080` with default credentials:
 - Email: `admin@formlander.local`
@@ -41,16 +48,21 @@ Access the admin dashboard at `http://localhost:8080` with default credentials:
 ### Running the Binary
 
 1. Download the latest release from the [Releases page](https://github.com/karloscodes/formlander/releases)
-2. Extract and set required environment variables:
+2. Generate and save your session secret:
    ```bash
+   # Generate once and save this value
    export FORMLANDER_SESSION_SECRET=$(openssl rand -hex 32)
-   export FORMLANDER_ANON_SALT=$(openssl rand -hex 32)
+   echo "Save this secret: $FORMLANDER_SESSION_SECRET"
+   
    export FORMLANDER_DATA_DIR=./storage
    ```
 3. Run the binary:
    ```bash
    ./formlander
    ```
+
+**Required Environment Variable:**
+- `FORMLANDER_SESSION_SECRET` - HMAC secret for signing session cookies (must persist across restarts)
 
 **Optional Environment Variables:**
 - `FORMLANDER_ENV` - Environment mode (default: `production`)
@@ -66,10 +78,12 @@ Access the admin dashboard at `http://localhost:8080` with default credentials:
    ```bash
    make build
    ```
-3. Set environment variables and run:
+3. Generate and save your session secret, then run:
    ```bash
+   # Generate once and save this value
    export FORMLANDER_SESSION_SECRET=$(openssl rand -hex 32)
-   export FORMLANDER_ANON_SALT=$(openssl rand -hex 32)
+   echo "Save this secret: $FORMLANDER_SESSION_SECRET"
+   
    ./bin/formlander
    ```
 

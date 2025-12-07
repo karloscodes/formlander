@@ -122,7 +122,7 @@ release:
     docker run -d \
       -p 8080:8080 \
       -e FORMLANDER_SESSION_SECRET=$(openssl rand -hex 32) \
-      -e FORMLANDER_ANON_SALT=$(openssl rand -hex 32) \
+      -e 
       -v $(pwd)/storage:/app/storage \
       karloscodes/formlander:{{ .Version }}
     ```
@@ -139,7 +139,6 @@ release:
     git checkout {{ .Tag }}
     make build
     export FORMLANDER_SESSION_SECRET=$(openssl rand -hex 32)
-    export FORMLANDER_ANON_SALT=$(openssl rand -hex 32)
     ./bin/formlander
     ```
   footer: |
