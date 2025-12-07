@@ -27,10 +27,11 @@ type Application struct {
 
 // ApplicationOptions configure application bootstrapping.
 type ApplicationOptions struct {
-	Config           *config.Config
-	RouteMountFunc   func(*Server)
-	CatchAllRedirect string
-	TemplatesFS      fs.FS // Embedded filesystem for templates
+	Config             *config.Config
+	RouteMountFunc     func(*Server)
+	CatchAllRedirect   string
+	TemplatesFS        fs.FS  // Embedded filesystem for templates
+	TemplatesDirectory string // Custom template directory (development mode)
 }
 
 // NewApplication constructs a cartridge application.
@@ -53,6 +54,7 @@ func NewApplication(opts ApplicationOptions) (*Application, error) {
 	serverCfg.Logger = zapLogger
 	serverCfg.DBManager = dbManager
 	serverCfg.TemplatesFS = opts.TemplatesFS
+	serverCfg.TemplatesDirectory = opts.TemplatesDirectory
 
 	server, err := NewServer(serverCfg)
 	if err != nil {

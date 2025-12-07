@@ -27,25 +27,38 @@ type App struct {
 	dispatcher *jobs.UnifiedDispatcher
 }
 
+// AppOptions configures application initialization
+type AppOptions struct {
+	TemplatesDirectory string
+}
+
 // NewApp creates the application using cartridge defaults.
 func NewApp() (*App, error) {
+	return NewAppWithOptions(nil)
+}
+
+// NewAppWithOptions creates the application with custom options
+func NewAppWithOptions(opts *AppOptions) (*App, error) {
 	loadDotEnv()
 
 	cfg := config.Get()
 
 	auth.Initialize(cfg)
 
-	opts := cartridge.ApplicationOptions{
+	cartridgeOpts := cartridge.ApplicationOptions{
 		Config:         cfg,
 		RouteMountFunc: MountRoutes,
 	}
 
 	// Only use embedded templates in production
 	if !cfg.IsDevelopment() {
-		opts.TemplatesFS = web.Templates
+		cartridgeOpts.TemplatesFS = web.Templates
+	} else if opts != nil && opts.TemplatesDirectory != "" {
+		// Use custom template directory in development
+		cartridgeOpts.TemplatesDirectory = opts.TemplatesDirectory
 	}
 
-	application, err := cartridge.NewApplication(opts)
+	application, err := cartridge.NewApplication(cartridgeOpts)
 	if err != nil {
 		return nil, err
 	}

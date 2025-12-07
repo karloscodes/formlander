@@ -8,6 +8,7 @@ import (
 	"formlander/internal/accounts"
 	"formlander/internal/auth"
 	"formlander/internal/database"
+	httphandlers "formlander/internal/http"
 	"formlander/internal/pkg/cartridge"
 
 	"github.com/gofiber/fiber/v2"
@@ -20,19 +21,41 @@ type Context = cartridge.Context
 // Server is the public alias for cartridge.Server
 type Server = cartridge.Server
 
+// RouteConfig is the public alias for cartridge.RouteConfig
+type RouteConfig = cartridge.RouteConfig
+
 // App wraps the internal application with a public API
 type App struct {
 	internal *internal.App
 }
 
+// AppOptions configures formlander application initialization
+type AppOptions struct {
+	TemplatesDirectory string // Optional: custom template directory for development
+}
+
 // NewApp creates a new Formlander application
 func NewApp() (*App, error) {
-	app, err := internal.NewApp()
+	return NewAppWithOptions(nil)
+}
+
+// NewAppWithOptions creates a new Formlander application with custom options
+func NewAppWithOptions(opts *AppOptions) (*App, error) {
+	app, err := internal.NewAppWithOptions(&internal.AppOptions{
+		TemplatesDirectory: getTemplatesDirectory(opts),
+	})
 	if err != nil {
 		return nil, err
 	}
 
 	return &App{internal: app}, nil
+}
+
+func getTemplatesDirectory(opts *AppOptions) string {
+	if opts != nil && opts.TemplatesDirectory != "" {
+		return opts.TemplatesDirectory
+	}
+	return ""
 }
 
 // GetFiber returns the underlying Fiber app for adding routes
@@ -73,4 +96,14 @@ func FindUserByID(db *gorm.DB, id uint) (*accounts.User, error) {
 // GetUserID retrieves the current user ID from context
 func GetUserID(ctx *fiber.Ctx) (uint, bool) {
 	return auth.GetUserID(ctx)
+}
+
+// AuthMiddleware returns the authentication middleware
+func AuthMiddleware() fiber.Handler {
+	return auth.Middleware()
+}
+
+// RequirePasswordChangedMiddleware returns middleware that enforces password change
+func RequirePasswordChangedMiddleware() fiber.Handler {
+	return httphandlers.RequirePasswordChanged()
 }
