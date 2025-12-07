@@ -69,13 +69,15 @@ Formlander uses [Viper](https://github.com/spf13/viper) for flexible configurati
 - Environment variables always override `.env` file values
 
 **Required Environment Variable (Production Only):**
-- `FORMLANDER_SESSION_SECRET` - HMAC secret for signing session cookies (auto-generated in development/test)
+- `FORMLANDER_SESSION_SECRET` - HMAC secret for signing session cookies (fixed default in dev/test)
 
 **Optional Environment Variables:**
 - `FORMLANDER_ENV` - Environment mode: `development`, `production` (default: `production`)
 - `FORMLANDER_PORT` - HTTP port (default: `8080`)
 - `FORMLANDER_LOG_LEVEL` - Log level: `debug`, `info`, `warn`, `error` (default: `error`)
 - `FORMLANDER_DATA_DIR` - Data directory path (default: `./storage`)
+
+> **Note:** In development/test, a fixed default secret is used if not set, allowing sessions to persist across restarts.
 
 **Or use a .env file** (`.env`):
 ```bash

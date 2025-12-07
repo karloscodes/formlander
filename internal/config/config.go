@@ -162,11 +162,11 @@ func (c *Config) Validate() error {
 			problems = append(problems, "FORMLANDER_SESSION_SECRET is REQUIRED in production (generate once with: openssl rand -hex 32)")
 		}
 	} else {
-		// Auto-generate secret in non-production (development/test) with warning
+		// Use a fixed secret in non-production (development/test) for session persistence
 		if c.SessionSecret == "" {
-			c.SessionSecret = generateSecret()
+			c.SessionSecret = "dev-secret-do-not-use-in-production-f8e3a9c2d1b7e6a4"
 			if c.IsDevelopment() {
-				log.Println("⚠️  FORMLANDER_SESSION_SECRET not set - using generated secret for development (sessions will be invalidated on restart)")
+				log.Println("ℹ️  Using default development secret (set FORMLANDER_SESSION_SECRET for custom value)")
 			}
 		}
 	}
