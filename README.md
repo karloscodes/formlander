@@ -61,15 +61,30 @@ Access the admin dashboard at `http://localhost:8080` with default credentials:
    ./formlander
    ```
 
+## Configuration
+
+Formlander uses [Viper](https://github.com/spf13/viper) for flexible configuration. You can configure via:
+- Environment variables (prefix: `FORMLANDER_`)
+- `.env` file for easier local development
+- Environment variables always override `.env` file values
+
 **Required Environment Variable:**
 - `FORMLANDER_SESSION_SECRET` - HMAC secret for signing session cookies (must persist across restarts)
 
 **Optional Environment Variables:**
-- `FORMLANDER_ENV` - Environment mode (default: `production`)
+- `FORMLANDER_ENV` - Environment mode: `development`, `production` (default: `development`)
 - `FORMLANDER_PORT` - HTTP port (default: `8080`)
 - `FORMLANDER_LOG_LEVEL` - Log level: `debug`, `info`, `warn`, `error` (default: `info`)
 - `FORMLANDER_DATA_DIR` - Data directory path (default: `./storage`)
-- `FORMLANDER_DATABASE_FILENAME` - Database filename (default: `formlander.db`)
+
+**Or use a .env file** (`.env`):
+```bash
+FORMLANDER_ENV=production
+FORMLANDER_PORT=8080
+FORMLANDER_SESSION_SECRET=your-secret-here
+FORMLANDER_LOG_LEVEL=info
+FORMLANDER_DATA_DIR=./storage
+```
 
 ### Building from Source
 
@@ -115,7 +130,6 @@ git clone https://github.com/karloscodes/formlander.git
 cd formlander
 make build
 export FORMLANDER_SESSION_SECRET=$(openssl rand -hex 32)
-export FORMLANDER_ANON_SALT=$(openssl rand -hex 32)
 ./bin/formlander
 ```
 

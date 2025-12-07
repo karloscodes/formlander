@@ -12,7 +12,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/kelseyhightower/envconfig"
+	"github.com/spf13/viper"
 )
 
 // LogLevel represents the logging severity.
@@ -36,43 +36,40 @@ const defaultDatabaseFilename = "formlander.db"
 
 // Config encapsulates runtime configuration sourced from environment variables.
 type Config struct {
-	AppName     string `envconfig:"FORMLANDER_APP_NAME" default:"formlander"`
-	Environment string `envconfig:"FORMLANDER_ENV" default:"development"`
-	Port        string `envconfig:"FORMLANDER_PORT" default:"8080"`
-	Debug       bool   `envconfig:"FORMLANDER_DEBUG" default:"false"`
+	AppName     string `mapstructure:"appname"`
+	Environment string `mapstructure:"environment"`
+	Port        string `mapstructure:"port"`
+	Debug       bool   `mapstructure:"debug"`
 
-	LogLevel         LogLevel `envconfig:"FORMLANDER_LOG_LEVEL" default:"info"`
-	LogsDirectory    string   `envconfig:"FORMLANDER_LOGS_DIR" default:"storage/logs"`
-	LogsMaxSizeInMB  int      `envconfig:"FORMLANDER_LOGS_MAX_SIZE_MB" default:"20"`
-	LogsMaxBackups   int      `envconfig:"FORMLANDER_LOGS_MAX_BACKUPS" default:"10"`
-	LogsMaxAgeInDays int      `envconfig:"FORMLANDER_LOGS_MAX_AGE_DAYS" default:"30"`
+	LogLevel         LogLevel `mapstructure:"loglevel"`
+	LogsDirectory    string   `mapstructure:"logsdirectory"`
+	LogsMaxSizeInMB  int      `mapstructure:"logsmaxsizeinmb"`
+	LogsMaxBackups   int      `mapstructure:"logsmaxbackups"`
+	LogsMaxAgeInDays int      `mapstructure:"logsmaxageindays"`
 
-	// Security: HMAC secret for signing session cookies. Required in production.
-	SessionSecret         string `envconfig:"FORMLANDER_SESSION_SECRET"`
-	SessionTimeoutSeconds int    `envconfig:"FORMLANDER_SESSION_TIMEOUT_SECONDS" default:"604800"` // 1 week
+	SessionSecret         string `mapstructure:"sessionsecret"`
+	SessionTimeoutSeconds int    `mapstructure:"sessiontimeoutseconds"`
 
-	DataDirectory         string `envconfig:"FORMLANDER_DATA_DIR" default:"storage"`
-	DatabaseFilename      string `envconfig:"FORMLANDER_DATABASE_FILENAME" default:"formlander.db"`
-	DatabasePathOverride  string `envconfig:"FORMLANDER_DATABASE_PATH"`
-	DatabasePath          string
-	DatabaseMaxOpenConns  int    `envconfig:"FORMLANDER_DB_MAX_OPEN_CONNS" default:"0"`
-	DatabaseMaxIdleConns  int    `envconfig:"FORMLANDER_DB_MAX_IDLE_CONNS" default:"0"`
-	UploadsDirectory      string `envconfig:"FORMLANDER_UPLOADS_DIR" default:"uploads"`
-	MaxUploadSizeMB       int    `envconfig:"FORMLANDER_MAX_UPLOAD_MB" default:"10"`
-	MaxInputFields        int    `envconfig:"FORMLANDER_MAX_FIELDS" default:"200"`
-	MaxPayloadSizeMB      int    `envconfig:"FORMLANDER_MAX_PAYLOAD_MB" default:"2"`
-	SubmissionRatePerHour int    `envconfig:"FORMLANDER_SUBMISSION_RATE_PER_HOUR" default:"120"`
+	DataDirectory        string `mapstructure:"datadirectory"`
+	DatabaseFilename     string `mapstructure:"databasefilename"`
+	DatabasePathOverride string `mapstructure:"databasepathoverride"`
+	DatabasePath         string `mapstructure:"-"`
+	DatabaseMaxOpenConns int    `mapstructure:"databasemaxopenconns"`
+	DatabaseMaxIdleConns int    `mapstructure:"databasemaxidleconns"`
+	UploadsDirectory     string `mapstructure:"uploadsdirectory"`
+	MaxUploadSizeMB      int    `mapstructure:"maxuploadssizemb"`
+	MaxInputFields       int    `mapstructure:"maxinputfields"`
+	MaxPayloadSizeMB     int    `mapstructure:"maxpayloadsizemb"`
+	SubmissionRatePerHour int    `mapstructure:"submissionrateperhour"`
 
-	// Note: Rate limiting is hardcoded to 30 requests per 60 seconds per IP
-
-	Webhook WebhookConfig
+	Webhook WebhookConfig `mapstructure:"webhook"`
 }
 
 // WebhookConfig configures outbound webhook delivery.
 type WebhookConfig struct {
-	SignatureHeader string `envconfig:"FORMLANDER_WEBHOOK_SIGNATURE_HEADER" default:"X-Formlander-Signature"`
-	RetryLimit      int    `envconfig:"FORMLANDER_WEBHOOK_RETRY_LIMIT" default:"3"`
-	BackoffSchedule string `envconfig:"FORMLANDER_WEBHOOK_BACKOFF" default:"1,5,15,60"`
+	SignatureHeader string `mapstructure:"signatureheader"`
+	RetryLimit      int    `mapstructure:"retrylimit"`
+	BackoffSchedule string `mapstructure:"backoffschedule"`
 }
 
 var (
@@ -83,9 +80,28 @@ var (
 // Get returns the singleton configuration instance populated from environment variables.
 func Get() *Config {
 	cfgOnce.Do(func() {
+		v := viper.New()
+		
+		// Set config name and paths for loading .env files
+		v.SetConfigName(".env")
+		v.SetConfigType("env")
+		v.AddConfigPath(".")
+		
+		// Set defaults
+		setDefaults(v)
+		
+		// Read .env file if it exists (optional)
+		_ = v.ReadInConfig()
+		
+		// Environment variables take precedence
+		v.SetEnvPrefix("FORMLANDER")
+		
+		// Bind all environment variables explicitly
+		bindEnvVars(v)
+		
 		cfgInst = &Config{}
-		if err := envconfig.Process("", cfgInst); err != nil {
-			log.Fatalf("config: failed to process environment variables: %v", err)
+		if err := v.Unmarshal(cfgInst); err != nil {
+			log.Fatalf("config: failed to unmarshal configuration: %v", err)
 		}
 
 		cfgInst.DatabasePath = cfgInst.resolveDatabasePath()
@@ -96,6 +112,45 @@ func Get() *Config {
 		}
 	})
 	return cfgInst
+}
+
+func setDefaults(v *viper.Viper) {
+	v.SetDefault("appname", "formlander")
+	v.SetDefault("environment", "production")
+	v.SetDefault("port", "8080")
+	v.SetDefault("debug", false)
+	
+	v.SetDefault("loglevel", "error")
+	v.SetDefault("logsdirectory", "storage/logs")
+	v.SetDefault("logsmaxsizeinmb", 20)
+	v.SetDefault("logsmaxbackups", 10)
+	v.SetDefault("logsmaxageindays", 30)
+	
+	v.SetDefault("sessiontimeoutseconds", 604800) // 1 week
+	
+	v.SetDefault("datadirectory", "storage")
+	v.SetDefault("databasefilename", "formlander.db")
+	v.SetDefault("databasemaxopenconns", 0)
+	v.SetDefault("databasemaxidleconns", 0)
+	v.SetDefault("uploadsdirectory", "uploads")
+	v.SetDefault("maxuploadssizemb", 10)
+	v.SetDefault("maxinputfields", 200)
+	v.SetDefault("maxpayloadsizemb", 2)
+	v.SetDefault("submissionrateperhour", 120)
+	
+	v.SetDefault("webhook.signatureheader", "X-Formlander-Signature")
+	v.SetDefault("webhook.retrylimit", 3)
+	v.SetDefault("webhook.backoffschedule", "1,5,15,60")
+}
+
+func bindEnvVars(v *viper.Viper) {
+	// Bind essential configuration variables
+	// All other settings use defaults from setDefaults()
+	v.BindEnv("environment", "FORMLANDER_ENV")
+	v.BindEnv("port", "FORMLANDER_PORT")
+	v.BindEnv("sessionsecret", "FORMLANDER_SESSION_SECRET")
+	v.BindEnv("loglevel", "FORMLANDER_LOG_LEVEL")
+	v.BindEnv("datadirectory", "FORMLANDER_DATA_DIR")
 }
 
 func (c *Config) Validate() error {
