@@ -148,7 +148,7 @@ func GetUserID(c *fiber.Ctx) (uint, bool) {
 		return 0, false
 	}
 
-	userID, err := strconv.ParseUint(sessionData.UserID, 10, 64)
+	userID, err := strconv.ParseUint(sessionData.UserID, 10, 32)
 	if err != nil {
 		return 0, false
 	}
