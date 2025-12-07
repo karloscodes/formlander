@@ -271,11 +271,12 @@
             const iframe = document.getElementById('form-preview');
             if (!iframe) return;
 
-            const tempContainer = document.createElement('div');
-            tempContainer.innerHTML = sanitizedCode;
+            // Use DOMParser for safe HTML parsing
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(sanitizedCode, 'text/html');
             const extractedStyles = [];
-            tempContainer.querySelectorAll('style').forEach(style => {
-                extractedStyles.push(style.innerHTML);
+            doc.querySelectorAll('style').forEach(style => {
+                extractedStyles.push(style.textContent);
                 style.remove();
             });
             const inlineStyleBlock = extractedStyles.length ? `<style>${extractedStyles.join('\n')}</style>` : '';
@@ -314,7 +315,7 @@
 ${inlineStyleBlock}
 </head>
 <body>
-${tempContainer.innerHTML}
+${doc.body.innerHTML}
 </body>
 </html>`;
 
