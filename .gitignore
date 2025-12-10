@@ -43,3 +43,4 @@ e2e/screenshots
 .gopath/
 formlander
 bin/
+test-results/
