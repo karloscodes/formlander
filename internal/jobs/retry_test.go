@@ -82,10 +82,12 @@ func TestNextRetryEmptySchedule(t *testing.T) {
 	cfg := &config.Config{}
 	cfg.Webhook.BackoffSchedule = ""
 	strategy := NewRetryStrategy(cfg)
-	
+
+	// Empty BackoffSchedule falls back to default schedule in config.WebhookBackoff()
+	// which returns []int{1, 5, 15, 60}, so NextRetry should return a valid time
 	nextRetry := strategy.NextRetry(1)
-	if nextRetry != nil {
-		t.Errorf("NextRetry() with empty schedule = %v, want nil", nextRetry)
+	if nextRetry == nil {
+		t.Error("NextRetry() with empty schedule should use default and return non-nil")
 	}
 }
 
@@ -278,9 +280,9 @@ func TestRetryScheduleParsing(t *testing.T) {
 			want:     []int{120},
 		},
 		{
-			name:     "empty schedule",
+			name:     "empty schedule uses default",
 			schedule: "",
-			want:     nil, // Empty schedule should return default
+			want:     []int{1, 5, 15, 60}, // Empty schedule returns default
 		},
 	}
 	
@@ -288,23 +290,10 @@ func TestRetryScheduleParsing(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := &config.Config{}
 			cfg.Webhook.BackoffSchedule = tt.schedule
-			strategy := NewRetryStrategy(cfg)
-			
+
 			// Get the parsed schedule via WebhookBackoff
 			schedule := cfg.WebhookBackoff()
-			
-			// Handle empty/nil schedule
-			if tt.want == nil {
-				// For empty schedule, we get the default from config
-				if len(schedule) == 0 {
-					next := strategy.NextRetry(1)
-					if next != nil {
-						t.Error("NextRetry() should return nil for empty schedule")
-					}
-				}
-				return
-			}
-			
+
 			if len(schedule) != len(tt.want) {
 				t.Errorf("Schedule length = %d, want %d", len(schedule), len(tt.want))
 				return
