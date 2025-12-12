@@ -57,7 +57,8 @@ func MountRoutes(server *cartridge.Server) {
 	}
 
 	publicConfig := &cartridge.RouteConfig{
-		EnableCORS: true,
+		EnableSecFetchSite: cartridge.Bool(false), // Public APIs accept cross-origin requests
+		EnableCORS:         true,
 		CORSConfig: &cors.Config{
 			AllowOrigins: "*",
 			AllowMethods: "POST,OPTIONS",

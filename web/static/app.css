@@ -1,0 +1,51 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom styles */
+.dropdown:hover .dropdown-menu {
+    display: block;
+}
+
+/* Loading indicator */
+.htmx-request .htmx-indicator {
+    display: inline-block;
+}
+
+.htmx-indicator {
+    display: none;
+}
+
+#page-loader {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: #10b981;
+    z-index: 99999;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+body.htmx-request #page-loader {
+    opacity: 1;
+}
+
+@keyframes shimmer {
+    0%, 100% {
+        background: #10b981;
+    }
+    50% {
+        background: #3b82f6;
+    }
+}
+
+@keyframes loading {
+    0% {
+        background-position: 200% 0;
+    }
+    100% {
+        background-position: -200% 0;
+    }
+}

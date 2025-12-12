@@ -11,7 +11,10 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/compress"
 	"github.com/gofiber/fiber/v2/middleware/cors"
+	"github.com/gofiber/fiber/v2/middleware/filesystem"
+	"github.com/gofiber/fiber/v2/middleware/helmet"
 	fiberrecover "github.com/gofiber/fiber/v2/middleware/recover"
 	"github.com/gofiber/fiber/v2/middleware/requestid"
 	"github.com/gofiber/template/html/v2"
@@ -20,6 +23,11 @@ import (
 	"formlander/internal/config"
 	"formlander/internal/database"
 	cartridgeMiddleware "formlander/internal/pkg/cartridge/middleware"
+)
+
+// Build info set at compile time via ldflags
+var (
+	buildCommit = "dev"
 )
 
 // Config configures the cartridge server.
@@ -39,10 +47,14 @@ type Config struct {
 	EnableStaticAssets bool
 	StaticDirectory    string
 	StaticPrefix       string
+	StaticFS           fs.FS // Embedded filesystem for static assets
 
 	EnableRequestLogger bool
 	EnableRequestID     bool
 	EnableRecover       bool
+	EnableHelmet        bool
+	EnableCompress      bool
+	RequestTimeout      time.Duration
 
 	MaxConcurrentReads  int
 	MaxConcurrentWrites int
@@ -57,6 +69,9 @@ func DefaultConfig() *Config {
 		EnableRequestLogger: true,
 		EnableRequestID:     true,
 		EnableRecover:       true,
+		EnableHelmet:        true,
+		EnableCompress:      true,
+		RequestTimeout:      30 * time.Second,
 		StaticPrefix:        "/assets",
 		MaxConcurrentReads:  128,
 		MaxConcurrentWrites: 8,
@@ -66,13 +81,17 @@ func DefaultConfig() *Config {
 
 // RouteConfig customises middleware for a route.
 type RouteConfig struct {
-	EnableCORS       bool
-	CORSConfig       *cors.Config
-	WriteConcurrency bool
+	EnableCORS         bool
+	CORSConfig         *cors.Config
+	WriteConcurrency   bool
+	EnableSecFetchSite *bool // CSRF protection, default true. Set to false for public/cross-origin routes.
 	// CustomMiddleware are standard fiber handlers (backward compatibility).
 	// These run before the route handler and receive fiber.Ctx directly.
 	CustomMiddleware []fiber.Handler
 }
+
+// Bool returns a pointer to a bool value.
+func Bool(v bool) *bool { return &v }
 
 // Server wraps a fiber.App with cartridge defaults.
 type Server struct {
@@ -100,6 +119,8 @@ func NewServer(cfg *Config) (*Server, error) {
 	fiberCfg := fiber.Config{
 		DisableDefaultDate:    true,
 		DisableStartupMessage: true,
+		ReadTimeout:           cfg.RequestTimeout,
+		WriteTimeout:          cfg.RequestTimeout,
 	}
 
 	if cfg.EnableTemplates {
@@ -141,6 +162,15 @@ func NewServer(cfg *Config) (*Server, error) {
 			engine.Reload(true)
 		}
 		engine.AddFunc("truncateJSON", truncateJSON)
+		engine.AddFunc("assetVersion", func() string {
+			if buildCommit == "dev" {
+				return time.Now().Format("20060102150405")
+			}
+			if len(buildCommit) > 8 {
+				return buildCommit[:8]
+			}
+			return buildCommit
+		})
 		fiberCfg.Views = engine
 	}
 
@@ -173,6 +203,30 @@ func (s *Server) setupGlobalMiddleware() {
 		s.app.Use(fiberrecover.New())
 	}
 
+	if s.cfg.EnableHelmet {
+		s.app.Use(helmet.New(helmet.Config{
+			// Disable CSP - it's too strict by default and blocks inline styles/scripts.
+			// If you need CSP, configure it explicitly for your assets.
+			ContentSecurityPolicy: "",
+		}))
+	}
+
+	if s.cfg.EnableCompress {
+		s.app.Use(compress.New(compress.Config{
+			Level: compress.LevelDefault,
+		}))
+	}
+
+	// Sec-Fetch-Site CSRF protection (enabled globally, can be disabled per-route)
+	s.app.Use(cartridgeMiddleware.SecFetchSiteMiddleware(cartridgeMiddleware.SecFetchSiteConfig{
+		Next: func(c *fiber.Ctx) bool {
+			if skip, ok := c.Locals("skip_sec_fetch_site").(bool); ok && skip {
+				return true
+			}
+			return false
+		},
+	}))
+
 	if s.cfg.EnableRequestLogger {
 		s.app.Use(cartridgeMiddleware.RequestLogger(s.cfg.Logger))
 	}
@@ -182,16 +236,35 @@ func (s *Server) setupStaticAssets() {
 	if !s.cfg.EnableStaticAssets {
 		return
 	}
-	dir := s.cfg.StaticDirectory
-	if dir == "" {
-		dir = "public"
+
+	prefix := s.cfg.StaticPrefix
+	if prefix == "" {
+		prefix = "/assets"
 	}
-	s.app.Static(s.cfg.StaticPrefix, dir, fiber.Static{
+
+	staticConfig := fiber.Static{
 		Compress:      true,
 		ByteRange:     true,
 		Browse:        false,
 		CacheDuration: 24 * time.Hour,
-	})
+	}
+
+	if s.cfg.StaticFS != nil {
+		// Use embedded filesystem
+		s.app.Use(prefix, filesystem.New(filesystem.Config{
+			Root:       http.FS(s.cfg.StaticFS),
+			Browse:     false,
+			MaxAge:     int((24 * time.Hour).Seconds()),
+			PathPrefix: "",
+		}))
+	} else {
+		// Use directory (development mode)
+		dir := s.cfg.StaticDirectory
+		if dir == "" {
+			dir = "web/static"
+		}
+		s.app.Static(prefix, dir, staticConfig)
+	}
 }
 
 // SetCatchAllRedirect configures a fallback redirect path for unmatched routes.
@@ -263,6 +336,14 @@ func (s *Server) registerRoute(method, path string, handler fiber.Handler, cfg .
 	handlers = append(handlers, contextInjector)
 
 	if routeCfg != nil {
+		// Skip SecFetchSite if explicitly set to false
+		if routeCfg.EnableSecFetchSite != nil && !*routeCfg.EnableSecFetchSite {
+			handlers = append(handlers, func(c *fiber.Ctx) error {
+				c.Locals("skip_sec_fetch_site", true)
+				return c.Next()
+			})
+		}
+
 		if routeCfg.EnableCORS {
 			corsCfg := routeCfg.CORSConfig
 			if corsCfg == nil {

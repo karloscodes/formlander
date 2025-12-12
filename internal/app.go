@@ -50,9 +50,10 @@ func NewAppWithOptions(opts *AppOptions) (*App, error) {
 		RouteMountFunc: MountRoutes,
 	}
 
-	// Only use embedded templates in production
+	// Only use embedded assets in production
 	if !cfg.IsDevelopment() {
 		cartridgeOpts.TemplatesFS = web.Templates
+		cartridgeOpts.StaticFS = web.Static
 	} else if opts != nil && opts.TemplatesDirectory != "" {
 		// Use custom template directory in development
 		cartridgeOpts.TemplatesDirectory = opts.TemplatesDirectory

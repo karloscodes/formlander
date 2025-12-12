@@ -32,6 +32,8 @@ type ApplicationOptions struct {
 	CatchAllRedirect   string
 	TemplatesFS        fs.FS  // Embedded filesystem for templates
 	TemplatesDirectory string // Custom template directory (development mode)
+	StaticFS           fs.FS  // Embedded filesystem for static assets
+	StaticDirectory    string // Custom static directory (development mode)
 }
 
 // NewApplication constructs a cartridge application.
@@ -55,6 +57,8 @@ func NewApplication(opts ApplicationOptions) (*Application, error) {
 	serverCfg.DBManager = dbManager
 	serverCfg.TemplatesFS = opts.TemplatesFS
 	serverCfg.TemplatesDirectory = opts.TemplatesDirectory
+	serverCfg.StaticFS = opts.StaticFS
+	serverCfg.StaticDirectory = opts.StaticDirectory
 
 	server, err := NewServer(serverCfg)
 	if err != nil {

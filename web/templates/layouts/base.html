@@ -6,77 +6,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{ if .Title }}{{ .Title }} · Formlander{{ else }}Formlander{{ end }}</title>
-    <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        ink: "#111827",
-                        paper: "#f8fafc",
-                        accent: "#ec4899"
-                    }
-                }
-            }
-        }
-    </script>
-    <style>
-        .dropdown:hover .dropdown-menu {
-            display: block;
-        }
-
-        /* Loading indicator */
-        .htmx-request .htmx-indicator {
-            display: inline-block;
-        }
-
-        .htmx-indicator {
-            display: none;
-        }
-
-        #page-loader {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 4px;
-            background: #10b981;
-            z-index: 99999;
-            opacity: 0;
-            transition: opacity 0.3s ease;
-        }
-
-        body.htmx-request #page-loader {
-            opacity: 1;
-        }
-
-        /* Test: make it always visible */
-        body #page-loader {
-            opacity: 0.3;
-        }
-
-        @keyframes shimmer {
-
-            0%,
-            100% {
-                background: #10b981;
-            }
-
-            50% {
-                background: #3b82f6;
-            }
-        }
-
-        @keyframes loading {
-            0% {
-                background-position: 200% 0;
-            }
-
-            100% {
-                background-position: -200% 0;
-            }
-        }
-    </style>
+    <link rel="stylesheet" href="/assets/app.built.css?v={{ assetVersion }}">
 </head>
 
 <body hx-boost="true" class="min-h-screen bg-gray-50 text-gray-900 flex flex-col">
@@ -152,7 +82,7 @@
         <span class="font-mono">{ self-hosted }</span> · Made with ❤️ by <a href="https://x.com/karloscodes"
             target="_blank" class="text-blue-600 hover:text-blue-700">@karloscodes</a>
     </footer>
-    <script src="https://unpkg.com/htmx.org@1.9.12" crossorigin="anonymous"></script>
+    <script src="/assets/vendor/htmx.min.js?v={{ assetVersion }}"></script>
     <script>
         // Debug: Force show loader and add event listeners
         console.log('HTMX loaded:', typeof htmx !== 'undefined');

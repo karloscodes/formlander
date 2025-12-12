@@ -1,15 +1,19 @@
 GOCACHE ?= $(CURDIR)/.gocache
 BIN_DIR ?= $(CURDIR)/bin
 APP      = formlander
+TAILWIND = $(BIN_DIR)/tailwindcss
 
 WATCHEXEC ?= $(shell command -v watchexec 2>/dev/null)
 GOTESTSUM ?= $(shell command -v gotestsum 2>/dev/null)
 
-.PHONY: help build run dev test test-unit test-e2e test-e2e-setup tidy fmt clean deps release
+.PHONY: help build run dev test test-unit test-e2e test-e2e-setup tidy fmt clean deps release vendor css css-watch
 
 	help:
 	@echo "Available targets:"
 	@echo "  deps         - ensure local build cache directory exists"
+	@echo "  vendor       - download JS/CSS dependencies (htmx, highlight.js, tailwind)"
+	@echo "  css          - build Tailwind CSS for production"
+	@echo "  css-watch    - watch and rebuild Tailwind CSS on changes"
 	@echo "  build        - compile the CLI binary to $(BIN_DIR)"
 	@echo "  run          - run the application from source"
 	@echo "  dev          - hot-reload the server using watchexec (requires .env)"
@@ -25,7 +29,18 @@ GOTESTSUM ?= $(shell command -v gotestsum 2>/dev/null)
 deps:
 	@mkdir -p $(GOCACHE) $(BIN_DIR)
 
-build: deps
+vendor:
+	@./scripts/vendor.sh
+
+css: vendor
+	@echo ">> building Tailwind CSS"
+	$(TAILWIND) -i web/static/app.css -o web/static/app.built.css --minify
+
+css-watch: vendor
+	@echo ">> watching Tailwind CSS"
+	$(TAILWIND) -i web/static/app.css -o web/static/app.built.css --watch
+
+build: deps css
 	@echo ">> building $(APP)"
 	GOCACHE=$(GOCACHE) go build -o $(BIN_DIR)/$(APP) ./cmd/$(APP)
 
