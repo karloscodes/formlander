@@ -17,6 +17,26 @@ Formlander enables developers running static or serverless sites to handle form 
 - **API-first design** — Dashboard consumes the same REST endpoints available for integrations
 - **Privacy-focused** — All data stored locally; optional Mailgun integration for email forwarding
 
+## JavaScript SDK (Optional)
+
+For improved reliability, include the optional SDK that adds automatic retry with exponential backoff:
+
+```html
+<script src="https://your-formlander.com/assets/formlander.js"></script>
+
+<form action="https://your-formlander.com/forms/contact/submit?token=YOUR_TOKEN" method="post">
+  <input name="email" type="email" required>
+  <button type="submit">Send</button>
+</form>
+```
+
+The SDK auto-detects Formlander forms and enhances them with:
+- **Retry logic** — 3 attempts with exponential backoff on 503/network errors
+- **Graceful degradation** — Falls back to normal form POST if JS fails
+- **Loading states** — Disables form and shows "Sending..." during submission
+
+Forms work without the SDK via standard HTML POST. The SDK is purely an enhancement.
+
 ## Quick Start
 
 ### Using Docker (Recommended)
