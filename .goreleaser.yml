@@ -63,6 +63,7 @@ dockers:
       - internal
       - pkg
       - web
+      - tailwind.config.js
 
   - image_templates:
       - "karloscodes/formlander:{{ .Version }}-arm64"
@@ -83,6 +84,7 @@ dockers:
       - internal
       - pkg
       - web
+      - tailwind.config.js
 
 docker_manifests:
   - name_template: "karloscodes/formlander:{{ .Version }}"
