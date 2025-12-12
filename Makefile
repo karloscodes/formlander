@@ -40,9 +40,11 @@ css-watch: vendor
 	@echo ">> watching Tailwind CSS"
 	$(TAILWIND) -i web/static/app.css -o web/static/app.built.css --watch
 
+COMMIT_SHA ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "dev")
+
 build: deps css
 	@echo ">> building $(APP)"
-	GOCACHE=$(GOCACHE) go build -o $(BIN_DIR)/$(APP) ./cmd/$(APP)
+	GOCACHE=$(GOCACHE) go build -ldflags="-X formlander/internal/pkg/cartridge.buildCommit=$(COMMIT_SHA)" -o $(BIN_DIR)/$(APP) ./cmd/$(APP)
 
 run: deps
 	GOCACHE=$(GOCACHE) go run ./cmd/$(APP)

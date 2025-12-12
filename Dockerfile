@@ -5,7 +5,10 @@
 ###############################################################################
 FROM golang:1.25.5-alpine AS builder
 
-RUN apk add --no-cache build-base git
+ARG TARGETARCH
+ARG COMMIT_SHA=dev
+
+RUN apk add --no-cache build-base git curl
 
 WORKDIR /src
 
@@ -13,15 +16,32 @@ WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 
-# Copy application source (excluding storage/tests via .dockerignore)
+# Download Tailwind CLI (pinned to v3.4.17)
+RUN TAILWIND_VERSION="v3.4.17" && \
+  case "${TARGETARCH}" in \
+    amd64) TAILWIND_ASSET="tailwindcss-linux-x64" ;; \
+    arm64) TAILWIND_ASSET="tailwindcss-linux-arm64" ;; \
+    *) echo "Unsupported arch: ${TARGETARCH}"; exit 1 ;; \
+  esac && \
+  curl -sL "https://github.com/tailwindlabs/tailwindcss/releases/download/${TAILWIND_VERSION}/${TAILWIND_ASSET}" -o /usr/local/bin/tailwindcss && \
+  chmod +x /usr/local/bin/tailwindcss
+
+# Copy Tailwind config and source CSS
+COPY tailwind.config.js ./
+COPY web ./web
+
+# Build Tailwind CSS
+RUN tailwindcss -i web/static/app.css -o web/static/app.built.css --minify
+
+# Copy remaining application source
 COPY cmd ./cmd
 COPY internal ./internal
 COPY pkg ./pkg
-COPY web ./web
 
-# Build binary (dynamic linking like Fusionaly)
+# Build binary with commit SHA for cache busting
 RUN CGO_ENABLED=1 GOOS=linux go build \
   -trimpath \
+  -ldflags="-X formlander/internal/pkg/cartridge.buildCommit=${COMMIT_SHA}" \
   -o /src/formlander \
   ./cmd/formlander
 # Runtime stage
