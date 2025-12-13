@@ -126,7 +126,47 @@ test.describe("Forms Management", () => {
     helpers.log("✅ Form exists in list");
   });
 
-  test("4. Configure form delivery settings", async ({ page }) => {
+  test("4. Toggle SDK inclusion in form code", async ({ page }) => {
+    helpers.log("=== Testing SDK Toggle ===");
+
+    // Create a form using DB helper
+    const formSlug = `test-sdk-${Date.now()}`;
+    const { formId } = await helpers.createFormData("SDK Toggle Test", formSlug);
+
+    // Navigate to form details
+    await helpers.navigateTo(`/admin/forms/${formId}`);
+    await page.waitForLoadState("networkidle");
+
+    // Get initial form code (should not include SDK)
+    const codeElement = await page.waitForSelector("#form-code");
+    const initialCode = await codeElement.textContent();
+    expect(initialCode).not.toContain("formlander.js");
+    helpers.log("✅ Initial code does not include SDK");
+
+    // Check the SDK toggle
+    const sdkCheckbox = await page.waitForSelector("#include-sdk");
+    await sdkCheckbox.check();
+
+    // Wait for code to update
+    await page.waitForTimeout(100);
+
+    // Verify SDK script is now included
+    const codeWithSdk = await codeElement.textContent();
+    expect(codeWithSdk).toContain("formlander.js");
+    expect(codeWithSdk).toContain("Formlander SDK");
+    helpers.log("✅ Code includes SDK after toggle");
+
+    // Uncheck the SDK toggle
+    await sdkCheckbox.uncheck();
+    await page.waitForTimeout(100);
+
+    // Verify SDK script is removed
+    const codeWithoutSdk = await codeElement.textContent();
+    expect(codeWithoutSdk).not.toContain("formlander.js");
+    helpers.log("✅ Code excludes SDK after untoggle");
+  });
+
+  test("5. Configure form delivery settings", async ({ page }) => {
     helpers.log("=== Configuring Form Delivery ===");
 
     // Create mailer and captcha profiles first
