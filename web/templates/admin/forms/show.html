@@ -169,6 +169,15 @@
                 and styles to your project. Just keep the provided action, method, and data attributes intact so
                 submissions continue to work.
             </p>
+            <!-- SDK Toggle -->
+            <div class="mt-4 flex items-center gap-2">
+                <input type="checkbox" id="include-sdk" onchange="toggleSDK()"
+                    class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                <label for="include-sdk" class="text-sm font-medium text-gray-700">
+                    Include JavaScript SDK
+                </label>
+                <span class="text-xs text-gray-500">(adds automatic retry & loading states)</span>
+            </div>
         </div>
 
         <!-- Tabs -->
@@ -229,11 +238,36 @@
     <script src="/assets/vendor/highlight.min.js"></script>
     <link rel="stylesheet" href="/assets/vendor/highlight-github-dark.min.css">
     <script>
+        // Store original code without SDK (captured on load)
+        let originalFormCode = '';
+        const sdkScriptTag = '\n\n<!-- Formlander SDK: adds automatic retry & loading states -->\n<script src="/assets/formlander.js"><\/script>';
+
         // Initialize syntax highlighting
         document.addEventListener('DOMContentLoaded', function () {
+            // Capture original code before any modifications
+            originalFormCode = document.getElementById('form-code').textContent;
             hljs.highlightAll();
             loadPreview();
         });
+
+        // Toggle SDK inclusion
+        function toggleSDK() {
+            const checkbox = document.getElementById('include-sdk');
+            const codeElement = document.getElementById('form-code');
+
+            if (checkbox.checked) {
+                codeElement.textContent = originalFormCode + sdkScriptTag;
+            } else {
+                codeElement.textContent = originalFormCode;
+            }
+
+            // Re-apply syntax highlighting
+            codeElement.removeAttribute('data-highlighted');
+            hljs.highlightElement(codeElement);
+
+            // Reload preview
+            loadPreview();
+        }
 
         // Tab switching
         function switchTab(tab) {
