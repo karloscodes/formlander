@@ -3,7 +3,7 @@ package jobs
 import (
 	"time"
 
-	"go.uber.org/zap"
+	"log/slog"
 
 	"formlander/internal/config"
 	"formlander/internal/database"
@@ -16,12 +16,12 @@ type UnifiedDispatcher struct {
 }
 
 // NewUnifiedDispatcher creates a single dispatcher that handles both webhooks and emails.
-func NewUnifiedDispatcher(cfg *config.Config, logger *zap.Logger, db *database.Manager) *UnifiedDispatcher {
+func NewUnifiedDispatcher(cfg *config.Config, logger *slog.Logger, db *database.Manager) *UnifiedDispatcher {
 	webhooks := NewWebhookDispatcher(cfg)
 	emails := NewEmailDispatcher(cfg)
 
 	dispatcher := cartridgeJobs.NewDispatcher(
-		logger.Named("unified-dispatcher"),
+		logger.With(slog.String("component", "unified-dispatcher")),
 		db,
 		2*time.Minute,
 		webhooks,

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"go.uber.org/zap"
+	"log/slog"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 
@@ -88,13 +88,13 @@ func runMigrations(app *cartridge.Application, cfg *config.Config) error {
 
 	// Checkpoint WAL to ensure migrations are persisted
 	if err := app.DBManager.CheckpointWAL("FULL"); err != nil {
-		app.Logger.Warn("failed to checkpoint WAL after migration", zap.Error(err))
+		app.Logger.Warn("failed to checkpoint WAL after migration", slog.Any("error", err))
 	}
 
 	return nil
 }
 
-func ensureAdminUser(db *gorm.DB, cfg *config.Config, logger *zap.Logger) error {
+func ensureAdminUser(db *gorm.DB, cfg *config.Config, logger *slog.Logger) error {
 	var count int64
 	if err := db.Model(&accounts.User{}).Count(&count).Error; err != nil {
 		return err
@@ -127,7 +127,7 @@ func ensureAdminUser(db *gorm.DB, cfg *config.Config, logger *zap.Logger) error 
 	if err := dbtxn.WithRetry(logger, db, func(tx *gorm.DB) error {
 		return tx.Create(admin).Error
 	}); err != nil {
-		logger.Error("failed to create default admin user", zap.Error(err))
+		logger.Error("failed to create default admin user", slog.Any("error", err))
 		return err
 	}
 

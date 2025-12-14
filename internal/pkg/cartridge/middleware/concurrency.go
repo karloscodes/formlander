@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
-	"go.uber.org/zap"
+	"log/slog"
 	"golang.org/x/sync/semaphore"
 )
 
@@ -14,11 +14,11 @@ type ConcurrencyLimiter struct {
 	readSem  *semaphore.Weighted
 	writeSem *semaphore.Weighted
 	timeout  time.Duration
-	logger   *zap.Logger
+	logger   *slog.Logger
 }
 
 // NewConcurrencyLimiter constructs a limiter with the provided thresholds.
-func NewConcurrencyLimiter(readLimit, writeLimit int64, timeout time.Duration, logger *zap.Logger) *ConcurrencyLimiter {
+func NewConcurrencyLimiter(readLimit, writeLimit int64, timeout time.Duration, logger *slog.Logger) *ConcurrencyLimiter {
 	return &ConcurrencyLimiter{
 		readSem:  semaphore.NewWeighted(readLimit),
 		writeSem: semaphore.NewWeighted(writeLimit),
@@ -39,8 +39,8 @@ func WriteConcurrencyLimitMiddleware(limiter *ConcurrencyLimiter) fiber.Handler 
 		// Check if parent context is already canceled
 		if err := c.Context().Err(); err != nil {
 			limiter.logger.Debug("Request context already canceled",
-				zap.String("path", c.Path()),
-				zap.Error(err),
+				slog.String("path", c.Path()),
+				slog.Any("error", err),
 			)
 			return c.Status(fiber.StatusRequestTimeout).JSON(fiber.Map{
 				"error":   "Request Timeout",
@@ -56,11 +56,11 @@ func WriteConcurrencyLimitMiddleware(limiter *ConcurrencyLimiter) fiber.Handler 
 		if err := limiter.AcquireWrite(ctx); err != nil {
 			waitTime := time.Since(start)
 			limiter.logger.Warn("Write concurrency limit reached",
-				zap.String("path", c.Path()),
-				zap.String("ip", c.IP()),
-				zap.String("method", c.Method()),
-				zap.Duration("wait_time", waitTime),
-				zap.Error(err),
+				slog.String("path", c.Path()),
+				slog.String("ip", c.IP()),
+				slog.String("method", c.Method()),
+				slog.Duration("wait_time", waitTime),
+				slog.Any("error", err),
 			)
 
 			// Return appropriate error based on context
@@ -82,9 +82,9 @@ func WriteConcurrencyLimitMiddleware(limiter *ConcurrencyLimiter) fiber.Handler 
 		acquireTime := time.Since(start)
 		if acquireTime > 100*time.Millisecond {
 			limiter.logger.Info("Write operation queued (high load detected)",
-				zap.String("path", c.Path()),
-				zap.String("ip", c.IP()),
-				zap.Duration("queue_time", acquireTime),
+				slog.String("path", c.Path()),
+				slog.String("ip", c.IP()),
+				slog.Duration("queue_time", acquireTime),
 			)
 		}
 

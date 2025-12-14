@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"go.uber.org/zap"
+	"log/slog"
 	"gorm.io/gorm"
 
 	"formlander/internal/pkg/dbtxn"
@@ -20,10 +20,10 @@ type SubmissionParams struct {
 }
 
 // CreateSubmission creates a new submission and associated delivery events
-func CreateSubmission(logger *zap.Logger, db *gorm.DB, form *Form, payload map[string]any, userAgent string) (*Submission, error) {
+func CreateSubmission(logger *slog.Logger, db *gorm.DB, form *Form, payload map[string]any, userAgent string) (*Submission, error) {
 	encoded, err := json.Marshal(payload)
 	if err != nil {
-		logger.Error("encode submission payload", zap.Error(err))
+		logger.Error("encode submission payload", slog.Any("error", err))
 		return nil, fmt.Errorf("failed to encode submission payload")
 	}
 
@@ -63,7 +63,7 @@ func CreateSubmission(logger *zap.Logger, db *gorm.DB, form *Form, payload map[s
 
 		return nil
 	}); err != nil {
-		logger.Error("store submission failed", zap.Error(err))
+		logger.Error("store submission failed", slog.Any("error", err))
 		return nil, fmt.Errorf("failed to save submission")
 	}
 

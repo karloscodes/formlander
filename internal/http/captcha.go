@@ -10,7 +10,7 @@ import (
 	"formlander/internal/pkg/cartridge"
 
 	"github.com/gofiber/fiber/v2"
-	"go.uber.org/zap"
+	"log/slog"
 )
 
 type siteKeyEntry struct {
@@ -218,7 +218,7 @@ func CaptchaProfileDelete(ctx *cartridge.Context) error {
 
 	logger := ctx.Logger
 	if err := integrations.DeleteCaptchaProfile(logger, db, uint(profileID)); err != nil {
-		logger.Error("failed to delete captcha profile", zap.Error(err), zap.Uint("profile_id", uint(profileID)))
+		logger.Error("failed to delete captcha profile", slog.Any("error", err), slog.Uint64("profile_id", uint64(profileID)))
 		return fiber.ErrInternalServerError
 	}
 

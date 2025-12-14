@@ -15,7 +15,7 @@ import (
 	"formlander/internal/pkg/cartridge"
 	"formlander/internal/pkg/cartridge/middleware"
 
-	"go.uber.org/zap"
+	"log/slog"
 )
 
 // PublicFormSubmission accepts a submission for the given form slug.
@@ -166,7 +166,7 @@ func APISubmissionCreate(ctx *cartridge.Context) error {
 	userAgent := ctx.Get(fiber.HeaderUserAgent)
 	submission, err := forms.CreateSubmission(logger, db, &form, req.Data, userAgent)
 	if err != nil {
-		logger.Error("api submission persistence failed", zap.Error(err))
+		logger.Error("api submission persistence failed", slog.Any("error", err))
 		return jsonError(ctx, fiber.StatusInternalServerError, "failed to save submission")
 	}
 
@@ -307,7 +307,7 @@ func enforceCaptchaIfNeeded(ctx *cartridge.Context, form *forms.Form, payload ma
 	if form.CaptchaProfile == nil {
 		logger := ctx.Logger
 		if logger != nil {
-			logger.Warn("captcha profile missing preload", zap.Uint("form_id", form.ID))
+			logger.Warn("captcha profile missing preload", slog.Uint64("form_id", uint64(form.ID)))
 		}
 		return errors.New("captcha verification failed")
 	}
@@ -321,7 +321,7 @@ func enforceCaptchaIfNeeded(ctx *cartridge.Context, form *forms.Form, payload ma
 	if secret == "" {
 		logger := ctx.Logger
 		if logger != nil {
-			logger.Warn("captcha profile missing secret", zap.Uint("form_id", form.ID))
+			logger.Warn("captcha profile missing secret", slog.Uint64("form_id", uint64(form.ID)))
 		}
 		return errors.New("captcha verification failed")
 	}
@@ -329,7 +329,7 @@ func enforceCaptchaIfNeeded(ctx *cartridge.Context, form *forms.Form, payload ma
 	if err := middleware.VerifyTurnstileToken(secret, token, ctx.IP()); err != nil {
 		logger := ctx.Logger
 		if logger != nil {
-			logger.Warn("turnstile verification failed", zap.Uint("form_id", form.ID), zap.Error(err))
+			logger.Warn("turnstile verification failed", slog.Uint64("form_id", uint64(form.ID)), slog.Any("error", err))
 		}
 		return errors.New("captcha verification failed")
 	}

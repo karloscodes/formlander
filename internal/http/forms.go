@@ -18,7 +18,7 @@ import (
 	"formlander/internal/pkg/cartridge"
 	"formlander/internal/pkg/dbtxn"
 
-	"go.uber.org/zap"
+	"log/slog"
 )
 
 // AdminFormsIndex renders the list of forms.
@@ -164,7 +164,7 @@ func AdminFormsCreate(ctx *cartridge.Context) error {
 		if validationErr, ok := err.(*forms.ValidationError); ok {
 			return renderFormError(ctx, cfg, validationErr.Message, nil, nil, nil, false, selectedTemplate)
 		}
-		ctx.Logger.Error("failed to create form", zap.Error(err))
+		ctx.Logger.Error("failed to create form", slog.Any("error", err))
 		return fiber.ErrInternalServerError
 	}
 
@@ -175,7 +175,7 @@ func AdminFormsCreate(ctx *cartridge.Context) error {
 			if err := dbtxn.WithRetry(ctx.Logger, db, func(tx *gorm.DB) error {
 				return tx.Model(form).Update("generated_html", html).Error
 			}); err != nil {
-				ctx.Logger.Error("failed to update generated HTML", zap.Error(err))
+				ctx.Logger.Error("failed to update generated HTML", slog.Any("error", err))
 			}
 		}
 	}
@@ -207,7 +207,7 @@ func AdminFormShow(ctx *cartridge.Context) error {
 	// Ensure delivery records exist
 	if err := forms.EnsureDeliveryRecords(logger, db, form); err != nil {
 		// Log but don't fail - continue showing the form
-		logger.Error("failed to ensure delivery records", zap.Error(err))
+		logger.Error("failed to ensure delivery records", slog.Any("error", err))
 	}
 
 	submissions, err := forms.GetSubmissions(db, form.ID, 25)
@@ -247,7 +247,7 @@ func AdminFormShow(ctx *cartridge.Context) error {
 		var err error
 		if prepared, err = normalizeFormHTML(form.GeneratedHTML, actionURL, form); err != nil {
 			if logger != nil {
-				logger.Warn("failed to normalize generated form HTML", zap.Error(err), zap.Uint("form_id", form.ID))
+				logger.Warn("failed to normalize generated form HTML", slog.Any("error", err), slog.Uint64("form_id", uint64(form.ID)))
 			}
 			prepared = form.GeneratedHTML
 		}
@@ -294,7 +294,7 @@ func AdminFormsEdit(ctx *cartridge.Context) error {
 	// Initialize deliveries if they don't exist
 	logger := ctx.Logger
 	if err := forms.EnsureDeliveryRecords(logger, db, form); err != nil {
-		logger.Error("failed to ensure delivery records", zap.Error(err))
+		logger.Error("failed to ensure delivery records", slog.Any("error", err))
 	}
 
 	// Load profiles for dropdowns

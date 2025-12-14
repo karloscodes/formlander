@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"go.uber.org/zap"
+	"log/slog"
 	"gorm.io/gorm"
 )
 
@@ -18,7 +18,7 @@ func init() {
 // WithRetry executes a write transaction with retry logic for SQLite busy errors.
 // Given the current database configuration (busy_timeout=5000, WAL mode, _txlock=immediate),
 // retries should be rare but provide an additional safety layer for high-concurrency scenarios.
-func WithRetry(logger *zap.Logger, db *gorm.DB, fn func(tx *gorm.DB) error) error {
+func WithRetry(logger *slog.Logger, db *gorm.DB, fn func(tx *gorm.DB) error) error {
 	const (
 		maxRetries = 10
 		baseDelay  = 100 * time.Millisecond
@@ -33,7 +33,7 @@ func WithRetry(logger *zap.Logger, db *gorm.DB, fn func(tx *gorm.DB) error) erro
 				delay = maxDelay
 			}
 			delay += time.Duration(rand.Float64() * 0.2 * float64(delay))
-			logger.Info("retrying transaction", zap.Int("attempt", attempt+1), zap.Duration("delay", delay), zap.Error(err))
+			logger.Info("retrying transaction", slog.Int("attempt", attempt+1), slog.Duration("delay", delay), slog.Any("error", err))
 			time.Sleep(delay)
 		}
 

@@ -9,7 +9,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
+	"io"
+	"log/slog"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
@@ -36,7 +37,7 @@ func createTestUser(t *testing.T, db *gorm.DB, email, password string, withLastL
 
 func TestAuthenticate(t *testing.T) {
 	db := testsupport.SetupTestDB(t)
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	t.Run("authenticates with correct credentials", func(t *testing.T) {
 		createTestUser(t, db, "test@example.com", "password123", false)
@@ -104,7 +105,7 @@ func TestAuthenticate(t *testing.T) {
 
 func TestChangePassword(t *testing.T) {
 	db := testsupport.SetupTestDB(t)
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	t.Run("changes password successfully", func(t *testing.T) {
 		createTestUser(t, db, "user@example.com", "oldpassword", false)
@@ -199,7 +200,7 @@ func TestPasswordHashing(t *testing.T) {
 
 func TestAuthenticationSecurity(t *testing.T) {
 	db := testsupport.SetupTestDB(t)
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	t.Run("password comparison uses bcrypt", func(t *testing.T) {
 		// Verify that wrong password attempts use bcrypt (timing-safe)
@@ -226,7 +227,7 @@ func TestAuthenticationSecurity(t *testing.T) {
 
 func TestFirstLoginDetection(t *testing.T) {
 	db := testsupport.SetupTestDB(t)
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	t.Run("detects first login correctly", func(t *testing.T) {
 		createTestUser(t, db, "user@example.com", "password123", false)

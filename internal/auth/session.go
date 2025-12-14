@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
-	"go.uber.org/zap"
+	"log/slog"
 	"golang.org/x/crypto/bcrypt"
 
 	"formlander/internal/config"
@@ -75,9 +75,9 @@ func SetAuthCookie(c *fiber.Ctx, userID uint) error {
 		SameSite: "Lax",
 	})
 
-	zap.L().Debug("Setting auth session",
-		zap.Uint("userID", userID),
-		zap.Time("expiresAt", sessionData.ExpiresAt))
+	slog.Debug("Setting auth session",
+		slog.Uint64("userID", uint64(userID)),
+		slog.Time("expiresAt", sessionData.ExpiresAt))
 	return nil
 }
 
@@ -94,40 +94,40 @@ func ClearAuthCookie(c *fiber.Ctx) {
 		HTTPOnly: true,
 		SameSite: "Lax",
 	})
-	zap.L().Debug("Cleared auth session")
+	slog.Debug("Cleared auth session")
 }
 
 // IsAuthenticated checks if the user is authenticated
 func IsAuthenticated(c *fiber.Ctx) bool {
 	token := c.Cookies(SessionCookieName)
 	if token == "" {
-		zap.L().Debug("No session cookie found")
+		slog.Debug("No session cookie found")
 		return false
 	}
 
 	sessionData, err := verify(token)
 	if err != nil {
-		zap.L().Debug("Failed to verify session", zap.Error(err))
+		slog.Debug("Failed to verify session", slog.Any("error", err))
 		return false
 	}
 
 	if time.Now().After(sessionData.ExpiresAt) {
-		zap.L().Debug("Session expired",
-			zap.Time("expiresAt", sessionData.ExpiresAt),
-			zap.Time("currentTime", time.Now()))
+		slog.Debug("Session expired",
+			slog.Time("expiresAt", sessionData.ExpiresAt),
+			slog.Time("currentTime", time.Now()))
 		return false
 	}
 
 	if _, err := strconv.ParseUint(sessionData.UserID, 10, 64); err != nil {
-		zap.L().Debug("User ID in session is not valid",
-			zap.String("userID", sessionData.UserID),
-			zap.Error(err))
+		slog.Debug("User ID in session is not valid",
+			slog.String("userID", sessionData.UserID),
+			slog.Any("error", err))
 		return false
 	}
 
-	zap.L().Debug("Session validated",
-		zap.String("userID", sessionData.UserID),
-		zap.Time("expiresAt", sessionData.ExpiresAt))
+	slog.Debug("Session validated",
+		slog.String("userID", sessionData.UserID),
+		slog.Time("expiresAt", sessionData.ExpiresAt))
 	return true
 }
 
@@ -140,7 +140,7 @@ func GetUserID(c *fiber.Ctx) (uint, bool) {
 
 	sessionData, err := verify(token)
 	if err != nil {
-		zap.L().Debug("Failed to verify session", zap.Error(err))
+		slog.Debug("Failed to verify session", slog.Any("error", err))
 		return 0, false
 	}
 

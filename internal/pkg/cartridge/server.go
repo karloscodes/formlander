@@ -18,7 +18,7 @@ import (
 	fiberrecover "github.com/gofiber/fiber/v2/middleware/recover"
 	"github.com/gofiber/fiber/v2/middleware/requestid"
 	"github.com/gofiber/template/html/v2"
-	"go.uber.org/zap"
+	"log/slog"
 
 	"formlander/internal/config"
 	"formlander/internal/database"
@@ -35,7 +35,7 @@ var (
 // injected into each request's Context via wrapHandler.
 type Config struct {
 	Config    *config.Config    // Runtime configuration
-	Logger    *zap.Logger       // Application logger
+	Logger    *slog.Logger       // Application logger
 	DBManager *database.Manager // Database connection pool
 
 	ErrorHandler fiber.ErrorHandler
@@ -381,7 +381,7 @@ func (s *Server) Start() error {
 			return c.Redirect(s.catchAll, fiber.StatusTemporaryRedirect)
 		})
 	}
-	s.cfg.Logger.Info("starting http server", zap.String("addr", ":"+s.cfg.Config.Port))
+	s.cfg.Logger.Info("starting http server", slog.String("addr", ":"+s.cfg.Config.Port))
 	return s.app.Listen(":" + s.cfg.Config.Port)
 }
 
@@ -389,7 +389,7 @@ func (s *Server) Start() error {
 func (s *Server) StartAsync() error {
 	go func() {
 		if err := s.Start(); err != nil {
-			s.cfg.Logger.Error("fiber listen failed", zap.Error(err))
+			s.cfg.Logger.Error("fiber listen failed", slog.Any("error", err))
 		}
 	}()
 	return nil
@@ -410,7 +410,7 @@ func (s *Server) Shutdown(ctx context.Context) error {
 	}
 }
 
-func defaultErrorHandler(log *zap.Logger, cfg *config.Config) fiber.ErrorHandler {
+func defaultErrorHandler(log *slog.Logger, cfg *config.Config) fiber.ErrorHandler {
 	return func(c *fiber.Ctx, err error) error {
 		code := fiber.StatusInternalServerError
 		if e, ok := err.(*fiber.Error); ok {
@@ -418,10 +418,10 @@ func defaultErrorHandler(log *zap.Logger, cfg *config.Config) fiber.ErrorHandler
 		}
 
 		log.Error("request failed",
-			zap.Error(err),
-			zap.String("path", c.Path()),
-			zap.String("method", c.Method()),
-			zap.Int("status", code),
+			slog.Any("error", err),
+			slog.String("path", c.Path()),
+			slog.String("method", c.Method()),
+			slog.Int("status", code),
 		)
 
 		// JSON error response for API requests

@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"go.uber.org/zap"
+	"log/slog"
 	"gorm.io/gorm"
 
 	"formlander/internal/database"
@@ -14,7 +14,7 @@ import (
 // JobContext provides job-scoped access to application dependencies.
 type JobContext struct {
 	context.Context
-	Logger *zap.Logger
+	Logger *slog.Logger
 	DB     *gorm.DB
 }
 
@@ -25,7 +25,7 @@ type Processor interface {
 
 // Dispatcher runs processors periodically in a background loop.
 type Dispatcher struct {
-	logger     *zap.Logger
+	logger     *slog.Logger
 	dbManager  *database.Manager
 	processors []Processor
 	interval   time.Duration
@@ -36,9 +36,9 @@ type Dispatcher struct {
 }
 
 // NewDispatcher creates a new background job dispatcher.
-func NewDispatcher(logger *zap.Logger, dbManager *database.Manager, interval time.Duration, processors ...Processor) *Dispatcher {
+func NewDispatcher(logger *slog.Logger, dbManager *database.Manager, interval time.Duration, processors ...Processor) *Dispatcher {
 	return &Dispatcher{
-		logger:     logger.Named("dispatcher"),
+		logger:     logger.With(slog.String("component", "dispatcher")),
 		dbManager:  dbManager,
 		processors: processors,
 		interval:   interval,
@@ -77,7 +77,7 @@ func (d *Dispatcher) Stop() {
 func (d *Dispatcher) loop() {
 	defer d.wg.Done()
 
-	d.logger.Info("dispatcher started", zap.Int("processors", len(d.processors)))
+	d.logger.Info("dispatcher started", slog.Int("processors", len(d.processors)))
 	ticker := time.NewTicker(d.interval)
 	defer ticker.Stop()
 
@@ -98,7 +98,7 @@ func (d *Dispatcher) loop() {
 func (d *Dispatcher) processBatch() {
 	db, err := d.dbManager.Connect()
 	if err != nil {
-		d.logger.Error("failed to connect to database", zap.Error(err))
+		d.logger.Error("failed to connect to database", slog.Any("error", err))
 		return
 	}
 
@@ -110,7 +110,7 @@ func (d *Dispatcher) processBatch() {
 
 	for _, processor := range d.processors {
 		if err := processor.ProcessBatch(ctx); err != nil {
-			d.logger.Error("processor failed", zap.Error(err))
+			d.logger.Error("processor failed", slog.Any("error", err))
 		}
 	}
 }

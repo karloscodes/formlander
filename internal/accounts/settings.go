@@ -1,7 +1,7 @@
 package accounts
 
 import (
-	"go.uber.org/zap"
+	"log/slog"
 	"gorm.io/gorm"
 
 	"formlander/internal/pkg/dbtxn"
@@ -23,7 +23,7 @@ func GetSetting(db *gorm.DB, key string) (string, error) {
 }
 
 // SetSetting updates or creates a setting
-func SetSetting(db *gorm.DB, logger *zap.Logger, key, value string) error {
+func SetSetting(db *gorm.DB, logger *slog.Logger, key, value string) error {
 	var setting Settings
 	err := db.Where("key = ?", key).First(&setting).Error
 

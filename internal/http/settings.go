@@ -4,7 +4,7 @@ import (
 	"errors"
 
 	"github.com/gofiber/fiber/v2"
-	"go.uber.org/zap"
+	"log/slog"
 
 	"formlander/internal/accounts"
 	"formlander/internal/auth"
@@ -84,7 +84,7 @@ func AdminSettingsUpdatePassword(ctx *cartridge.Context) error {
 		if errors.Is(err, accounts.ErrPasswordMismatch) {
 			return renderSettingsError(ctx, "Current password is incorrect")
 		}
-		ctx.Logger.Error("password change failed in settings", zap.Error(err))
+		ctx.Logger.Error("password change failed in settings", slog.Any("error", err))
 		return fiber.ErrInternalServerError
 	}
 

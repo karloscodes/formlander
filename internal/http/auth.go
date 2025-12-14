@@ -4,7 +4,7 @@ import (
 	"errors"
 
 	"github.com/gofiber/fiber/v2"
-	"go.uber.org/zap"
+	"log/slog"
 
 	"formlander/internal/accounts"
 	"formlander/internal/auth"
@@ -38,7 +38,7 @@ func AdminLoginSubmit(ctx *cartridge.Context) error {
 
 	db, err := ctx.DB()
 	if err != nil {
-		ctx.Logger.Error("failed to get database from context", zap.Error(err))
+		ctx.Logger.Error("failed to get database from context", slog.Any("error", err))
 		return fiber.ErrInternalServerError
 	}
 
@@ -47,12 +47,12 @@ func AdminLoginSubmit(ctx *cartridge.Context) error {
 		if errors.Is(err, accounts.ErrInvalidCredentials) || errors.Is(err, accounts.ErrMissingFields) {
 			return renderLoginError(ctx, "Invalid credentials")
 		}
-		ctx.Logger.Error("authentication failed", zap.Error(err))
+		ctx.Logger.Error("authentication failed", slog.Any("error", err))
 		return fiber.ErrInternalServerError
 	}
 
 	if err := auth.SetAuthCookie(ctx.Ctx, result.User.ID); err != nil {
-		ctx.Logger.Error("failed to set session cookie", zap.Error(err), zap.Uint("userID", result.User.ID))
+		ctx.Logger.Error("failed to set session cookie", slog.Any("error", err), slog.Uint64("userID", uint64(result.User.ID)))
 		return fiber.ErrInternalServerError
 	}
 
@@ -114,7 +114,7 @@ func AdminChangePasswordSubmit(ctx *cartridge.Context) error {
 
 	user, err := accounts.FindByID(db, userID)
 	if err != nil {
-		ctx.Logger.Error("failed to find user", zap.Error(err), zap.Uint("userID", userID))
+		ctx.Logger.Error("failed to find user", slog.Any("error", err), slog.Uint64("userID", uint64(userID)))
 		return fiber.ErrUnauthorized
 	}
 
@@ -125,7 +125,7 @@ func AdminChangePasswordSubmit(ctx *cartridge.Context) error {
 		if errors.Is(err, accounts.ErrPasswordMismatch) {
 			return renderChangePasswordError(ctx, "Current password is incorrect")
 		}
-		ctx.Logger.Error("password change failed", zap.Error(err))
+		ctx.Logger.Error("password change failed", slog.Any("error", err))
 		return fiber.ErrInternalServerError
 	}
 

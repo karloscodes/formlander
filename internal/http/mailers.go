@@ -9,7 +9,7 @@ import (
 	"formlander/internal/pkg/cartridge"
 
 	"github.com/gofiber/fiber/v2"
-	"go.uber.org/zap"
+	"log/slog"
 )
 
 // MailerProfileList shows all mailer profiles.
@@ -189,7 +189,7 @@ func MailerProfileDelete(ctx *cartridge.Context) error {
 
 	logger := ctx.Logger
 	if err := integrations.DeleteMailerProfile(logger, db, uint(profileID)); err != nil {
-		logger.Error("failed to delete mailer profile", zap.Error(err), zap.Uint("profile_id", uint(profileID)))
+		logger.Error("failed to delete mailer profile", slog.Any("error", err), slog.Uint64("profile_id", uint64(profileID)))
 		return fiber.ErrInternalServerError
 	}
 

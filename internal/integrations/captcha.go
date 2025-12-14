@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"go.uber.org/zap"
+	"log/slog"
 	"gorm.io/gorm"
 
 	"formlander/internal/pkg/dbtxn"
@@ -21,7 +21,7 @@ type CaptchaProfileParams struct {
 }
 
 // CreateCaptchaProfile creates a new captcha profile
-func CreateCaptchaProfile(logger *zap.Logger, db *gorm.DB, params CaptchaProfileParams) (*CaptchaProfile, error) {
+func CreateCaptchaProfile(logger *slog.Logger, db *gorm.DB, params CaptchaProfileParams) (*CaptchaProfile, error) {
 	// Validate required fields
 	name := strings.TrimSpace(params.Name)
 	if name == "" {
@@ -66,7 +66,7 @@ func CreateCaptchaProfile(logger *zap.Logger, db *gorm.DB, params CaptchaProfile
 	if err := dbtxn.WithRetry(logger, db, func(tx *gorm.DB) error {
 		return tx.Create(profile).Error
 	}); err != nil {
-		logger.Error("failed to create captcha profile", zap.Error(err))
+		logger.Error("failed to create captcha profile", slog.Any("error", err))
 		return nil, fmt.Errorf("failed to create profile: %w", err)
 	}
 
@@ -74,7 +74,7 @@ func CreateCaptchaProfile(logger *zap.Logger, db *gorm.DB, params CaptchaProfile
 }
 
 // UpdateCaptchaProfile updates an existing captcha profile
-func UpdateCaptchaProfile(logger *zap.Logger, db *gorm.DB, id uint, params CaptchaProfileParams) (*CaptchaProfile, error) {
+func UpdateCaptchaProfile(logger *slog.Logger, db *gorm.DB, id uint, params CaptchaProfileParams) (*CaptchaProfile, error) {
 	// Validate required fields
 	name := strings.TrimSpace(params.Name)
 	if name == "" {
@@ -123,7 +123,7 @@ func UpdateCaptchaProfile(logger *zap.Logger, db *gorm.DB, id uint, params Captc
 			"policy_json":    policyJSON,
 		}).Error
 	}); err != nil {
-		logger.Error("failed to update captcha profile", zap.Error(err), zap.Uint("id", id))
+		logger.Error("failed to update captcha profile", slog.Any("error", err), slog.Uint64("id", uint64(id)))
 		return nil, fmt.Errorf("failed to update profile: %w", err)
 	}
 
@@ -132,7 +132,7 @@ func UpdateCaptchaProfile(logger *zap.Logger, db *gorm.DB, id uint, params Captc
 }
 
 // DeleteCaptchaProfile deletes a captcha profile
-func DeleteCaptchaProfile(logger *zap.Logger, db *gorm.DB, id uint) error {
+func DeleteCaptchaProfile(logger *slog.Logger, db *gorm.DB, id uint) error {
 	return dbtxn.WithRetry(logger, db, func(tx *gorm.DB) error {
 		return tx.Delete(&CaptchaProfile{}, id).Error
 	})

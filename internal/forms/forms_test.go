@@ -9,12 +9,13 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
+	"io"
+	"log/slog"
 )
 
 func TestCreateSubmission(t *testing.T) {
 	db := testsupport.SetupTestDB(t)
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	t.Run("creates submission successfully", func(t *testing.T) {
 		form := &forms.Form{
@@ -282,7 +283,7 @@ func TestSlugify(t *testing.T) {
 
 func TestEnsureDeliveryRecords(t *testing.T) {
 	db := testsupport.SetupTestDB(t)
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	t.Run("creates email delivery when missing", func(t *testing.T) {
 		form := &forms.Form{
@@ -367,7 +368,7 @@ func TestGetBySlug(t *testing.T) {
 
 func TestUpdate(t *testing.T) {
 	db := testsupport.SetupTestDB(t)
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	t.Run("updates form successfully", func(t *testing.T) {
 		// Create initial form
@@ -555,7 +556,7 @@ func TestUpdate(t *testing.T) {
 
 func TestDelete(t *testing.T) {
 	db := testsupport.SetupTestDB(t)
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	t.Run("deletes form successfully", func(t *testing.T) {
 		form := &forms.Form{

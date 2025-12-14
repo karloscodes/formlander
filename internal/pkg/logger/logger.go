@@ -3,14 +3,15 @@ package logger
 import (
 	"context"
 	"errors"
+	"fmt"
+	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
 
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 	"gopkg.in/natefinch/lumberjack.v2"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -19,45 +20,17 @@ import (
 )
 
 // Initialize sets up structured logging to stdout and a rotating file.
-func Initialize(cfg *config.Config) (*zap.Logger, error) {
-	consoleEncoder := zapcore.NewConsoleEncoder(zapcore.EncoderConfig{
-		TimeKey:        "ts",
-		LevelKey:       "level",
-		NameKey:        "logger",
-		CallerKey:      "caller",
-		MessageKey:     "msg",
-		StacktraceKey:  "stacktrace",
-		LineEnding:     zapcore.DefaultLineEnding,
-		EncodeTime:     zapcore.ISO8601TimeEncoder,
-		EncodeLevel:    zapcore.CapitalColorLevelEncoder,
-		EncodeCaller:   zapcore.ShortCallerEncoder,
-		EncodeDuration: zapcore.StringDurationEncoder,
-	})
-
-	fileEncoder := zapcore.NewJSONEncoder(zapcore.EncoderConfig{
-		TimeKey:        "ts",
-		LevelKey:       "level",
-		NameKey:        "logger",
-		CallerKey:      "caller",
-		MessageKey:     "msg",
-		StacktraceKey:  "stacktrace",
-		LineEnding:     zapcore.DefaultLineEnding,
-		EncodeTime:     zapcore.ISO8601TimeEncoder,
-		EncodeLevel:    zapcore.LowercaseLevelEncoder,
-		EncodeCaller:   zapcore.ShortCallerEncoder,
-		EncodeDuration: zapcore.StringDurationEncoder,
-	})
-
-	level := zapcore.InfoLevel
+func Initialize(cfg *config.Config) (*slog.Logger, error) {
+	level := slog.LevelInfo
 	switch cfg.LogLevel {
 	case config.LogLevelDebug:
-		level = zapcore.DebugLevel
+		level = slog.LevelDebug
 	case config.LogLevelInfo:
-		level = zapcore.InfoLevel
+		level = slog.LevelInfo
 	case config.LogLevelWarn:
-		level = zapcore.WarnLevel
+		level = slog.LevelWarn
 	case config.LogLevelError:
-		level = zapcore.ErrorLevel
+		level = slog.LevelError
 	}
 
 	rotator := &lumberjack.Logger{
@@ -68,19 +41,23 @@ func Initialize(cfg *config.Config) (*zap.Logger, error) {
 		Compress:   false,
 	}
 
-	core := zapcore.NewTee(
-		zapcore.NewCore(consoleEncoder, zapcore.AddSync(os.Stdout), level),
-		zapcore.NewCore(fileEncoder, zapcore.AddSync(rotator), level),
-	)
+	// Multi-writer for both console and file
+	multiWriter := io.MultiWriter(os.Stdout, rotator)
 
-	return zap.New(core, zap.AddCaller()), nil
+	opts := &slog.HandlerOptions{
+		Level:     level,
+		AddSource: true,
+	}
+
+	handler := slog.NewJSONHandler(multiWriter, opts)
+	return slog.New(handler), nil
 }
 
-// GormLogger adapts zap to gorm's logger.Interface.
+// GormLogger adapts slog to gorm's logger.Interface.
 type GormLogger struct {
-	zapLogger *zap.Logger
-	level     logger.LogLevel
-	config    *gormLoggerConfig
+	slogger *slog.Logger
+	level   logger.LogLevel
+	config  *gormLoggerConfig
 }
 
 type gormLoggerConfig struct {
@@ -88,8 +65,8 @@ type gormLoggerConfig struct {
 	IgnoreRecordNotFoundError bool
 }
 
-// NewGormLogger creates a gorm-compatible logger backed by zap.
-func NewGormLogger(zapLogger *zap.Logger) logger.Interface {
+// NewGormLogger creates a gorm-compatible logger backed by slog.
+func NewGormLogger(slogger *slog.Logger) logger.Interface {
 	cfg := config.Get()
 
 	gormLevel := logger.Warn
@@ -103,8 +80,8 @@ func NewGormLogger(zapLogger *zap.Logger) logger.Interface {
 	}
 
 	return &GormLogger{
-		zapLogger: zapLogger,
-		level:     gormLevel,
+		slogger: slogger,
+		level:   gormLevel,
 		config: &gormLoggerConfig{
 			SlowThreshold:             200 * time.Millisecond,
 			IgnoreRecordNotFoundError: true,
@@ -120,19 +97,19 @@ func (l *GormLogger) LogMode(level logger.LogLevel) logger.Interface {
 
 func (l *GormLogger) Info(ctx context.Context, msg string, data ...interface{}) {
 	if l.level >= logger.Info {
-		l.zapLogger.Sugar().Infof(msg, data...)
+		l.slogger.Info(fmt.Sprintf(msg, data...))
 	}
 }
 
 func (l *GormLogger) Warn(ctx context.Context, msg string, data ...interface{}) {
 	if l.level >= logger.Warn {
-		l.zapLogger.Sugar().Warnf(msg, data...)
+		l.slogger.Warn(fmt.Sprintf(msg, data...))
 	}
 }
 
 func (l *GormLogger) Error(ctx context.Context, msg string, data ...interface{}) {
 	if l.level >= logger.Error {
-		l.zapLogger.Sugar().Errorf(msg, data...)
+		l.slogger.Error(fmt.Sprintf(msg, data...))
 	}
 }
 
@@ -149,23 +126,23 @@ func (l *GormLogger) Trace(ctx context.Context, begin time.Time, fc func() (stri
 	case err != nil && (l.config.IgnoreRecordNotFoundError && errors.Is(err, gorm.ErrRecordNotFound)):
 		return
 	case err != nil:
-		l.zapLogger.Error("gorm query failed",
-			zap.Duration("elapsed", elapsed),
-			zap.Int64("rows", rows),
-			zap.String("sql", sql),
-			zap.Error(err),
+		l.slogger.Error("gorm query failed",
+			slog.Duration("elapsed", elapsed),
+			slog.Int64("rows", rows),
+			slog.String("sql", sql),
+			slog.String("error", err.Error()),
 		)
 	case elapsed > l.config.SlowThreshold && l.level >= logger.Warn:
-		l.zapLogger.Warn("gorm slow query",
-			zap.Duration("elapsed", elapsed),
-			zap.Int64("rows", rows),
-			zap.String("sql", sql),
+		l.slogger.Warn("gorm slow query",
+			slog.Duration("elapsed", elapsed),
+			slog.Int64("rows", rows),
+			slog.String("sql", sql),
 		)
 	case l.level >= logger.Info:
-		l.zapLogger.Debug("gorm query",
-			zap.Duration("elapsed", elapsed),
-			zap.Int64("rows", rows),
-			zap.String("sql", sql),
+		l.slogger.Debug("gorm query",
+			slog.Duration("elapsed", elapsed),
+			slog.Int64("rows", rows),
+			slog.String("sql", sql),
 		)
 	}
 }

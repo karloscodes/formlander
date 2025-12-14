@@ -10,7 +10,7 @@ import (
 	"net/http"
 	"time"
 
-	"go.uber.org/zap"
+	"log/slog"
 	"gorm.io/gorm"
 
 	"formlander/internal/config"
@@ -47,7 +47,7 @@ func (d *WebhookDispatcher) ProcessBatch(ctx *jobs.JobContext) error {
 		Order("created_at ASC").
 		Limit(10).
 		Find(&events).Error; err != nil {
-		ctx.Logger.Error("query pending webhooks", zap.Error(err))
+		ctx.Logger.Error("query pending webhooks", slog.Any("error", err))
 		return err
 	}
 
@@ -69,7 +69,7 @@ func (d *WebhookDispatcher) handleEvent(ctx *jobs.JobContext, db *gorm.DB, event
 			Preload("Submission").
 			Preload("Submission.Form").
 			First(event, event.ID).Error; err != nil {
-			ctx.Logger.Error("load webhook associations", zap.Uint("id", event.ID), zap.Error(err))
+			ctx.Logger.Error("load webhook associations", slog.Uint64("id", uint64(event.ID)), slog.Any("error", err))
 			return
 		}
 	}
@@ -123,7 +123,7 @@ func (d *WebhookDispatcher) handleEvent(ctx *jobs.JobContext, db *gorm.DB, event
 	updater := NewEventUpdater(&forms.WebhookEvent{})
 	attemptCount := event.AttemptCount + 1
 	if err := updater.Update(ctx, db, event.ID, forms.WebhookStatusDelivered, start, "", WithAttemptCount(attemptCount), WithNextAttempt(nil)); err != nil {
-		ctx.Logger.Error("update webhook event", zap.Uint("id", event.ID), zap.Error(err))
+		ctx.Logger.Error("update webhook event", slog.Uint64("id", uint64(event.ID)), slog.Any("error", err))
 	} else {
 		event.Status = forms.WebhookStatusDelivered
 		event.AttemptCount = attemptCount
@@ -165,7 +165,7 @@ func (d *WebhookDispatcher) resolveHeaders(ctx *jobs.JobContext, webhookDelivery
 	}
 	var headers map[string]string
 	if err := json.Unmarshal([]byte(webhookDelivery.HeadersJSON), &headers); err != nil {
-		ctx.Logger.Warn("invalid webhook headers JSON", zap.Uint("form_id", webhookDelivery.FormID), zap.Error(err))
+		ctx.Logger.Warn("invalid webhook headers JSON", slog.Uint64("form_id", uint64(webhookDelivery.FormID)), slog.Any("error", err))
 		return map[string]string{}
 	}
 	return headers

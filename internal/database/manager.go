@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"go.uber.org/zap"
+	"log/slog"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
@@ -16,7 +16,7 @@ import (
 // Manager owns the SQLite connection lifecycle.
 type Manager struct {
 	cfg     *config.Config
-	logger  *zap.Logger
+	logger  *slog.Logger
 	db      *gorm.DB
 	dbOnce  sync.Once
 	dbMutex sync.Mutex
@@ -24,7 +24,7 @@ type Manager struct {
 }
 
 // NewManager constructs a database manager for the provided configuration and logger.
-func NewManager(cfg *config.Config, log *zap.Logger) *Manager {
+func NewManager(cfg *config.Config, log *slog.Logger) *Manager {
 	return &Manager{
 		cfg:    cfg,
 		logger: log,
@@ -85,7 +85,7 @@ func (m *Manager) open() error {
 	}
 
 	dsn := m.cfg.DatabaseDSN() + "?_txlock=immediate"
-	gormLogger := logger.NewGormLogger(m.logger.With(zap.String("component", "gorm")))
+	gormLogger := logger.NewGormLogger(m.logger.With(slog.String("component", "gorm")))
 
 	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{
 		Logger:                 gormLogger,
@@ -112,17 +112,17 @@ func (m *Manager) open() error {
 	sqlDB.SetConnMaxLifetime(10 * time.Minute)
 
 	m.logger.Info("database connection established",
-		zap.String("path", m.cfg.DatabaseDSN()),
-		zap.Int("max_open", m.cfg.GetMaxOpenConns()),
-		zap.Int("max_idle", m.cfg.GetMaxIdleConns()),
-		zap.String("manager_id", m.id),
+		slog.String("path", m.cfg.DatabaseDSN()),
+		slog.Int("max_open", m.cfg.GetMaxOpenConns()),
+		slog.Int("max_idle", m.cfg.GetMaxIdleConns()),
+		slog.String("manager_id", m.id),
 	)
 
 	m.db = db
 	return nil
 }
 
-func applySQLitePragmas(db *gorm.DB, log *zap.Logger) error {
+func applySQLitePragmas(db *gorm.DB, log *slog.Logger) error {
 	pragmas := []string{
 		"PRAGMA busy_timeout = 5000",
 		"PRAGMA journal_mode = WAL",
@@ -132,7 +132,7 @@ func applySQLitePragmas(db *gorm.DB, log *zap.Logger) error {
 
 	for _, pragma := range pragmas {
 		if err := db.Exec(pragma).Error; err != nil {
-			log.Error("failed to apply pragma", zap.String("pragma", pragma), zap.Error(err))
+			log.Error("failed to apply pragma", slog.String("pragma", pragma), slog.Any("error", err))
 			return fmt.Errorf("database: apply pragma %s: %w", pragma, err)
 		}
 	}

@@ -4,7 +4,7 @@ import (
 	"strings"
 	"time"
 
-	"go.uber.org/zap"
+	"log/slog"
 	"gorm.io/gorm"
 
 	"formlander/internal/config"
@@ -111,7 +111,7 @@ func MarkWebhookAsRetry(ctx *jobs.JobContext, db *gorm.DB, event *forms.WebhookE
 
 	updater := NewEventUpdater(&forms.WebhookEvent{})
 	if err := updater.Update(ctx, db, event.ID, status, time.Now(), message, WithAttemptCount(attemptCount), WithNextAttempt(nextAttempt)); err != nil {
-		ctx.Logger.Error("update retry webhook", zap.Uint("id", event.ID), zap.Error(err))
+		ctx.Logger.Error("update retry webhook", slog.Uint64("id", uint64(event.ID)), slog.Any("error", err))
 		return
 	}
 
@@ -128,7 +128,7 @@ func MarkWebhookAsRetry(ctx *jobs.JobContext, db *gorm.DB, event *forms.WebhookE
 func MarkWebhookAsFinal(ctx *jobs.JobContext, db *gorm.DB, event *forms.WebhookEvent, status, message string) {
 	updater := NewEventUpdater(&forms.WebhookEvent{})
 	if err := updater.Update(ctx, db, event.ID, status, time.Now(), message, WithNextAttempt(nil)); err != nil {
-		ctx.Logger.Error("finalize webhook", zap.Uint("id", event.ID), zap.Error(err))
+		ctx.Logger.Error("finalize webhook", slog.Uint64("id", uint64(event.ID)), slog.Any("error", err))
 		return
 	}
 
@@ -155,7 +155,7 @@ func MarkEmailAsRetry(ctx *jobs.JobContext, db *gorm.DB, event *forms.EmailEvent
 
 	updater := NewEventUpdater(&forms.EmailEvent{})
 	if err := updater.Update(ctx, db, event.ID, status, time.Now(), message, WithAttemptCount(attemptCount), WithNextAttempt(nextAttempt)); err != nil {
-		ctx.Logger.Error("update email retry", zap.Uint("id", event.ID), zap.Error(err))
+		ctx.Logger.Error("update email retry", slog.Uint64("id", uint64(event.ID)), slog.Any("error", err))
 		return
 	}
 
@@ -172,7 +172,7 @@ func MarkEmailAsRetry(ctx *jobs.JobContext, db *gorm.DB, event *forms.EmailEvent
 func MarkEmailAsFinal(ctx *jobs.JobContext, db *gorm.DB, event *forms.EmailEvent, status, message string) {
 	updater := NewEventUpdater(&forms.EmailEvent{})
 	if err := updater.Update(ctx, db, event.ID, status, time.Now(), message, WithNextAttempt(nil)); err != nil {
-		ctx.Logger.Error("finalize email event", zap.Uint("id", event.ID), zap.Error(err))
+		ctx.Logger.Error("finalize email event", slog.Uint64("id", uint64(event.ID)), slog.Any("error", err))
 		return
 	}
 

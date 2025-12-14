@@ -8,12 +8,13 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
+	"io"
+	"log/slog"
 )
 
 func TestCreateMailerProfile(t *testing.T) {
 	db := testsupport.SetupTestDB(t)
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	t.Run("creates profile successfully", func(t *testing.T) {
 		params := integrations.MailerProfileParams{
@@ -82,7 +83,7 @@ func TestCreateMailerProfile(t *testing.T) {
 
 func TestUpdateMailerProfile(t *testing.T) {
 	db := testsupport.SetupTestDB(t)
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	t.Run("updates profile successfully", func(t *testing.T) {
 		// Create initial profile
@@ -145,7 +146,7 @@ func TestUpdateMailerProfile(t *testing.T) {
 
 func TestCreateCaptchaProfile(t *testing.T) {
 	db := testsupport.SetupTestDB(t)
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	t.Run("creates profile successfully", func(t *testing.T) {
 		params := integrations.CaptchaProfileParams{
@@ -208,7 +209,7 @@ func TestCreateCaptchaProfile(t *testing.T) {
 
 func TestListProfiles(t *testing.T) {
 	db := testsupport.SetupTestDB(t)
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	t.Run("lists mailer profiles", func(t *testing.T) {
 		// Create some profiles
@@ -245,7 +246,7 @@ func TestListProfiles(t *testing.T) {
 
 func TestDeleteProfiles(t *testing.T) {
 	db := testsupport.SetupTestDB(t)
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	t.Run("deletes mailer profile", func(t *testing.T) {
 		params := integrations.MailerProfileParams{

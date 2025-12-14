@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"go.uber.org/zap"
+	"log/slog"
 	"gorm.io/gorm"
 
 	"formlander/internal/config"
@@ -47,7 +47,7 @@ func (d *EmailDispatcher) ProcessBatch(ctx *jobs.JobContext) error {
 		Order("created_at ASC").
 		Limit(10).
 		Find(&events).Error; err != nil {
-		ctx.Logger.Error("query email events", zap.Error(err))
+		ctx.Logger.Error("query email events", slog.Any("error", err))
 		return err
 	}
 
@@ -64,7 +64,7 @@ func (d *EmailDispatcher) handleEvent(ctx *jobs.JobContext, db *gorm.DB, event *
 			Preload("Submission").
 			Preload("Submission.Form").
 			First(event, event.ID).Error; err != nil {
-			ctx.Logger.Error("load email event associations", zap.Uint("id", event.ID), zap.Error(err))
+			ctx.Logger.Error("load email event associations", slog.Uint64("id", uint64(event.ID)), slog.Any("error", err))
 			return
 		}
 	}
@@ -113,7 +113,7 @@ func (d *EmailDispatcher) handleEvent(ctx *jobs.JobContext, db *gorm.DB, event *
 	updater := NewEventUpdater(&forms.EmailEvent{})
 	attemptCount := event.AttemptCount + 1
 	if err := updater.Update(ctx, db, event.ID, forms.WebhookStatusDelivered, time.Now(), "", WithAttemptCount(attemptCount), WithNextAttempt(nil)); err != nil {
-		ctx.Logger.Error("update email event", zap.Uint("id", event.ID), zap.Error(err))
+		ctx.Logger.Error("update email event", slog.Uint64("id", uint64(event.ID)), slog.Any("error", err))
 	} else {
 		event.Status = forms.WebhookStatusDelivered
 		event.AttemptCount = attemptCount

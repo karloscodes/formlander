@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/gofiber/fiber/v2"
-	"go.uber.org/zap"
+	"log/slog"
 	"gorm.io/gorm"
 
 	"formlander/internal/config"
@@ -17,7 +17,7 @@ import (
 // This eliminates the need for context.Locals and provides type-safe access.
 type Context struct {
 	*fiber.Ctx                   // All Fiber HTTP methods (Render, JSON, etc.)
-	Logger     *zap.Logger       // Request logger (shared across app)
+	Logger     *slog.Logger       // Request logger (shared across app)
 	Config     *config.Config    // Runtime configuration
 	DBManager  *database.Manager // Database connection pool
 	db         *gorm.DB          // Cached database session (lazy-loaded)
@@ -33,7 +33,7 @@ func (ctx *Context) DB() (*gorm.DB, error) {
 
 	db, err := ctx.DBManager.Connect()
 	if err != nil {
-		ctx.Logger.Error("failed to connect to database", zap.Error(err))
+		ctx.Logger.Error("failed to connect to database", slog.Any("error", err))
 		return nil, fmt.Errorf("cartridge: database connection failed: %w", err)
 	}
 

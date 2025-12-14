@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"go.uber.org/zap"
+	"log/slog"
 	"gorm.io/gorm"
 
 	"formlander/internal/pkg/dbtxn"
@@ -33,7 +33,7 @@ func (e *ValidationError) Error() string {
 }
 
 // CreateMailerProfile creates a new mailer profile
-func CreateMailerProfile(logger *zap.Logger, db *gorm.DB, params MailerProfileParams) (*MailerProfile, error) {
+func CreateMailerProfile(logger *slog.Logger, db *gorm.DB, params MailerProfileParams) (*MailerProfile, error) {
 	// Validate required fields
 	name := strings.TrimSpace(params.Name)
 	if name == "" {
@@ -71,7 +71,7 @@ func CreateMailerProfile(logger *zap.Logger, db *gorm.DB, params MailerProfilePa
 	if err := dbtxn.WithRetry(logger, db, func(tx *gorm.DB) error {
 		return tx.Create(profile).Error
 	}); err != nil {
-		logger.Error("failed to create mailer profile", zap.Error(err))
+		logger.Error("failed to create mailer profile", slog.Any("error", err))
 		return nil, fmt.Errorf("failed to create profile: %w", err)
 	}
 
@@ -79,7 +79,7 @@ func CreateMailerProfile(logger *zap.Logger, db *gorm.DB, params MailerProfilePa
 }
 
 // UpdateMailerProfile updates an existing mailer profile
-func UpdateMailerProfile(logger *zap.Logger, db *gorm.DB, id uint, params MailerProfileParams) (*MailerProfile, error) {
+func UpdateMailerProfile(logger *slog.Logger, db *gorm.DB, id uint, params MailerProfileParams) (*MailerProfile, error) {
 	// Validate required fields
 	name := strings.TrimSpace(params.Name)
 	if name == "" {
@@ -121,7 +121,7 @@ func UpdateMailerProfile(logger *zap.Logger, db *gorm.DB, id uint, params Mailer
 			"defaults_json":      defaultsJSON,
 		}).Error
 	}); err != nil {
-		logger.Error("failed to update mailer profile", zap.Error(err), zap.Uint("id", id))
+		logger.Error("failed to update mailer profile", slog.Any("error", err), slog.Uint64("id", uint64(id)))
 		return nil, fmt.Errorf("failed to update profile: %w", err)
 	}
 
@@ -130,7 +130,7 @@ func UpdateMailerProfile(logger *zap.Logger, db *gorm.DB, id uint, params Mailer
 }
 
 // DeleteMailerProfile deletes a mailer profile
-func DeleteMailerProfile(logger *zap.Logger, db *gorm.DB, id uint) error {
+func DeleteMailerProfile(logger *slog.Logger, db *gorm.DB, id uint) error {
 	return dbtxn.WithRetry(logger, db, func(tx *gorm.DB) error {
 		return tx.Delete(&MailerProfile{}, id).Error
 	})

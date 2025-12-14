@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"go.uber.org/zap"
+	"log/slog"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 
@@ -71,7 +71,7 @@ func FindByID(db *gorm.DB, id uint) (*User, error) {
 }
 
 // Authenticate verifies credentials and updates last login timestamp
-func Authenticate(logger *zap.Logger, db *gorm.DB, email, password string) (*AuthenticationResult, error) {
+func Authenticate(logger *slog.Logger, db *gorm.DB, email, password string) (*AuthenticationResult, error) {
 	email = strings.ToLower(strings.TrimSpace(email))
 
 	if email == "" || password == "" {
@@ -83,7 +83,7 @@ func Authenticate(logger *zap.Logger, db *gorm.DB, email, password string) (*Aut
 		if err == gorm.ErrRecordNotFound {
 			return nil, ErrInvalidCredentials
 		}
-		logger.Error("database query failed during authentication", zap.Error(err), zap.String("email", email))
+		logger.Error("database query failed during authentication", slog.Any("error", err), slog.String("email", email))
 		return nil, err
 	}
 
@@ -101,7 +101,7 @@ func Authenticate(logger *zap.Logger, db *gorm.DB, email, password string) (*Aut
 	if err := dbtxn.WithRetry(logger, db, func(tx *gorm.DB) error {
 		return tx.Save(&user).Error
 	}); err != nil {
-		logger.Error("failed to update last login timestamp", zap.Error(err), zap.String("email", email))
+		logger.Error("failed to update last login timestamp", slog.Any("error", err), slog.String("email", email))
 		return nil, err
 	}
 
@@ -112,7 +112,7 @@ func Authenticate(logger *zap.Logger, db *gorm.DB, email, password string) (*Aut
 }
 
 // ChangePassword validates and updates user password
-func ChangePassword(logger *zap.Logger, db *gorm.DB, email, currentPassword, newPassword string) error {
+func ChangePassword(logger *slog.Logger, db *gorm.DB, email, currentPassword, newPassword string) error {
 	if len(newPassword) < 8 {
 		return ErrWeakPassword
 	}
@@ -122,7 +122,7 @@ func ChangePassword(logger *zap.Logger, db *gorm.DB, email, currentPassword, new
 		if err == gorm.ErrRecordNotFound {
 			return ErrUserNotFound
 		}
-		logger.Error("database query failed during password change", zap.Error(err), zap.String("email", email))
+		logger.Error("database query failed during password change", slog.Any("error", err), slog.String("email", email))
 		return err
 	}
 
@@ -134,7 +134,7 @@ func ChangePassword(logger *zap.Logger, db *gorm.DB, email, currentPassword, new
 	// Generate new password hash
 	hash, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
 	if err != nil {
-		logger.Error("failed to generate password hash", zap.Error(err))
+		logger.Error("failed to generate password hash", slog.Any("error", err))
 		return err
 	}
 
@@ -144,7 +144,7 @@ func ChangePassword(logger *zap.Logger, db *gorm.DB, email, currentPassword, new
 	if err := dbtxn.WithRetry(logger, db, func(tx *gorm.DB) error {
 		return tx.Save(&user).Error
 	}); err != nil {
-		logger.Error("failed to update password", zap.Error(err), zap.String("email", email))
+		logger.Error("failed to update password", slog.Any("error", err), slog.String("email", email))
 		return err
 	}
 

@@ -9,7 +9,7 @@ import (
 	"syscall"
 	"time"
 
-	"go.uber.org/zap"
+	"log/slog"
 
 	"formlander/internal/config"
 	"formlander/internal/database"
@@ -20,7 +20,7 @@ import (
 // It manages the complete lifecycle of a cartridge web application.
 type Application struct {
 	Config    *config.Config    // Runtime configuration
-	Logger    *zap.Logger       // Global application logger
+	Logger    *slog.Logger       // Global application logger
 	DBManager *database.Manager // Database connection pool manager
 	Server    *Server           // HTTP server with routes
 }
@@ -43,17 +43,17 @@ func NewApplication(opts ApplicationOptions) (*Application, error) {
 		cfg = config.Get()
 	}
 
-	zapLogger, err := appLogger.Initialize(cfg)
+	appLog, err := appLogger.Initialize(cfg)
 	if err != nil {
 		return nil, fmt.Errorf("cartridge: initialize logger: %w", err)
 	}
-	zap.ReplaceGlobals(zapLogger)
+	slog.SetDefault(appLog)
 
-	dbManager := database.NewManager(cfg, zapLogger)
+	dbManager := database.NewManager(cfg, appLog)
 
 	serverCfg := DefaultConfig()
 	serverCfg.Config = cfg
-	serverCfg.Logger = zapLogger
+	serverCfg.Logger = appLog
 	serverCfg.DBManager = dbManager
 	serverCfg.TemplatesFS = opts.TemplatesFS
 	serverCfg.TemplatesDirectory = opts.TemplatesDirectory
@@ -73,7 +73,7 @@ func NewApplication(opts ApplicationOptions) (*Application, error) {
 
 	return &Application{
 		Config:    cfg,
-		Logger:    zapLogger,
+		Logger:    appLog,
 		DBManager: dbManager,
 		Server:    server,
 	}, nil
@@ -120,7 +120,7 @@ func (a *Application) RunWithTimeout(timeout time.Duration) error {
 	defer cancel()
 
 	if err := a.Shutdown(ctx); err != nil {
-		a.Logger.Error("graceful shutdown failed", zap.Error(err))
+		a.Logger.Error("graceful shutdown failed", slog.Any("error", err))
 		return err
 	}
 

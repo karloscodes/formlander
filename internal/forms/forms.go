@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"go.uber.org/zap"
+	"log/slog"
 	"gorm.io/gorm"
 
 	"formlander/internal/pkg/dbtxn"
@@ -56,7 +56,7 @@ func (e *ValidationError) Error() string {
 }
 
 // Create creates a new form with the given parameters
-func Create(logger *zap.Logger, db *gorm.DB, params CreateParams) (*Form, error) {
+func Create(logger *slog.Logger, db *gorm.DB, params CreateParams) (*Form, error) {
 	// Validate required fields
 	if strings.TrimSpace(params.Name) == "" {
 		return nil, &ValidationError{Field: "name", Message: "Name is required"}
@@ -143,7 +143,7 @@ func Create(logger *zap.Logger, db *gorm.DB, params CreateParams) (*Form, error)
 		if isUniqueConstraint(err) {
 			return nil, &ValidationError{Field: "slug", Message: "Slug already exists"}
 		}
-		logger.Error("failed to create form", zap.Error(err))
+		logger.Error("failed to create form", slog.Any("error", err))
 		return nil, err
 	}
 
@@ -212,7 +212,7 @@ func GetEmailEvents(db *gorm.DB, formID uint, limit int) ([]EmailEvent, error) {
 }
 
 // Delete deletes a form
-func Delete(logger *zap.Logger, db *gorm.DB, id uint) error {
+func Delete(logger *slog.Logger, db *gorm.DB, id uint) error {
 	return dbtxn.WithRetry(logger, db, func(tx *gorm.DB) error {
 		return tx.Delete(&Form{}, id).Error
 	})
@@ -233,13 +233,13 @@ func GetBySlug(db *gorm.DB, slug string) (*Form, error) {
 }
 
 // EnsureDeliveryRecords creates delivery records if they don't exist
-func EnsureDeliveryRecords(logger *zap.Logger, db *gorm.DB, form *Form) error {
+func EnsureDeliveryRecords(logger *slog.Logger, db *gorm.DB, form *Form) error {
 	if form.EmailDelivery == nil {
 		form.EmailDelivery = &EmailDelivery{FormID: form.ID}
 		if err := dbtxn.WithRetry(logger, db, func(tx *gorm.DB) error {
 			return tx.Create(form.EmailDelivery).Error
 		}); err != nil {
-			logger.Error("failed to create email delivery", zap.Error(err), zap.Uint("form_id", form.ID))
+			logger.Error("failed to create email delivery", slog.Any("error", err), slog.Uint64("form_id", uint64(form.ID)))
 			return err
 		}
 	}
@@ -248,7 +248,7 @@ func EnsureDeliveryRecords(logger *zap.Logger, db *gorm.DB, form *Form) error {
 		if err := dbtxn.WithRetry(logger, db, func(tx *gorm.DB) error {
 			return tx.Create(form.WebhookDelivery).Error
 		}); err != nil {
-			logger.Error("failed to create webhook delivery", zap.Error(err), zap.Uint("form_id", form.ID))
+			logger.Error("failed to create webhook delivery", slog.Any("error", err), slog.Uint64("form_id", uint64(form.ID)))
 			return err
 		}
 	}
@@ -256,7 +256,7 @@ func EnsureDeliveryRecords(logger *zap.Logger, db *gorm.DB, form *Form) error {
 }
 
 // Update updates an existing form
-func Update(logger *zap.Logger, db *gorm.DB, params UpdateParams) (*Form, error) {
+func Update(logger *slog.Logger, db *gorm.DB, params UpdateParams) (*Form, error) {
 	// Validate required fields
 	if strings.TrimSpace(params.Name) == "" {
 		return nil, &ValidationError{Field: "name", Message: "Name is required"}
@@ -353,7 +353,7 @@ func Update(logger *zap.Logger, db *gorm.DB, params UpdateParams) (*Form, error)
 
 		return nil
 	}); err != nil {
-		logger.Error("failed to update form", zap.Error(err), zap.Uint("form_id", params.ID))
+		logger.Error("failed to update form", slog.Any("error", err), slog.Uint64("form_id", uint64(params.ID)))
 		return nil, err
 	}
 
