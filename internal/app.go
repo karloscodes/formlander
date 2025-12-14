@@ -3,10 +3,8 @@ package internal
 import (
 	"context"
 	"fmt"
-	"os"
 	"time"
 
-	"github.com/joho/godotenv"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
@@ -39,8 +37,6 @@ func NewApp() (*App, error) {
 
 // NewAppWithOptions creates the application with custom options
 func NewAppWithOptions(opts *AppOptions) (*App, error) {
-	loadDotEnv()
-
 	cfg := config.Get()
 
 	auth.Initialize(cfg)
@@ -68,12 +64,6 @@ func NewAppWithOptions(opts *AppOptions) (*App, error) {
 		Application: application,
 		dispatcher:  jobs.NewUnifiedDispatcher(cfg, application.Logger, application.DBManager),
 	}, nil
-}
-
-func loadDotEnv() {
-	if _, err := os.Stat(".env"); err == nil {
-		_ = godotenv.Load(".env")
-	}
 }
 
 // RunMigrations runs database migrations and ensures admin user exists.
