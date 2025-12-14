@@ -7,7 +7,6 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/google/uuid"
 	"gorm.io/gorm"
 
 	"formlander/internal/integrations"
@@ -70,14 +69,11 @@ func (f *Form) BeforeSave(tx *gorm.DB) error {
 	return nil
 }
 
-// GeneratePublicID generates a public ID for a form
+// GeneratePublicID generates a 20-character hex public ID for a form
 func GeneratePublicID() string {
-	value := uuid.NewString()
-	value = strings.ReplaceAll(value, "-", "")
-	if len(value) > 20 {
-		value = value[:20]
-	}
-	return value
+	buf := make([]byte, 10) // 10 bytes = 20 hex characters
+	rand.Read(buf)
+	return hex.EncodeToString(buf)
 }
 
 func generateToken(bytes int) (string, error) {
