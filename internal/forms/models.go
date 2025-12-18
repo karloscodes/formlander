@@ -30,7 +30,7 @@ type Form struct {
 	Name                 string                       `gorm:"size:255;not null"`
 	Slug                 string                       `gorm:"size:255;uniqueIndex;not null"`
 	Token                string                       `gorm:"size:64;uniqueIndex;not null"`
-	AllowedOrigins       string                       `gorm:"type:text"` // Comma-separated domains: example.com,www.example.com
+	AllowedOrigins       string                       `gorm:"type:text"` // Required. Comma-separated domains (example.com,*.example.com) or * for all
 	GeneratedHTML        string                       `gorm:"type:text"` // AI-generated form HTML (optional)
 	CaptchaProfileID     *uint                        `gorm:"index"`     // Foreign key to CaptchaProfile
 	CaptchaProfile       *integrations.CaptchaProfile `gorm:"constraint:OnDelete:SET NULL"`

@@ -277,22 +277,37 @@ func validateRedirectURL(url string, form *forms.Form) error {
 		return errors.New("absolute redirects not allowed without configured origins")
 	}
 
-	// Parse allowed origins
-	allowedOrigins := strings.Split(form.AllowedOrigins, "\n")
-	for _, origin := range allowedOrigins {
-		origin = strings.TrimSpace(origin)
-		if origin == "" {
+	// Parse allowed origins (comma-separated)
+	allowedList := strings.Split(form.AllowedOrigins, ",")
+	for _, allowed := range allowedList {
+		allowed = strings.TrimSpace(allowed)
+		if allowed == "" {
 			continue
 		}
 
-		allowedURL, err := urlpkg.Parse(origin)
-		if err != nil {
+		// Extract domain from allowed origin
+		allowedDomain := extractDomain(allowed)
+		if allowedDomain == "" {
 			continue
 		}
 
-		// Match exact host or subdomain
-		if parsed.Host == allowedURL.Host || strings.HasSuffix(parsed.Host, "."+allowedURL.Host) {
+		// Extract domain from redirect URL (without port)
+		redirectDomain := strings.ToLower(parsed.Host)
+		if idx := strings.LastIndex(redirectDomain, ":"); idx >= 0 {
+			redirectDomain = redirectDomain[:idx]
+		}
+
+		// Match exact domain or subdomain
+		if redirectDomain == allowedDomain || strings.HasSuffix(redirectDomain, "."+allowedDomain) {
 			return nil
+		}
+
+		// Support wildcard patterns like *.example.com
+		if strings.HasPrefix(allowed, "*.") {
+			baseDomain := strings.TrimPrefix(allowed, "*.")
+			if redirectDomain == baseDomain || strings.HasSuffix(redirectDomain, "."+baseDomain) {
+				return nil
+			}
 		}
 	}
 
@@ -381,13 +396,19 @@ func jsonError(ctx *cartridge.Context, status int, message string) error {
 }
 
 // isOriginAllowed checks if the request origin/referer is allowed for this form.
-// If AllowedOrigins is empty, all origins are allowed (backwards compatible).
+// AllowedOrigins must be configured - empty origins will reject all submissions.
 // If AllowedOrigins is "*", all origins are allowed.
-// Otherwise, the origin must match one of the allowed domains.
+// Otherwise, the origin must match one of the allowed domains (comma-separated).
 func isOriginAllowed(ctx *cartridge.Context, form *forms.Form) bool {
-	// If no restrictions configured, allow all
 	allowedOrigins := strings.TrimSpace(form.AllowedOrigins)
-	if allowedOrigins == "" || allowedOrigins == "*" {
+
+	// Reject if no origins configured
+	if allowedOrigins == "" {
+		return false
+	}
+
+	// Wildcard allows all origins
+	if allowedOrigins == "*" {
 		return true
 	}
 
