@@ -5,36 +5,56 @@ import (
 	"testing"
 )
 
-func TestGet(t *testing.T) {
-	// Clean environment before test
-	defer Reset()
-	os.Clearenv()
-	os.Setenv("FORMLANDER_ENV", "development") // Use development to avoid session secret requirement
+func TestConfig(t *testing.T) {
+	t.Run("Get returns config with defaults", func(t *testing.T) {
+		defer Reset()
+		os.Clearenv()
+		os.Setenv("FORMLANDER_ENV", "development")
 
-	cfg := Get()
-	if cfg == nil {
-		t.Fatal("Get() returned nil")
-	}
+		cfg := Get()
+		if cfg == nil {
+			t.Fatal("Get() returned nil")
+		}
 
-	// Check defaults
-	if cfg.Environment != "development" {
-		t.Errorf("Expected Environment=development, got %s", cfg.Environment)
-	}
-	if cfg.Port != "8080" {
-		t.Errorf("Expected Port=8080, got %s", cfg.Port)
-	}
-	if cfg.LogLevel != "error" {
-		t.Errorf("Expected LogLevel=error, got %s", cfg.LogLevel)
-	}
-	if cfg.DataDirectory != "storage" {
-		t.Errorf("Expected DataDirectory=storage, got %s", cfg.DataDirectory)
-	}
+		if cfg.Environment != "development" {
+			t.Errorf("Expected Environment=development, got %s", cfg.Environment)
+		}
+		if cfg.Port != "8080" {
+			t.Errorf("Expected Port=8080, got %s", cfg.Port)
+		}
+		if cfg.LogLevel != "error" {
+			t.Errorf("Expected LogLevel=error, got %s", cfg.LogLevel)
+		}
+		if cfg.DataDirectory != "storage" {
+			t.Errorf("Expected DataDirectory=storage, got %s", cfg.DataDirectory)
+		}
+	})
+
+	t.Run("Reset creates new config instance", func(t *testing.T) {
+		defer Reset()
+		os.Clearenv()
+		os.Setenv("FORMLANDER_ENV", "development")
+
+		cfg1 := Get()
+		if cfg1 == nil {
+			t.Fatal("First Get() returned nil")
+		}
+
+		Reset()
+		os.Setenv("FORMLANDER_ENV", "development")
+
+		cfg2 := Get()
+		if cfg2 == nil {
+			t.Fatal("Second Get() after Reset() returned nil")
+		}
+
+		if cfg1 == cfg2 {
+			t.Error("Expected different config instances after Reset()")
+		}
+	})
 }
 
 func TestEnvironmentVariableOverrides(t *testing.T) {
-	defer Reset()
-	os.Clearenv()
-
 	tests := []struct {
 		name     string
 		envVar   string
@@ -125,55 +145,54 @@ func TestEnvironmentVariableOverrides(t *testing.T) {
 	}
 }
 
-func TestSessionSecretProductionRequired(t *testing.T) {
-	defer Reset()
-	os.Clearenv()
-	os.Setenv("FORMLANDER_ENV", "production")
-	os.Setenv("FORMLANDER_SESSION_SECRET", "required-secret")
+func TestSessionSecret(t *testing.T) {
+	t.Run("production requires secret", func(t *testing.T) {
+		Reset()
+		os.Clearenv()
+		os.Setenv("FORMLANDER_ENV", "production")
+		os.Setenv("FORMLANDER_SESSION_SECRET", "required-secret")
 
-	cfg := Get()
-	if cfg.SessionSecret != "required-secret" {
-		t.Errorf("Expected SessionSecret=required-secret in production, got %s", cfg.SessionSecret)
-	}
+		cfg := Get()
+		if cfg.SessionSecret != "required-secret" {
+			t.Errorf("Expected SessionSecret=required-secret in production, got %s", cfg.SessionSecret)
+		}
+	})
+
+	t.Run("development uses fixed dev secret", func(t *testing.T) {
+		Reset()
+		os.Clearenv()
+		os.Setenv("FORMLANDER_ENV", "development")
+
+		cfg := Get()
+		if cfg.SessionSecret == "" {
+			t.Error("Expected SessionSecret to be auto-generated in development")
+		}
+		if cfg.SessionSecret != "dev-secret-do-not-use-in-production-f8e3a9c2d1b7e6a4" {
+			t.Errorf("Expected fixed dev secret, got %s", cfg.SessionSecret)
+		}
+	})
+
+	t.Run("test uses fixed dev secret", func(t *testing.T) {
+		Reset()
+		os.Clearenv()
+		os.Setenv("FORMLANDER_ENV", "test")
+
+		cfg := Get()
+		if cfg.SessionSecret == "" {
+			t.Error("Expected SessionSecret to be auto-generated in test")
+		}
+		if cfg.SessionSecret != "dev-secret-do-not-use-in-production-f8e3a9c2d1b7e6a4" {
+			t.Errorf("Expected fixed dev secret, got %s", cfg.SessionSecret)
+		}
+	})
 }
 
-func TestSessionSecretDevelopment(t *testing.T) {
-	defer Reset()
-	os.Clearenv()
-	os.Setenv("FORMLANDER_ENV", "development")
-
-	cfg := Get()
-	if cfg.SessionSecret == "" {
-		t.Error("Expected SessionSecret to be auto-generated in development")
-	}
-	if cfg.SessionSecret != "dev-secret-do-not-use-in-production-f8e3a9c2d1b7e6a4" {
-		t.Errorf("Expected fixed dev secret, got %s", cfg.SessionSecret)
-	}
-}
-
-func TestSessionSecretTest(t *testing.T) {
-	defer Reset()
-	os.Clearenv()
-	os.Setenv("FORMLANDER_ENV", "test")
-
-	cfg := Get()
-	if cfg.SessionSecret == "" {
-		t.Error("Expected SessionSecret to be auto-generated in test")
-	}
-	if cfg.SessionSecret != "dev-secret-do-not-use-in-production-f8e3a9c2d1b7e6a4" {
-		t.Errorf("Expected fixed dev secret, got %s", cfg.SessionSecret)
-	}
-}
-
-func TestIsProduction(t *testing.T) {
-	defer Reset()
-	os.Clearenv()
-
+func TestIsEnvironment(t *testing.T) {
 	tests := []struct {
-		env        string
-		wantProd   bool
-		wantDev    bool
-		wantTest   bool
+		env      string
+		wantProd bool
+		wantDev  bool
+		wantTest bool
 	}{
 		{"production", true, false, false},
 		{"development", false, true, false},
@@ -202,33 +221,14 @@ func TestIsProduction(t *testing.T) {
 }
 
 func TestDatabasePath(t *testing.T) {
-	defer Reset()
-	os.Clearenv()
-
 	tests := []struct {
 		name     string
 		env      string
-		filename string
 		wantPath string
 	}{
-		{
-			name:     "development environment",
-			env:      "development",
-			filename: "formlander.db",
-			wantPath: "storage/formlander.development.db",
-		},
-		{
-			name:     "production environment",
-			env:      "production",
-			filename: "formlander.db",
-			wantPath: "storage/formlander.production.db",
-		},
-		{
-			name:     "test environment",
-			env:      "test",
-			filename: "formlander.db",
-			wantPath: "storage/formlander.test.db",
-		},
+		{"development environment", "development", "storage/formlander.development.db"},
+		{"production environment", "production", "storage/formlander.production.db"},
+		{"test environment", "test", "storage/formlander.test.db"},
 	}
 
 	for _, tt := range tests {
@@ -246,111 +246,53 @@ func TestDatabasePath(t *testing.T) {
 	}
 }
 
-func TestGetMaxOpenConns(t *testing.T) {
-	defer Reset()
-	os.Clearenv()
-
+func TestConnectionPooling(t *testing.T) {
 	tests := []struct {
-		name string
-		env  string
-		want int
+		env          string
+		wantMaxOpen  int
+		wantMaxIdle  int
 	}{
-		{"production", "production", 10},
-		{"development", "development", 1},
-		{"test", "test", 1},
+		{"production", 10, 5},
+		{"development", 1, 1},
+		{"test", 1, 1},
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+		t.Run(tt.env, func(t *testing.T) {
 			Reset()
 			os.Clearenv()
 			os.Setenv("FORMLANDER_ENV", tt.env)
 			os.Setenv("FORMLANDER_SESSION_SECRET", "test-secret")
 
 			cfg := Get()
-			got := cfg.GetMaxOpenConns()
-			if got != tt.want {
-				t.Errorf("GetMaxOpenConns() = %v, want %v", got, tt.want)
+			if cfg.GetMaxOpenConns() != tt.wantMaxOpen {
+				t.Errorf("GetMaxOpenConns() = %v, want %v", cfg.GetMaxOpenConns(), tt.wantMaxOpen)
 			}
-		})
-	}
-}
-
-func TestGetMaxIdleConns(t *testing.T) {
-	defer Reset()
-	os.Clearenv()
-
-	tests := []struct {
-		name string
-		env  string
-		want int
-	}{
-		{"production", "production", 5},
-		{"development", "development", 1},
-		{"test", "test", 1},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			Reset()
-			os.Clearenv()
-			os.Setenv("FORMLANDER_ENV", tt.env)
-			os.Setenv("FORMLANDER_SESSION_SECRET", "test-secret")
-
-			cfg := Get()
-			got := cfg.GetMaxIdleConns()
-			if got != tt.want {
-				t.Errorf("GetMaxIdleConns() = %v, want %v", got, tt.want)
+			if cfg.GetMaxIdleConns() != tt.wantMaxIdle {
+				t.Errorf("GetMaxIdleConns() = %v, want %v", cfg.GetMaxIdleConns(), tt.wantMaxIdle)
 			}
 		})
 	}
 }
 
 func TestWebhookBackoff(t *testing.T) {
-	defer Reset()
-	os.Clearenv()
-	os.Setenv("FORMLANDER_ENV", "development")
+	t.Run("returns expected backoff schedule", func(t *testing.T) {
+		Reset()
+		os.Clearenv()
+		os.Setenv("FORMLANDER_ENV", "development")
 
-	cfg := Get()
-	backoff := cfg.WebhookBackoff()
+		cfg := Get()
+		backoff := cfg.WebhookBackoff()
 
-	expected := []int{1, 5, 15, 60}
-	if len(backoff) != len(expected) {
-		t.Errorf("WebhookBackoff() length = %v, want %v", len(backoff), len(expected))
-	}
-
-	for i, v := range expected {
-		if backoff[i] != v {
-			t.Errorf("WebhookBackoff()[%d] = %v, want %v", i, backoff[i], v)
+		expected := []int{1, 5, 15, 60}
+		if len(backoff) != len(expected) {
+			t.Errorf("WebhookBackoff() length = %v, want %v", len(backoff), len(expected))
 		}
-	}
-}
 
-func TestInvalidEnvironmentValidation(t *testing.T) {
-	// Skip test that would call os.Exit via log.Fatalf
-	t.Skip("Skipping test that would call os.Exit - invalid environment causes log.Fatalf")
-}
-
-func TestReset(t *testing.T) {
-	defer Reset()
-	os.Clearenv()
-	os.Setenv("FORMLANDER_ENV", "development")
-
-	cfg1 := Get()
-	if cfg1 == nil {
-		t.Fatal("First Get() returned nil")
-	}
-
-	Reset()
-	os.Setenv("FORMLANDER_ENV", "development")
-
-	cfg2 := Get()
-	if cfg2 == nil {
-		t.Fatal("Second Get() after Reset() returned nil")
-	}
-
-	// Should be different instances after reset
-	if cfg1 == cfg2 {
-		t.Error("Expected different config instances after Reset()")
-	}
+		for i, v := range expected {
+			if backoff[i] != v {
+				t.Errorf("WebhookBackoff()[%d] = %v, want %v", i, backoff[i], v)
+			}
+		}
+	})
 }
