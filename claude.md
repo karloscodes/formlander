@@ -69,10 +69,59 @@ This handles:
 
 ## Testing
 
-- Table-driven tests preferred
+- **Table-driven tests with `t.Run()` required** — Always use this pattern for multiple scenarios
 - Use `internal/pkg/testsupport` helpers
 - In-memory SQLite for unit tests
 - E2E tests in `e2e/` directory
+
+### Test Pattern (Required)
+
+Use table-driven tests with `t.Run()` for all test scenarios:
+
+```go
+func TestSomething(t *testing.T) {
+    tests := []struct {
+        name     string
+        input    string
+        expected string
+        // add fields as needed
+    }{
+        {
+            name:     "describes what this case tests",
+            input:    "value",
+            expected: "result",
+        },
+        {
+            name:     "another scenario",
+            input:    "other",
+            expected: "other result",
+        },
+    }
+
+    for _, tt := range tests {
+        t.Run(tt.name, func(t *testing.T) {
+            result := FunctionUnderTest(tt.input)
+            assert.Equal(t, tt.expected, result)
+        })
+    }
+}
+```
+
+**Do NOT** write separate test functions for each scenario:
+
+```go
+// ❌ Wrong - separate functions
+func TestSomething_ScenarioA(t *testing.T) { ... }
+func TestSomething_ScenarioB(t *testing.T) { ... }
+
+// ✅ Correct - table-driven with t.Run()
+func TestSomething(t *testing.T) {
+    tests := []struct{ ... }{ ... }
+    for _, tt := range tests {
+        t.Run(tt.name, func(t *testing.T) { ... })
+    }
+}
+```
 
 ## Common Tasks
 
