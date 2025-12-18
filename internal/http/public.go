@@ -1,10 +1,9 @@
-package controllers
+package http
 
 import (
 	"encoding/json"
 	"errors"
-	"formlander/internal/forms"
-	urlpkg "net/url"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -12,10 +11,9 @@ import (
 	"gorm.io/gorm"
 
 	"formlander/internal/config"
+	"formlander/internal/forms"
 	"formlander/internal/pkg/cartridge"
 	"formlander/internal/pkg/cartridge/middleware"
-
-	"log/slog"
 )
 
 // PublicFormSubmission accepts a submission for the given form slug.
@@ -45,7 +43,7 @@ func PublicFormSubmission(ctx *cartridge.Context) error {
 	}
 
 	// Check allowed origins (domain allowlisting)
-	if !isOriginAllowed(ctx, form) {
+	if !form.IsOriginAllowed(getRequestOrigin(ctx)) {
 		return jsonError(ctx, fiber.StatusForbidden, "origin not allowed")
 	}
 
@@ -53,7 +51,7 @@ func PublicFormSubmission(ctx *cartridge.Context) error {
 	if err != nil {
 		// Check for custom error redirect
 		if errorURL := extractRedirectURL(payload, "_error_url"); errorURL != "" {
-			if err := validateRedirectURL(errorURL, form); err == nil {
+			if err := form.ValidateRedirectURL(errorURL); err == nil {
 				return ctx.Redirect(errorURL)
 			}
 		}
@@ -66,12 +64,12 @@ func PublicFormSubmission(ctx *cartridge.Context) error {
 
 	// Validate redirect URLs
 	if successURL != "" {
-		if err := validateRedirectURL(successURL, form); err != nil {
+		if err := form.ValidateRedirectURL(successURL); err != nil {
 			return jsonError(ctx, fiber.StatusBadRequest, "invalid success redirect URL")
 		}
 	}
 	if errorURL != "" {
-		if err := validateRedirectURL(errorURL, form); err != nil {
+		if err := form.ValidateRedirectURL(errorURL); err != nil {
 			return jsonError(ctx, fiber.StatusBadRequest, "invalid error redirect URL")
 		}
 	}
@@ -151,7 +149,7 @@ func APISubmissionCreate(ctx *cartridge.Context) error {
 	}
 
 	// Check allowed origins (domain allowlisting)
-	if !isOriginAllowed(ctx, &form) {
+	if !form.IsOriginAllowed(getRequestOrigin(ctx)) {
 		return jsonError(ctx, fiber.StatusForbidden, "origin not allowed")
 	}
 
@@ -257,70 +255,14 @@ func extractRedirectURL(payload map[string]any, key string) string {
 	return ""
 }
 
-func validateRedirectURL(url string, form *forms.Form) error {
-	if url == "" {
-		return nil // No redirect is fine
-	}
-
-	parsed, err := urlpkg.Parse(url)
-	if err != nil {
-		return errors.New("invalid redirect URL")
-	}
-
-	// Allow relative URLs (no host)
-	if parsed.Host == "" {
-		return nil
-	}
-
-	// Check against allowed origins for this form
-	if form.AllowedOrigins == "" {
-		return errors.New("absolute redirects not allowed without configured origins")
-	}
-
-	// Parse allowed origins (comma-separated)
-	allowedList := strings.Split(form.AllowedOrigins, ",")
-	for _, allowed := range allowedList {
-		allowed = strings.TrimSpace(allowed)
-		if allowed == "" {
-			continue
-		}
-
-		// Extract domain from allowed origin
-		allowedDomain := extractDomain(allowed)
-		if allowedDomain == "" {
-			continue
-		}
-
-		// Extract domain from redirect URL (without port)
-		redirectDomain := strings.ToLower(parsed.Host)
-		if idx := strings.LastIndex(redirectDomain, ":"); idx >= 0 {
-			redirectDomain = redirectDomain[:idx]
-		}
-
-		// Match exact domain or subdomain
-		if redirectDomain == allowedDomain || strings.HasSuffix(redirectDomain, "."+allowedDomain) {
-			return nil
-		}
-
-		// Support wildcard patterns like *.example.com
-		if strings.HasPrefix(allowed, "*.") {
-			baseDomain := strings.TrimPrefix(allowed, "*.")
-			if redirectDomain == baseDomain || strings.HasSuffix(redirectDomain, "."+baseDomain) {
-				return nil
-			}
-		}
-	}
-
-	return errors.New("redirect URL not in allowed origins")
-}
-
 func enforceCaptchaIfNeeded(ctx *cartridge.Context, form *forms.Form, payload map[string]any) error {
 	if form == nil || form.CaptchaProfileID == nil {
 		return nil
 	}
 
+	logger := ctx.Logger
+
 	if form.CaptchaProfile == nil {
-		logger := ctx.Logger
 		if logger != nil {
 			logger.Warn("captcha profile missing preload", slog.Uint64("form_id", uint64(form.ID)))
 		}
@@ -334,19 +276,36 @@ func enforceCaptchaIfNeeded(ctx *cartridge.Context, form *forms.Form, payload ma
 
 	secret := strings.TrimSpace(form.CaptchaProfile.SecretKey)
 	if secret == "" {
-		logger := ctx.Logger
 		if logger != nil {
 			logger.Warn("captcha profile missing secret", slog.Uint64("form_id", uint64(form.ID)))
 		}
 		return errors.New("captcha verification failed")
 	}
 
-	if err := middleware.VerifyTurnstileToken(secret, token, ctx.IP()); err != nil {
-		logger := ctx.Logger
+	result, err := middleware.VerifyTurnstileToken(secret, token, ctx.IP())
+	if err != nil {
 		if logger != nil {
-			logger.Warn("turnstile verification failed", slog.Uint64("form_id", uint64(form.ID)), slog.Any("error", err))
+			logger.Warn("turnstile verification failed",
+				slog.Uint64("form_id", uint64(form.ID)),
+				slog.Any("error", err),
+			)
 		}
 		return errors.New("captcha verification failed")
+	}
+
+	// Validate that the captcha was solved on an allowed origin
+	// This prevents token reuse from other sites
+	if result.Hostname != "" && strings.TrimSpace(form.AllowedOrigins) != "" && form.AllowedOrigins != "*" {
+		if !form.IsOriginAllowed(result.Hostname) {
+			if logger != nil {
+				logger.Warn("captcha hostname mismatch",
+					slog.Uint64("form_id", uint64(form.ID)),
+					slog.String("captcha_hostname", result.Hostname),
+					slog.String("allowed_origins", form.AllowedOrigins),
+				)
+			}
+			return errors.New("captcha verification failed")
+		}
 	}
 
 	return nil
@@ -395,77 +354,28 @@ func jsonError(ctx *cartridge.Context, status int, message string) error {
 	})
 }
 
-// isOriginAllowed checks if the request origin/referer is allowed for this form.
-// AllowedOrigins must be configured - empty origins will reject all submissions.
-// If AllowedOrigins is "*", all origins are allowed.
-// Otherwise, the origin must match one of the allowed domains (comma-separated).
-func isOriginAllowed(ctx *cartridge.Context, form *forms.Form) bool {
-	allowedOrigins := strings.TrimSpace(form.AllowedOrigins)
-
-	// Reject if no origins configured
-	if allowedOrigins == "" {
-		return false
-	}
-
-	// Wildcard allows all origins
-	if allowedOrigins == "*" {
-		return true
-	}
-
-	// Get origin from Origin or Referer header
+// getRequestOrigin extracts the origin domain from the request headers.
+// Checks Origin header first, falls back to Referer.
+// Returns an extracted domain (e.g., "example.com"), not the full URL.
+func getRequestOrigin(ctx *cartridge.Context) string {
 	origin := ctx.Get("Origin")
 	if origin == "" {
 		origin = ctx.Get("Referer")
 	}
 	if origin == "" {
-		// No origin header - could be direct API call or cURL
-		// For security, reject if origins are configured
-		return false
+		return ""
 	}
-
-	// Parse the origin to get the domain
-	originDomain := extractDomain(origin)
-	if originDomain == "" {
-		return false
-	}
-
-	// Check against allowed origins (comma-separated list)
-	allowedList := strings.Split(allowedOrigins, ",")
-	for _, allowed := range allowedList {
-		allowed = strings.TrimSpace(allowed)
-		if allowed == "" {
-			continue
-		}
-
-		// Wildcard - allow all
-		if allowed == "*" {
-			return true
-		}
-
-		// Exact match or wildcard subdomain match
-		if originDomain == allowed || strings.HasSuffix(originDomain, "."+allowed) {
-			return true
-		}
-
-		// Support wildcard patterns like *.example.com
-		if strings.HasPrefix(allowed, "*.") {
-			baseDomain := strings.TrimPrefix(allowed, "*.")
-			if originDomain == baseDomain || strings.HasSuffix(originDomain, "."+baseDomain) {
-				return true
-			}
-		}
-	}
-
-	return false
+	return extractDomain(origin)
 }
 
-// extractDomain extracts the domain from a full URL (origin or referer)
+// extractDomain extracts the domain from a full URL (origin or referer).
+// Removes protocol, path, query, fragment, and port.
 func extractDomain(urlStr string) string {
 	// Remove protocol
 	urlStr = strings.TrimPrefix(urlStr, "https://")
 	urlStr = strings.TrimPrefix(urlStr, "http://")
 
-	// Remove path and query
+	// Remove path, query and fragment
 	if idx := strings.IndexAny(urlStr, "/?#"); idx >= 0 {
 		urlStr = urlStr[:idx]
 	}

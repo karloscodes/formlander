@@ -1,4 +1,4 @@
-package controllers
+package http
 
 import (
 	"formlander/internal/forms"
