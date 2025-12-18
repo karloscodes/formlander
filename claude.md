@@ -69,57 +69,70 @@ This handles:
 
 ## Testing
 
-- **Table-driven tests with `t.Run()` required** — Always use this pattern for multiple scenarios
+- **Always use `t.Run()` for test scenarios** — Never use separate top-level test functions per scenario
 - Use `internal/pkg/testsupport` helpers
 - In-memory SQLite for unit tests
 - E2E tests in `e2e/` directory
 
-### Test Pattern (Required)
+### Test Patterns
 
-Use table-driven tests with `t.Run()` for all test scenarios:
+**Table-driven tests** — Use when you have many similar cases with the same structure:
 
 ```go
-func TestSomething(t *testing.T) {
+func TestExtractDomain(t *testing.T) {
     tests := []struct {
         name     string
         input    string
         expected string
-        // add fields as needed
     }{
-        {
-            name:     "describes what this case tests",
-            input:    "value",
-            expected: "result",
-        },
-        {
-            name:     "another scenario",
-            input:    "other",
-            expected: "other result",
-        },
+        {"https URL", "https://example.com", "example.com"},
+        {"with port", "https://example.com:8080", "example.com"},
+        {"with path", "https://example.com/path", "example.com"},
     }
 
     for _, tt := range tests {
         t.Run(tt.name, func(t *testing.T) {
-            result := FunctionUnderTest(tt.input)
-            assert.Equal(t, tt.expected, result)
+            assert.Equal(t, tt.expected, extractDomain(tt.input))
         })
     }
 }
 ```
 
-**Do NOT** write separate test functions for each scenario:
+**Independent `t.Run()` blocks** — Use when cases have different setup, logic, or assertions:
 
 ```go
-// ❌ Wrong - separate functions
-func TestSomething_ScenarioA(t *testing.T) { ... }
-func TestSomething_ScenarioB(t *testing.T) { ... }
+func TestUserService(t *testing.T) {
+    t.Run("creates user with valid data", func(t *testing.T) {
+        db := setupTestDB(t)
+        svc := NewUserService(db)
 
-// ✅ Correct - table-driven with t.Run()
-func TestSomething(t *testing.T) {
-    tests := []struct{ ... }{ ... }
-    for _, tt := range tests {
-        t.Run(tt.name, func(t *testing.T) { ... })
-    }
+        user, err := svc.Create("test@example.com")
+        require.NoError(t, err)
+        assert.NotEmpty(t, user.ID)
+    })
+
+    t.Run("rejects duplicate email", func(t *testing.T) {
+        db := setupTestDB(t)
+        svc := NewUserService(db)
+        svc.Create("test@example.com")
+
+        _, err := svc.Create("test@example.com")
+        assert.ErrorIs(t, err, ErrDuplicateEmail)
+    })
+}
+```
+
+**Do NOT** use separate top-level functions per scenario:
+
+```go
+// ❌ Wrong
+func TestUserService_CreatesUser(t *testing.T) { ... }
+func TestUserService_RejectsDuplicate(t *testing.T) { ... }
+
+// ✅ Correct - use t.Run() inside one function
+func TestUserService(t *testing.T) {
+    t.Run("creates user", func(t *testing.T) { ... })
+    t.Run("rejects duplicate", func(t *testing.T) { ... })
 }
 ```
 
