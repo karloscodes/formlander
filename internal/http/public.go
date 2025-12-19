@@ -13,11 +13,11 @@ import (
 	"formlander/internal/config"
 	"formlander/internal/forms"
 	"formlander/internal/middleware"
-	"formlander/internal/server"
+	"formlander/internal/pkg/cartridge"
 )
 
 // PublicFormSubmission accepts a submission for the given form slug.
-func PublicFormSubmission(ctx *server.Context) error {
+func PublicFormSubmission(ctx *cartridge.Context) error {
 	db := ctx.DB()
 
 	cfg := ctx.Config
@@ -112,7 +112,7 @@ type apiSubmissionRequest struct {
 }
 
 // APISubmissionCreate handles JSON submissions for external clients.
-func APISubmissionCreate(ctx *server.Context) error {
+func APISubmissionCreate(ctx *cartridge.Context) error {
 	db := ctx.DB()
 
 	logger := ctx.Logger
@@ -169,7 +169,7 @@ func APISubmissionCreate(ctx *server.Context) error {
 	})
 }
 
-func extractSubmissionPayload(ctx *server.Context, cfg *config.Config) (map[string]any, error) {
+func extractSubmissionPayload(ctx *cartridge.Context, cfg *config.Config) (map[string]any, error) {
 	result := make(map[string]any)
 	fieldCount := 0
 
@@ -249,7 +249,7 @@ func extractRedirectURL(payload map[string]any, key string) string {
 	return ""
 }
 
-func enforceCaptchaIfNeeded(ctx *server.Context, form *forms.Form, payload map[string]any) error {
+func enforceCaptchaIfNeeded(ctx *cartridge.Context, form *forms.Form, payload map[string]any) error {
 	if form == nil || form.CaptchaProfileID == nil {
 		return nil
 	}
@@ -341,7 +341,7 @@ func coerceToString(value any) string {
 	return ""
 }
 
-func jsonError(ctx *server.Context, status int, message string) error {
+func jsonError(ctx *cartridge.Context, status int, message string) error {
 	return ctx.Status(status).JSON(fiber.Map{
 		"ok":    false,
 		"error": message,
@@ -351,7 +351,7 @@ func jsonError(ctx *server.Context, status int, message string) error {
 // getRequestOrigin extracts the origin domain from the request headers.
 // Checks Origin header first, falls back to Referer.
 // Returns an extracted domain (e.g., "example.com"), not the full URL.
-func getRequestOrigin(ctx *server.Context) string {
+func getRequestOrigin(ctx *cartridge.Context) string {
 	origin := ctx.Get("Origin")
 	if origin == "" {
 		origin = ctx.Get("Referer")

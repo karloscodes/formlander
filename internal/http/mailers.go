@@ -6,14 +6,14 @@ import (
 	"formlander/internal/integrations"
 	"strconv"
 
-	"formlander/internal/server"
+	"formlander/internal/pkg/cartridge"
 
 	"github.com/gofiber/fiber/v2"
 	"log/slog"
 )
 
 // MailerProfileList shows all mailer profiles.
-func MailerProfileList(ctx *server.Context) error {
+func MailerProfileList(ctx *cartridge.Context) error {
 	db := ctx.DB()
 
 	var profiles []integrations.MailerProfile
@@ -29,7 +29,7 @@ func MailerProfileList(ctx *server.Context) error {
 }
 
 // MailerProfileNew shows the create form.
-func MailerProfileNew(ctx *server.Context) error {
+func MailerProfileNew(ctx *cartridge.Context) error {
 	return ctx.Render("layouts/base", fiber.Map{
 		"Title":       "New Mailer Profile",
 		"ContentView": "admin/mailers/new/content",
@@ -37,7 +37,7 @@ func MailerProfileNew(ctx *server.Context) error {
 }
 
 // MailerProfileCreate handles profile creation.
-func MailerProfileCreate(ctx *server.Context) error {
+func MailerProfileCreate(ctx *cartridge.Context) error {
 	db := ctx.DB()
 
 	logger := ctx.Logger
@@ -70,7 +70,7 @@ func MailerProfileCreate(ctx *server.Context) error {
 }
 
 // MailerProfileShow displays a single profile.
-func MailerProfileShow(ctx *server.Context) error {
+func MailerProfileShow(ctx *cartridge.Context) error {
 	db := ctx.DB()
 
 	id := ctx.Params("id")
@@ -92,7 +92,7 @@ func MailerProfileShow(ctx *server.Context) error {
 }
 
 // MailerProfileEdit shows the edit form.
-func MailerProfileEdit(ctx *server.Context) error {
+func MailerProfileEdit(ctx *cartridge.Context) error {
 	db := ctx.DB()
 
 	id := ctx.Params("id")
@@ -110,7 +110,7 @@ func MailerProfileEdit(ctx *server.Context) error {
 }
 
 // MailerProfileUpdate handles profile updates.
-func MailerProfileUpdate(ctx *server.Context) error {
+func MailerProfileUpdate(ctx *cartridge.Context) error {
 	db := ctx.DB()
 
 	id := ctx.Params("id")
@@ -153,7 +153,7 @@ func MailerProfileUpdate(ctx *server.Context) error {
 }
 
 // MailerProfileDelete removes a profile.
-func MailerProfileDelete(ctx *server.Context) error {
+func MailerProfileDelete(ctx *cartridge.Context) error {
 	db := ctx.DB()
 
 	id := ctx.Params("id")

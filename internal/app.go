@@ -14,14 +14,14 @@ import (
 	"formlander/internal/config"
 	"formlander/internal/database"
 	"formlander/internal/jobs"
-	"formlander/internal/server"
+	"formlander/internal/pkg/cartridge"
 	"formlander/internal/pkg/dbtxn"
 	"formlander/web"
 )
 
 // App wraps the cartridge application with background workers.
 type App struct {
-	*server.Application
+	*cartridge.Application
 	dispatcher *jobs.UnifiedDispatcher
 }
 
@@ -41,7 +41,7 @@ func NewAppWithOptions(opts *AppOptions) (*App, error) {
 
 	auth.Initialize(cfg)
 
-	cartridgeOpts := server.ApplicationOptions{
+	cartridgeOpts := cartridge.ApplicationOptions{
 		Config:         cfg,
 		RouteMountFunc: MountRoutes,
 	}
@@ -55,7 +55,7 @@ func NewAppWithOptions(opts *AppOptions) (*App, error) {
 		cartridgeOpts.TemplatesDirectory = opts.TemplatesDirectory
 	}
 
-	application, err := server.NewApplication(cartridgeOpts)
+	application, err := cartridge.NewApplication(cartridgeOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -71,7 +71,7 @@ func RunMigrations(app *App) error {
 	return runMigrations(app.Application, app.Config)
 }
 
-func runMigrations(app *server.Application, cfg *config.Config) error {
+func runMigrations(app *cartridge.Application, cfg *config.Config) error {
 	db, err := app.DBManager.Connect()
 	if err != nil {
 		return fmt.Errorf("connect database: %w", err)

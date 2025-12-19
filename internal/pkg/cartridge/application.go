@@ -1,14 +1,15 @@
-package server
+package cartridge
 
 import (
 	"context"
 	"fmt"
 	"io/fs"
-	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
+
+	"log/slog"
 
 	"formlander/internal/config"
 	"formlander/internal/database"
@@ -16,11 +17,12 @@ import (
 )
 
 // Application wires together configuration, logging, database, and HTTP server.
+// It manages the complete lifecycle of a cartridge web application.
 type Application struct {
-	Config    *config.Config
-	Logger    *slog.Logger
-	DBManager *database.Manager
-	Server    *Server
+	Config    *config.Config    // Runtime configuration
+	Logger    *slog.Logger       // Global application logger
+	DBManager *database.Manager // Database connection pool manager
+	Server    *Server           // HTTP server with routes
 }
 
 // ApplicationOptions configure application bootstrapping.
@@ -28,13 +30,13 @@ type ApplicationOptions struct {
 	Config             *config.Config
 	RouteMountFunc     func(*Server)
 	CatchAllRedirect   string
-	TemplatesFS        fs.FS
-	TemplatesDirectory string
-	StaticFS           fs.FS
-	StaticDirectory    string
+	TemplatesFS        fs.FS  // Embedded filesystem for templates
+	TemplatesDirectory string // Custom template directory (development mode)
+	StaticFS           fs.FS  // Embedded filesystem for static assets
+	StaticDirectory    string // Custom static directory (development mode)
 }
 
-// NewApplication constructs an application.
+// NewApplication constructs a cartridge application.
 func NewApplication(opts ApplicationOptions) (*Application, error) {
 	cfg := opts.Config
 	if cfg == nil {
@@ -43,7 +45,7 @@ func NewApplication(opts ApplicationOptions) (*Application, error) {
 
 	appLog, err := appLogger.Initialize(cfg)
 	if err != nil {
-		return nil, fmt.Errorf("server: initialize logger: %w", err)
+		return nil, fmt.Errorf("cartridge: initialize logger: %w", err)
 	}
 	slog.SetDefault(appLog)
 
@@ -60,7 +62,7 @@ func NewApplication(opts ApplicationOptions) (*Application, error) {
 
 	server, err := NewServer(serverCfg)
 	if err != nil {
-		return nil, fmt.Errorf("server: create server: %w", err)
+		return nil, fmt.Errorf("cartridge: create server: %w", err)
 	}
 	if opts.CatchAllRedirect != "" {
 		server.SetCatchAllRedirect(opts.CatchAllRedirect)
@@ -96,11 +98,13 @@ func (a *Application) Shutdown(ctx context.Context) error {
 }
 
 // Run starts the application and waits for termination signals.
+// It handles graceful shutdown with a default timeout of 10 seconds.
 func (a *Application) Run() error {
 	return a.RunWithTimeout(10 * time.Second)
 }
 
-// RunWithTimeout starts the application with the specified shutdown timeout.
+// RunWithTimeout starts the application and waits for termination signals.
+// It handles graceful shutdown with the specified timeout.
 func (a *Application) RunWithTimeout(timeout time.Duration) error {
 	if err := a.Start(); err != nil {
 		return err

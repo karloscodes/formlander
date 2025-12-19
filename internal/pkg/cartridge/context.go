@@ -1,8 +1,7 @@
-// Package server provides formlander-specific server infrastructure that wraps
-// the shared github.com/karloscodes/cartridge framework with concrete types.
-package server
+package cartridge
 
 import (
+	"fmt"
 	"log/slog"
 
 	"github.com/gofiber/fiber/v2"
@@ -13,14 +12,15 @@ import (
 )
 
 // Context provides request-scoped access to application dependencies.
-// This is a formlander-specific context that provides concrete types
-// instead of the interfaces used by the generic cartridge package.
+// It embeds fiber.Ctx to provide all HTTP request/response methods while
+// adding direct field access to logger, config, and database manager.
+// This eliminates the need for context.Locals and provides type-safe access.
 type Context struct {
 	*fiber.Ctx                   // All Fiber HTTP methods (Render, JSON, etc.)
-	Logger    *slog.Logger       // Request logger
-	Config    *config.Config     // Runtime configuration
-	DBManager *database.Manager  // Database connection pool
-	db        *gorm.DB           // Cached database session (lazy-loaded)
+	Logger     *slog.Logger       // Request logger (shared across app)
+	Config     *config.Config    // Runtime configuration
+	DBManager  *database.Manager // Database connection pool
+	db         *gorm.DB          // Cached database session (lazy-loaded)
 }
 
 // DB provides a per-request database session with context attached.
@@ -33,13 +33,10 @@ func (ctx *Context) DB() *gorm.DB {
 
 	db, err := ctx.DBManager.Connect()
 	if err != nil {
-		panic("server: database connection failed: " + err.Error())
+		panic(fmt.Errorf("cartridge: database connection failed: %w", err))
 	}
 
 	// Attach the request context for cancellation support and cache it
 	ctx.db = db.WithContext(ctx.Context())
 	return ctx.db
 }
-
-// HandlerFunc is the signature for formlander request handlers.
-type HandlerFunc func(*Context) error

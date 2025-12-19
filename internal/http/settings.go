@@ -8,12 +8,12 @@ import (
 
 	"formlander/internal/accounts"
 	"formlander/internal/auth"
-	"formlander/internal/server"
+	"formlander/internal/pkg/cartridge"
 	"formlander/pkg/extension"
 )
 
 // AdminSettingsPage renders the settings page.
-func AdminSettingsPage(ctx *server.Context) error {
+func AdminSettingsPage(ctx *cartridge.Context) error {
 	db := ctx.DB()
 
 	// Get current user
@@ -46,7 +46,7 @@ func AdminSettingsPage(ctx *server.Context) error {
 }
 
 // AdminSettingsUpdatePassword handles password updates from settings page.
-func AdminSettingsUpdatePassword(ctx *server.Context) error {
+func AdminSettingsUpdatePassword(ctx *cartridge.Context) error {
 	currentPassword := ctx.FormValue("current_password")
 	newPassword := ctx.FormValue("new_password")
 	confirmPassword := ctx.FormValue("confirm_password")
@@ -86,16 +86,16 @@ func AdminSettingsUpdatePassword(ctx *server.Context) error {
 }
 
 // AdminSettingsUpdateMailgun is deprecated - redirect to mailers.
-func AdminSettingsUpdateMailgun(ctx *server.Context) error {
+func AdminSettingsUpdateMailgun(ctx *cartridge.Context) error {
 	return ctx.Redirect("/admin/settings/mailers")
 }
 
 // AdminSettingsUpdateTurnstile is deprecated - redirect to captcha.
-func AdminSettingsUpdateTurnstile(ctx *server.Context) error {
+func AdminSettingsUpdateTurnstile(ctx *cartridge.Context) error {
 	return ctx.Redirect("/admin/settings/captcha")
 }
 
-func renderSettingsError(ctx *server.Context, message string) error {
+func renderSettingsError(ctx *cartridge.Context, message string) error {
 	db := ctx.DB()
 	userID, _ := auth.GetUserID(ctx.Ctx)
 
@@ -109,7 +109,7 @@ func renderSettingsError(ctx *server.Context, message string) error {
 	}, "")
 }
 
-func renderSettingsSuccess(ctx *server.Context, message string) error {
+func renderSettingsSuccess(ctx *cartridge.Context, message string) error {
 	db := ctx.DB()
 	userID, _ := auth.GetUserID(ctx.Ctx)
 
