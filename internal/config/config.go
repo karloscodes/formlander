@@ -2,8 +2,6 @@ package config
 
 import (
 	"log"
-	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -18,14 +16,8 @@ const appName = "formlander"
 type Config struct {
 	*config.Config
 
-	// Uploads configuration.
-	UploadsDirectory string `mapstructure:"uploadsdirectory"`
-	MaxUploadSizeMB  int    `mapstructure:"maxuploadssizemb"`
-	MaxInputFields   int    `mapstructure:"maxinputfields"`
-	MaxPayloadSizeMB int    `mapstructure:"maxpayloadsizemb"`
-
-	// Rate limiting.
-	SubmissionRatePerHour int `mapstructure:"submissionrateperhour"`
+	// Form limits.
+	MaxInputFields int `mapstructure:"maxinputfields"`
 
 	// Webhook configuration.
 	Webhook WebhookConfig `mapstructure:"webhook"`
@@ -60,11 +52,7 @@ func Get() *Config {
 		_ = v.ReadInConfig()
 
 		// Set formlander-specific defaults
-		v.SetDefault("uploadsdirectory", "uploads")
-		v.SetDefault("maxuploadssizemb", 10)
 		v.SetDefault("maxinputfields", 200)
-		v.SetDefault("maxpayloadsizemb", 2)
-		v.SetDefault("submissionrateperhour", 120)
 		v.SetDefault("webhook.signatureheader", "X-Formlander-Signature")
 		v.SetDefault("webhook.retrylimit", 3)
 		v.SetDefault("webhook.backoffschedule", "1,5,15,60")
@@ -73,23 +61,8 @@ func Get() *Config {
 		if err := v.Unmarshal(cfgInst); err != nil {
 			log.Fatalf("config: failed to unmarshal: %v", err)
 		}
-
-		// Ensure uploads directory exists
-		if uploads := cfgInst.GetUploadsDirectory(); uploads != "" {
-			if err := os.MkdirAll(uploads, 0o755); err != nil {
-				log.Printf("config: failed to create uploads directory %q: %v", uploads, err)
-			}
-		}
 	})
 	return cfgInst
-}
-
-// GetUploadsDirectory resolves the uploads directory relative to the data directory.
-func (c *Config) GetUploadsDirectory() string {
-	if filepath.IsAbs(c.UploadsDirectory) {
-		return c.UploadsDirectory
-	}
-	return filepath.Join(c.DataDirectory, c.UploadsDirectory)
 }
 
 // WebhookBackoff returns the parsed retry schedule for webhook delivery.

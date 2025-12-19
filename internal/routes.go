@@ -8,7 +8,6 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/limiter"
 	"github.com/karloscodes/cartridge"
 
-	"formlander/internal/auth"
 	"formlander/internal/config"
 	httphandlers "formlander/internal/http"
 	"formlander/internal/middleware"
@@ -16,6 +15,13 @@ import (
 
 // MountRoutes registers all application routes.
 func MountRoutes(s *cartridge.Server, cfg *config.Config) {
+	// Store formlander config and session in all requests for handlers
+	s.App().Use(func(c *fiber.Ctx) error {
+		c.Locals("app_config", cfg)
+		c.Locals("session", s.Session())
+		return c.Next()
+	})
+
 	// Health Check - support both GET and HEAD requests
 	healthHandler := func(ctx *cartridge.Context) error {
 		return ctx.Status(fiber.StatusOK).JSON(fiber.Map{"status": "ok"})
@@ -104,12 +110,12 @@ func MountRoutes(s *cartridge.Server, cfg *config.Config) {
 
 	// Auth config without password check (for change-password routes)
 	authConfigBasic := &cartridge.RouteConfig{
-		CustomMiddleware: []fiber.Handler{auth.Middleware()},
+		CustomMiddleware: []fiber.Handler{s.Session().Middleware()},
 	}
 
 	// Auth config with password change enforcement (for protected routes)
 	authConfig := &cartridge.RouteConfig{
-		CustomMiddleware: []fiber.Handler{auth.Middleware(), httphandlers.RequirePasswordChanged()},
+		CustomMiddleware: []fiber.Handler{s.Session().Middleware(), httphandlers.RequirePasswordChanged()},
 	}
 
 	// Password change routes (accessible to authenticated users)

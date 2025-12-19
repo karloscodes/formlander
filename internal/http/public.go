@@ -20,7 +20,7 @@ import (
 func PublicFormSubmission(ctx *cartridge.Context) error {
 	db := ctx.DB()
 
-	cfg := ctx.Config.(*config.Config)
+	cfg := GetAppConfig(ctx)
 
 	slug := ctx.Params("slug")
 	if slug == "" {

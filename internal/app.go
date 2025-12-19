@@ -11,7 +11,6 @@ import (
 	"github.com/karloscodes/cartridge"
 
 	"formlander/internal/accounts"
-	"formlander/internal/auth"
 	"formlander/internal/config"
 	"formlander/internal/database"
 	"formlander/internal/jobs"
@@ -20,83 +19,35 @@ import (
 	"formlander/web"
 )
 
-// App wraps the cartridge application with formlander-specific components.
+// App wraps the cartridge app with formlander-specific config.
 type App struct {
-	*cartridge.Application
-	Config    *config.Config
-	Logger    *slog.Logger
-	DBManager *database.Manager
+	*cartridge.App
+	Config *config.Config
 }
 
-// AppOptions configures application initialization.
-type AppOptions struct {
-	TemplatesDirectory string
-}
-
-// NewApp creates the application using cartridge defaults.
+// NewApp creates the formlander application.
 func NewApp() (*App, error) {
-	return NewAppWithOptions(nil)
-}
-
-// NewAppWithOptions creates the application with custom options.
-func NewAppWithOptions(opts *AppOptions) (*App, error) {
 	cfg := config.Get()
 
-	// Initialize auth
-	auth.Initialize(cfg)
-
-	// Initialize logger (auto-extracts log config from cfg via LogConfigProvider)
-	logger := cartridge.NewLogger(cfg, nil)
-	slog.SetDefault(logger)
-
-	// Initialize database manager
-	dbManager := database.NewManager(cfg, logger)
-
-	// Build server configuration
-	serverCfg := server.ServerConfig{
-		Config:    cfg,
-		Logger:    logger,
-		DBManager: dbManager,
-	}
-
-	// Configure assets based on environment
-	if !cfg.IsDevelopment() {
-		serverCfg.TemplatesFS = web.Templates
-		serverCfg.StaticFS = web.Static
-	} else if opts != nil && opts.TemplatesDirectory != "" {
-		serverCfg.TemplatesDirectory = opts.TemplatesDirectory
-	}
-
-	// Create formlander server
-	srv, err := server.NewServer(serverCfg)
+	app, err := cartridge.NewSSRApp("formlander",
+		cartridge.WithConfig(cfg.Config),
+		cartridge.WithAssets(web.Templates, web.Static),
+		cartridge.WithTemplateFuncs(server.TemplateFuncs()),
+		cartridge.WithErrorHandler(server.ErrorHandler(slog.Default(), cfg)),
+		cartridge.WithSession("/admin/login"),
+		cartridge.WithJobs(2*time.Minute,
+			jobs.NewWebhookDispatcher(cfg),
+			jobs.NewEmailDispatcher(cfg),
+		),
+		cartridge.WithRoutes(func(s *cartridge.Server) {
+			MountRoutes(s, cfg)
+		}),
+	)
 	if err != nil {
-		return nil, fmt.Errorf("create server: %w", err)
+		return nil, err
 	}
 
-	// Mount routes
-	MountRoutes(srv, cfg)
-
-	// Create jobs dispatcher as a background worker
-	dispatcher := jobs.NewUnifiedDispatcher(cfg, logger, dbManager)
-
-	// Create cartridge application with pre-built server
-	application, err := cartridge.NewApplication(cartridge.ApplicationOptions{
-		Config:            cfg,
-		Logger:            logger,
-		DBManager:         dbManager,
-		Server:            srv,
-		BackgroundWorkers: []cartridge.BackgroundWorker{dispatcher},
-	})
-	if err != nil {
-		return nil, fmt.Errorf("create application: %w", err)
-	}
-
-	return &App{
-		Application: application,
-		Config:      cfg,
-		Logger:      logger,
-		DBManager:   dbManager,
-	}, nil
+	return &App{App: app, Config: cfg}, nil
 }
 
 // RunMigrations runs database migrations and ensures admin user exists.
@@ -106,7 +57,6 @@ func RunMigrations(app *App) error {
 		return fmt.Errorf("connect database: %w", err)
 	}
 
-	// Run migrations
 	if err := database.Migrate(db); err != nil {
 		return fmt.Errorf("migrate database: %w", err)
 	}
@@ -115,7 +65,6 @@ func RunMigrations(app *App) error {
 		return fmt.Errorf("ensure admin user: %w", err)
 	}
 
-	// Checkpoint WAL to ensure migrations are persisted
 	if err := app.DBManager.CheckpointWAL("FULL"); err != nil {
 		app.Logger.Warn("failed to checkpoint WAL after migration", slog.Any("error", err))
 	}
@@ -133,7 +82,6 @@ func ensureAdminUser(db *gorm.DB, cfg *config.Config, logger *slog.Logger) error
 		return nil
 	}
 
-	// Create default admin user with temporary password
 	defaultEmail := "admin@formlander.local"
 	defaultPassword := "formlander"
 
@@ -145,7 +93,7 @@ func ensureAdminUser(db *gorm.DB, cfg *config.Config, logger *slog.Logger) error
 	admin := &accounts.User{
 		Email:        defaultEmail,
 		PasswordHash: string(hash),
-		LastLoginAt:  nil, // nil = first login, will force password change
+		LastLoginAt:  nil,
 	}
 
 	if cfg.IsTest() {
@@ -162,8 +110,6 @@ func ensureAdminUser(db *gorm.DB, cfg *config.Config, logger *slog.Logger) error
 
 	fmt.Printf("\n🔐 Default admin user created:\n")
 	fmt.Printf("   Email: %s\n", defaultEmail)
-	// Intentionally logging default password during initial setup - must be changed on first login
-	// codeql[go/clear-text-logging]
 	fmt.Printf("   Temporary credentials: %s\n", defaultPassword)
 	fmt.Printf("   ⚠️  You will be required to change this on first login\n\n")
 

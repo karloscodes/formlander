@@ -2,8 +2,6 @@ package auth
 
 import (
 	"testing"
-
-	"formlander/internal/config"
 )
 
 func TestPasswordHashing(t *testing.T) {
@@ -57,19 +55,4 @@ func TestVerifyPassword(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestInitialize(t *testing.T) {
-	t.Run("initializes session manager without panicking", func(t *testing.T) {
-		// Use real config loading with test environment
-		config.Reset()
-		t.Setenv("FORMLANDER_ENV", "test")
-		cfg := config.Get()
-
-		// Should not panic
-		Initialize(cfg)
-
-		// Verify sessionManager is set by checking Middleware doesn't panic
-		_ = Middleware()
-	})
 }
