@@ -381,7 +381,7 @@ func (s *Server) Start() error {
 			return c.Redirect(s.catchAll, fiber.StatusTemporaryRedirect)
 		})
 	}
-	s.cfg.Logger.Info("starting http server", slog.String("addr", ":"+s.cfg.Config.Port))
+	s.cfg.Logger.Info("Server started and ready to accept requests", slog.String("port", s.cfg.Config.Port))
 	return s.app.Listen(":" + s.cfg.Config.Port)
 }
 
