@@ -11,10 +11,7 @@ import (
 
 // AdminDashboard shows the main dashboard with stats and recent activity
 func AdminDashboard(ctx *cartridge.Context) error {
-	db, err := ctx.DB()
-	if err != nil {
-		return fiber.ErrInternalServerError
-	}
+	db := ctx.DB()
 
 	// Get total counts
 	var totalForms, totalSubmissions int64

@@ -18,10 +18,7 @@ import (
 
 // PublicFormSubmission accepts a submission for the given form slug.
 func PublicFormSubmission(ctx *cartridge.Context) error {
-	db, err := ctx.DB()
-	if err != nil {
-		return jsonError(ctx, fiber.StatusInternalServerError, "database unavailable")
-	}
+	db := ctx.DB()
 
 	cfg := ctx.Config
 
@@ -116,10 +113,7 @@ type apiSubmissionRequest struct {
 
 // APISubmissionCreate handles JSON submissions for external clients.
 func APISubmissionCreate(ctx *cartridge.Context) error {
-	db, err := ctx.DB()
-	if err != nil {
-		return jsonError(ctx, fiber.StatusInternalServerError, "database unavailable")
-	}
+	db := ctx.DB()
 
 	logger := ctx.Logger
 

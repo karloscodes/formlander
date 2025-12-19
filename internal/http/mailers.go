@@ -14,10 +14,7 @@ import (
 
 // MailerProfileList shows all mailer profiles.
 func MailerProfileList(ctx *cartridge.Context) error {
-	db, err := ctx.DB()
-	if err != nil {
-		return fiber.ErrInternalServerError
-	}
+	db := ctx.DB()
 
 	var profiles []integrations.MailerProfile
 	if err := db.Order("created_at DESC").Find(&profiles).Error; err != nil {
@@ -41,10 +38,7 @@ func MailerProfileNew(ctx *cartridge.Context) error {
 
 // MailerProfileCreate handles profile creation.
 func MailerProfileCreate(ctx *cartridge.Context) error {
-	db, err := ctx.DB()
-	if err != nil {
-		return fiber.ErrInternalServerError
-	}
+	db := ctx.DB()
 
 	logger := ctx.Logger
 	params := integrations.MailerProfileParams{
@@ -57,7 +51,7 @@ func MailerProfileCreate(ctx *cartridge.Context) error {
 		DefaultsJSON:     ctx.FormValue("defaults_json"),
 	}
 
-	_, err = integrations.CreateMailerProfile(logger, db, params)
+	_, err := integrations.CreateMailerProfile(logger, db, params)
 	if err != nil {
 		var errMsg string
 		if valErr, ok := err.(*integrations.ValidationError); ok {
@@ -77,10 +71,7 @@ func MailerProfileCreate(ctx *cartridge.Context) error {
 
 // MailerProfileShow displays a single profile.
 func MailerProfileShow(ctx *cartridge.Context) error {
-	db, err := ctx.DB()
-	if err != nil {
-		return fiber.ErrInternalServerError
-	}
+	db := ctx.DB()
 
 	id := ctx.Params("id")
 	var profile integrations.MailerProfile
@@ -102,10 +93,7 @@ func MailerProfileShow(ctx *cartridge.Context) error {
 
 // MailerProfileEdit shows the edit form.
 func MailerProfileEdit(ctx *cartridge.Context) error {
-	db, err := ctx.DB()
-	if err != nil {
-		return fiber.ErrInternalServerError
-	}
+	db := ctx.DB()
 
 	id := ctx.Params("id")
 	var profile integrations.MailerProfile
@@ -123,10 +111,7 @@ func MailerProfileEdit(ctx *cartridge.Context) error {
 
 // MailerProfileUpdate handles profile updates.
 func MailerProfileUpdate(ctx *cartridge.Context) error {
-	db, err := ctx.DB()
-	if err != nil {
-		return fiber.ErrInternalServerError
-	}
+	db := ctx.DB()
 
 	id := ctx.Params("id")
 	profileID, err := strconv.ParseUint(id, 10, 32)
@@ -169,10 +154,7 @@ func MailerProfileUpdate(ctx *cartridge.Context) error {
 
 // MailerProfileDelete removes a profile.
 func MailerProfileDelete(ctx *cartridge.Context) error {
-	db, err := ctx.DB()
-	if err != nil {
-		return fiber.ErrInternalServerError
-	}
+	db := ctx.DB()
 
 	id := ctx.Params("id")
 	profileID, err := strconv.ParseUint(id, 10, 32)

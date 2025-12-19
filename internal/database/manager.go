@@ -44,6 +44,17 @@ func (m *Manager) Connect() (*gorm.DB, error) {
 	return m.db.Session(&gorm.Session{}), nil
 }
 
+// GetConnection returns a database connection (implements cartridge.DBManager interface).
+// Returns nil if the connection is unavailable.
+func (m *Manager) GetConnection() *gorm.DB {
+	db, err := m.Connect()
+	if err != nil {
+		m.logger.Error("failed to get database connection", slog.Any("error", err))
+		return nil
+	}
+	return db
+}
+
 // Close closes the underlying sql.DB connection.
 func (m *Manager) Close() error {
 	m.dbMutex.Lock()

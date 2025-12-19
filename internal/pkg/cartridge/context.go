@@ -2,9 +2,9 @@ package cartridge
 
 import (
 	"fmt"
+	"log/slog"
 
 	"github.com/gofiber/fiber/v2"
-	"log/slog"
 	"gorm.io/gorm"
 
 	"formlander/internal/config"
@@ -25,19 +25,18 @@ type Context struct {
 
 // DB provides a per-request database session with context attached.
 // The connection is cached after first call within the same request.
-// Returns an error if the database connection fails.
-func (ctx *Context) DB() (*gorm.DB, error) {
+// Panics if the database connection fails (caught by recover middleware).
+func (ctx *Context) DB() *gorm.DB {
 	if ctx.db != nil {
-		return ctx.db, nil
+		return ctx.db
 	}
 
 	db, err := ctx.DBManager.Connect()
 	if err != nil {
-		ctx.Logger.Error("failed to connect to database", slog.Any("error", err))
-		return nil, fmt.Errorf("cartridge: database connection failed: %w", err)
+		panic(fmt.Errorf("cartridge: database connection failed: %w", err))
 	}
 
 	// Attach the request context for cancellation support and cache it
 	ctx.db = db.WithContext(ctx.Context())
-	return ctx.db, nil
+	return ctx.db
 }

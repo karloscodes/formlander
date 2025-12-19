@@ -36,11 +36,7 @@ func AdminLoginSubmit(ctx *cartridge.Context) error {
 	email := ctx.FormValue("email")
 	password := ctx.FormValue("password")
 
-	db, err := ctx.DB()
-	if err != nil {
-		ctx.Logger.Error("failed to get database from context", slog.Any("error", err))
-		return fiber.ErrInternalServerError
-	}
+	db := ctx.DB()
 
 	result, err := accounts.Authenticate(ctx.Logger, db, email, password)
 	if err != nil {
@@ -107,10 +103,7 @@ func AdminChangePasswordSubmit(ctx *cartridge.Context) error {
 		return fiber.ErrUnauthorized
 	}
 
-	db, err := ctx.DB()
-	if err != nil {
-		return fiber.ErrInternalServerError
-	}
+	db := ctx.DB()
 
 	user, err := accounts.FindByID(db, userID)
 	if err != nil {

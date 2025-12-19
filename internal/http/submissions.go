@@ -20,10 +20,7 @@ type submissionWithPreview struct {
 
 // SubmissionList shows all submissions with pagination and filters.
 func SubmissionList(ctx *cartridge.Context) error {
-	db, err := ctx.DB()
-	if err != nil {
-		return fiber.ErrInternalServerError
-	}
+	db := ctx.DB()
 
 	// Parse pagination
 	page, _ := strconv.Atoi(ctx.Query("page", "1"))
@@ -121,10 +118,7 @@ func SubmissionList(ctx *cartridge.Context) error {
 
 // AdminSubmissionShow renders a single submission payload.
 func AdminSubmissionShow(ctx *cartridge.Context) error {
-	db, err := ctx.DB()
-	if err != nil {
-		return fiber.ErrInternalServerError
-	}
+	db := ctx.DB()
 
 	id, err := strconv.Atoi(ctx.Params("id"))
 	if err != nil {

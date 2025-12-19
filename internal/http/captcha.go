@@ -20,10 +20,7 @@ type siteKeyEntry struct {
 
 // CaptchaProfileList shows all captcha profiles.
 func CaptchaProfileList(ctx *cartridge.Context) error {
-	db, err := ctx.DB()
-	if err != nil {
-		return fiber.ErrInternalServerError
-	}
+	db := ctx.DB()
 
 	var profiles []integrations.CaptchaProfile
 	if err := db.Order("created_at DESC").Find(&profiles).Error; err != nil {
@@ -67,10 +64,7 @@ func CaptchaProfileNew(ctx *cartridge.Context) error {
 
 // CaptchaProfileCreate handles profile creation.
 func CaptchaProfileCreate(ctx *cartridge.Context) error {
-	db, err := ctx.DB()
-	if err != nil {
-		return fiber.ErrInternalServerError
-	}
+	db := ctx.DB()
 
 	logger := ctx.Logger
 	params := integrations.CaptchaProfileParams{
@@ -81,7 +75,7 @@ func CaptchaProfileCreate(ctx *cartridge.Context) error {
 		PolicyJSON:   ctx.FormValue("policy_json"),
 	}
 
-	_, err = integrations.CreateCaptchaProfile(logger, db, params)
+	_, err := integrations.CreateCaptchaProfile(logger, db, params)
 	if err != nil {
 		var errMsg string
 		if valErr, ok := err.(*integrations.ValidationError); ok {
@@ -101,10 +95,7 @@ func CaptchaProfileCreate(ctx *cartridge.Context) error {
 
 // CaptchaProfileShow displays a single profile.
 func CaptchaProfileShow(ctx *cartridge.Context) error {
-	db, err := ctx.DB()
-	if err != nil {
-		return fiber.ErrInternalServerError
-	}
+	db := ctx.DB()
 
 	id := ctx.Params("id")
 	var profile integrations.CaptchaProfile
@@ -133,10 +124,7 @@ func CaptchaProfileShow(ctx *cartridge.Context) error {
 
 // CaptchaProfileEdit shows the edit form.
 func CaptchaProfileEdit(ctx *cartridge.Context) error {
-	db, err := ctx.DB()
-	if err != nil {
-		return fiber.ErrInternalServerError
-	}
+	db := ctx.DB()
 
 	id := ctx.Params("id")
 	var profile integrations.CaptchaProfile
@@ -154,10 +142,7 @@ func CaptchaProfileEdit(ctx *cartridge.Context) error {
 
 // CaptchaProfileUpdate handles profile updates.
 func CaptchaProfileUpdate(ctx *cartridge.Context) error {
-	db, err := ctx.DB()
-	if err != nil {
-		return fiber.ErrInternalServerError
-	}
+	db := ctx.DB()
 
 	id := ctx.Params("id")
 	profileID, err := strconv.ParseUint(id, 10, 32)
@@ -198,10 +183,7 @@ func CaptchaProfileUpdate(ctx *cartridge.Context) error {
 
 // CaptchaProfileDelete removes a profile.
 func CaptchaProfileDelete(ctx *cartridge.Context) error {
-	db, err := ctx.DB()
-	if err != nil {
-		return fiber.ErrInternalServerError
-	}
+	db := ctx.DB()
 
 	id := ctx.Params("id")
 	profileID, err := strconv.ParseUint(id, 10, 32)
