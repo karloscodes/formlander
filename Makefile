@@ -47,14 +47,14 @@ build: deps css
 	GOCACHE=$(GOCACHE) go build -ldflags="-X formlander/internal/pkg/cartridge.buildCommit=$(COMMIT_SHA)" -o $(BIN_DIR)/$(APP) ./cmd/$(APP)
 
 run: deps
-	GOCACHE=$(GOCACHE) go run ./cmd/$(APP)
+	FORMLANDER_ENV=development GOCACHE=$(GOCACHE) go run ./cmd/$(APP)
 
 dev: deps
 ifeq ($(strip $(WATCHEXEC)),)
 	@echo "watchexec not found. Install via 'brew install watchexec' or see https://github.com/watchexec/watchexec"
 	@exit 1
 else
-	GOCACHE=$(GOCACHE) $(WATCHEXEC) --clear --restart \
+	FORMLANDER_ENV=development GOCACHE=$(GOCACHE) $(WATCHEXEC) --clear --restart \
 		--watch cmd --watch internal --watch web \
 		--exts go,html,tmpl \
 		-- go run ./cmd/$(APP)
@@ -65,10 +65,10 @@ test: test-unit test-e2e
 test-unit: deps
 ifeq ($(strip $(GOTESTSUM)),)
 	@echo ">> go test ./internal/..."
-	GOCACHE=$(GOCACHE) go test ./internal/...
+	FORMLANDER_ENV=test GOCACHE=$(GOCACHE) go test ./internal/...
 else
 	@echo ">> gotestsum ./internal/..."
-	GOCACHE=$(GOCACHE) $(GOTESTSUM) --format testname -- -count=1 ./internal/...
+	FORMLANDER_ENV=test GOCACHE=$(GOCACHE) $(GOTESTSUM) --format testname -- -count=1 ./internal/...
 endif
 
 test-e2e-setup:
