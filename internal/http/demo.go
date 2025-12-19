@@ -12,10 +12,7 @@ import (
 
 // DemoContactForm renders a public demo contact form page.
 func DemoContactForm(ctx *cartridge.Context) error {
-	db, err := ctx.DB()
-	if err != nil {
-		return fiber.ErrInternalServerError
-	}
+	db := ctx.DB()
 
 	// Find the demo form by slug
 	var form forms.Form

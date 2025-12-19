@@ -14,10 +14,7 @@ import (
 
 // AdminSettingsPage renders the settings page.
 func AdminSettingsPage(ctx *cartridge.Context) error {
-	db, err := ctx.DB()
-	if err != nil {
-		return fiber.ErrInternalServerError
-	}
+	db := ctx.DB()
 
 	// Get current user
 	userID, ok := auth.GetUserID(ctx.Ctx)
@@ -67,10 +64,7 @@ func AdminSettingsUpdatePassword(ctx *cartridge.Context) error {
 		return fiber.ErrUnauthorized
 	}
 
-	db, err := ctx.DB()
-	if err != nil {
-		return fiber.ErrInternalServerError
-	}
+	db := ctx.DB()
 
 	user, err := accounts.FindByID(db, userID)
 	if err != nil {
@@ -102,7 +96,7 @@ func AdminSettingsUpdateTurnstile(ctx *cartridge.Context) error {
 }
 
 func renderSettingsError(ctx *cartridge.Context, message string) error {
-	db, _ := ctx.DB()
+	db := ctx.DB()
 	userID, _ := auth.GetUserID(ctx.Ctx)
 
 	user, _ := accounts.FindByID(db, userID)
@@ -116,7 +110,7 @@ func renderSettingsError(ctx *cartridge.Context, message string) error {
 }
 
 func renderSettingsSuccess(ctx *cartridge.Context, message string) error {
-	db, _ := ctx.DB()
+	db := ctx.DB()
 	userID, _ := auth.GetUserID(ctx.Ctx)
 
 	user, _ := accounts.FindByID(db, userID)

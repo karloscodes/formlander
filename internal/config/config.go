@@ -211,6 +211,21 @@ func (c *Config) IsTest() bool {
 	return c.Environment == EnvironmentTest
 }
 
+// GetPort returns the HTTP server port (implements cartridge.Config interface).
+func (c *Config) GetPort() string {
+	return c.Port
+}
+
+// GetPublicDirectory returns the path to public/static assets (implements cartridge.Config interface).
+func (c *Config) GetPublicDirectory() string {
+	return "web/static" // Static assets directory
+}
+
+// GetAssetsPrefix returns the URL prefix for static assets (implements cartridge.Config interface).
+func (c *Config) GetAssetsPrefix() string {
+	return "/assets"
+}
+
 // GetMaxOpenConns returns configured or environment-specific max open connections.
 func (c *Config) GetMaxOpenConns() int {
 	if c.DatabaseMaxOpenConns > 0 {
