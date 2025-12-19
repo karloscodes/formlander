@@ -6,15 +6,15 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/limiter"
+	"github.com/karloscodes/cartridge"
 
 	"formlander/internal/auth"
 	httphandlers "formlander/internal/http"
 	"formlander/internal/middleware"
-	"formlander/internal/pkg/cartridge"
 )
 
 // MountRoutes registers all application routes.
-func MountRoutes(server *cartridge.Server) {
+func MountRoutes(s *cartridge.Server) {
 	// Health Check - support both GET and HEAD requests
 	healthHandler := func(ctx *cartridge.Context) error {
 		return ctx.Status(fiber.StatusOK).JSON(fiber.Map{"status": "ok"})
@@ -24,7 +24,7 @@ func MountRoutes(server *cartridge.Server) {
 		return c.Status(fiber.StatusOK).JSON(fiber.Map{"status": "ok"})
 	})
 
-	server.Get("/", func(ctx *cartridge.Context) error {
+	s.Get("/", func(ctx *cartridge.Context) error {
 		return ctx.Redirect("/admin")
 	})
 
@@ -68,13 +68,13 @@ func MountRoutes(server *cartridge.Server) {
 		CustomMiddleware: publicMiddleware,
 	}
 
-	server.Post("/forms/:slug/submit", httphandlers.PublicFormSubmission, publicConfig)
-	server.Options("/forms/:slug/submit", func(ctx *cartridge.Context) error {
+	s.Post("/forms/:slug/submit", httphandlers.PublicFormSubmission, publicConfig)
+	s.Options("/forms/:slug/submit", func(ctx *cartridge.Context) error {
 		return ctx.SendStatus(fiber.StatusNoContent)
 	}, publicConfig)
 
-	server.Post("/x/api/v1/submissions", httphandlers.APISubmissionCreate, publicConfig)
-	server.Options("/x/api/v1/submissions", func(ctx *cartridge.Context) error {
+	s.Post("/x/api/v1/submissions", httphandlers.APISubmissionCreate, publicConfig)
+	s.Options("/x/api/v1/submissions", func(ctx *cartridge.Context) error {
 		return ctx.SendStatus(fiber.StatusNoContent)
 	}, publicConfig)
 
@@ -105,7 +105,7 @@ func MountRoutes(server *cartridge.Server) {
 		},
 	})
 
-	server.Post("/admin/login", httphandlers.AdminLoginSubmit, &cartridge.RouteConfig{
+	s.Post("/admin/login", httphandlers.AdminLoginSubmit, &cartridge.RouteConfig{
 		CustomMiddleware: []fiber.Handler{loginRateLimiter},
 	})
 

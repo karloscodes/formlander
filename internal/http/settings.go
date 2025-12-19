@@ -2,13 +2,13 @@ package http
 
 import (
 	"errors"
+	"log/slog"
 
 	"github.com/gofiber/fiber/v2"
-	"log/slog"
+	"github.com/karloscodes/cartridge"
 
 	"formlander/internal/accounts"
 	"formlander/internal/auth"
-	"formlander/internal/pkg/cartridge"
 	"formlander/pkg/extension"
 )
 

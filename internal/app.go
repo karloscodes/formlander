@@ -1,31 +1,34 @@
 package internal
 
 import (
-	"context"
 	"fmt"
+	"log/slog"
 	"time"
 
-	"log/slog"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
+
+	"github.com/karloscodes/cartridge"
 
 	"formlander/internal/accounts"
 	"formlander/internal/auth"
 	"formlander/internal/config"
 	"formlander/internal/database"
 	"formlander/internal/jobs"
-	"formlander/internal/pkg/cartridge"
 	"formlander/internal/pkg/dbtxn"
+	"formlander/internal/server"
 	"formlander/web"
 )
 
-// App wraps the cartridge application with background workers.
+// App wraps the cartridge application with formlander-specific components.
 type App struct {
 	*cartridge.Application
-	dispatcher *jobs.UnifiedDispatcher
+	Config    *config.Config
+	Logger    *slog.Logger
+	DBManager *database.Manager
 }
 
-// AppOptions configures application initialization
+// AppOptions configures application initialization.
 type AppOptions struct {
 	TemplatesDirectory string
 }
@@ -35,43 +38,83 @@ func NewApp() (*App, error) {
 	return NewAppWithOptions(nil)
 }
 
-// NewAppWithOptions creates the application with custom options
+// NewAppWithOptions creates the application with custom options.
 func NewAppWithOptions(opts *AppOptions) (*App, error) {
 	cfg := config.Get()
 
+	// Initialize auth
 	auth.Initialize(cfg)
 
-	cartridgeOpts := cartridge.ApplicationOptions{
-		Config:         cfg,
-		RouteMountFunc: MountRoutes,
+	// Initialize logger using cartridge
+	logger := cartridge.NewLogger(cfg, &cartridge.LogConfig{
+		Level:      string(cfg.LogLevel),
+		Directory:  cfg.LogsDirectory,
+		MaxSizeMB:  cfg.LogsMaxSizeInMB,
+		MaxBackups: cfg.LogsMaxBackups,
+		MaxAgeDays: cfg.LogsMaxAgeInDays,
+		AppName:    cfg.AppName,
+	})
+	slog.SetDefault(logger)
+
+	// Initialize database manager
+	dbManager := database.NewManager(cfg, logger)
+
+	// Build server configuration
+	serverCfg := server.ServerConfig{
+		Config:    cfg,
+		Logger:    logger,
+		DBManager: dbManager,
 	}
 
-	// Only use embedded assets in production
+	// Configure assets based on environment
 	if !cfg.IsDevelopment() {
-		cartridgeOpts.TemplatesFS = web.Templates
-		cartridgeOpts.StaticFS = web.Static
+		serverCfg.TemplatesFS = web.Templates
+		serverCfg.StaticFS = web.Static
 	} else if opts != nil && opts.TemplatesDirectory != "" {
-		// Use custom template directory in development
-		cartridgeOpts.TemplatesDirectory = opts.TemplatesDirectory
+		serverCfg.TemplatesDirectory = opts.TemplatesDirectory
 	}
 
-	application, err := cartridge.NewApplication(cartridgeOpts)
+	// Create formlander server
+	srv, err := server.NewServer(serverCfg)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("create server: %w", err)
 	}
+
+	// Mount routes
+	MountRoutes(srv)
+
+	// Create jobs dispatcher as a background worker
+	dispatcher := jobs.NewUnifiedDispatcher(cfg, logger, dbManager)
+
+	// Create cartridge application with background worker
+	application, err := cartridge.NewApplication(cartridge.ApplicationOptions{
+		Config:            cfg,
+		Logger:            logger,
+		DBManager:         dbManager,
+		BackgroundWorkers: []cartridge.BackgroundWorker{dispatcher},
+		ServerConfig: &cartridge.ServerConfig{
+			Config:    cfg,
+			Logger:    logger,
+			DBManager: dbManager,
+		},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("create application: %w", err)
+	}
+
+	// Replace the cartridge server with our formlander server
+	application.Server = srv
 
 	return &App{
 		Application: application,
-		dispatcher:  jobs.NewUnifiedDispatcher(cfg, application.Logger, application.DBManager),
+		Config:      cfg,
+		Logger:      logger,
+		DBManager:   dbManager,
 	}, nil
 }
 
 // RunMigrations runs database migrations and ensures admin user exists.
 func RunMigrations(app *App) error {
-	return runMigrations(app.Application, app.Config)
-}
-
-func runMigrations(app *cartridge.Application, cfg *config.Config) error {
 	db, err := app.DBManager.Connect()
 	if err != nil {
 		return fmt.Errorf("connect database: %w", err)
@@ -82,7 +125,7 @@ func runMigrations(app *cartridge.Application, cfg *config.Config) error {
 		return fmt.Errorf("migrate database: %w", err)
 	}
 
-	if err := ensureAdminUser(db, cfg, app.Logger); err != nil {
+	if err := ensureAdminUser(db, app.Config, app.Logger); err != nil {
 		return fmt.Errorf("ensure admin user: %w", err)
 	}
 
@@ -141,43 +184,8 @@ func ensureAdminUser(db *gorm.DB, cfg *config.Config, logger *slog.Logger) error
 	return nil
 }
 
-// Start begins the HTTP server and unified dispatcher.
-func (a *App) Start() error {
-	if err := a.dispatcher.Start(); err != nil {
-		return err
-	}
-	if err := a.Application.Start(); err != nil {
-		a.dispatcher.Stop()
-		return err
-	}
-	return nil
-}
-
-// StartAsync starts the components asynchronously.
-func (a *App) StartAsync() error {
-	if err := a.dispatcher.Start(); err != nil {
-		return err
-	}
-	if err := a.Application.StartAsync(); err != nil {
-		a.dispatcher.Stop()
-		return err
-	}
-	return nil
-}
-
-// Shutdown gracefully stops background workers and the HTTP server.
-func (a *App) Shutdown(ctx context.Context) error {
-	a.dispatcher.Stop()
-	return a.Application.Shutdown(ctx)
-}
-
-// GetConfig returns the application configuration.
-func (a *App) GetConfig() *config.Config {
-	return a.Application.Config
-}
-
 // GetDB returns the database instance.
 func (a *App) GetDB() *gorm.DB {
-	db, _ := a.Application.DBManager.Connect()
+	db, _ := a.DBManager.Connect()
 	return db
 }

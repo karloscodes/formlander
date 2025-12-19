@@ -2,12 +2,12 @@ package http
 
 import (
 	"errors"
-	"formlander/internal/forms"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/karloscodes/cartridge"
 	"gorm.io/gorm"
 
-	"formlander/internal/pkg/cartridge"
+	"formlander/internal/forms"
 )
 
 // DemoContactForm renders a public demo contact form page.

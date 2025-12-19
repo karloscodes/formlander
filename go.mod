@@ -2,10 +2,12 @@ module formlander
 
 go 1.25.5
 
+replace github.com/karloscodes/cartridge => /Users/karloscodes/Code/im/cartridge
+
 require (
 	github.com/gofiber/fiber/v2 v2.52.9
 	github.com/gofiber/template/html/v2 v2.1.3
-	github.com/karloscodes/cartridge v0.0.0-20251219201607-e881b51c5989
+	github.com/karloscodes/cartridge v0.0.0-20251219202640-14994d3a5014
 	github.com/spf13/viper v1.21.0
 	github.com/stretchr/testify v1.11.1
 	golang.org/x/crypto v0.45.0

@@ -4,15 +4,15 @@ package formlander
 import (
 	"time"
 
+	"github.com/gofiber/fiber/v2"
+	"github.com/karloscodes/cartridge"
+	"gorm.io/gorm"
+
 	"formlander/internal"
 	"formlander/internal/accounts"
 	"formlander/internal/auth"
 	"formlander/internal/database"
 	httphandlers "formlander/internal/http"
-	"formlander/internal/pkg/cartridge"
-
-	"github.com/gofiber/fiber/v2"
-	"gorm.io/gorm"
 )
 
 // Context is the public alias for cartridge.Context
@@ -63,7 +63,7 @@ func (a *App) GetFiber() *fiber.App {
 	return a.internal.Server.App()
 }
 
-// GetServer returns the cartridge server for registering routes with context
+// GetServer returns the server for registering routes with context
 func (a *App) GetServer() *cartridge.Server {
 	return a.internal.Server
 }

@@ -1,12 +1,12 @@
 package http
 
 import (
-	"formlander/internal/forms"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/karloscodes/cartridge"
 
-	"formlander/internal/pkg/cartridge"
+	"formlander/internal/forms"
 )
 
 // AdminDashboard shows the main dashboard with stats and recent activity

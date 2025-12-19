@@ -8,19 +8,19 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/karloscodes/cartridge"
 	"gorm.io/gorm"
 
 	"formlander/internal/config"
 	"formlander/internal/forms"
 	"formlander/internal/middleware"
-	"formlander/internal/pkg/cartridge"
 )
 
 // PublicFormSubmission accepts a submission for the given form slug.
 func PublicFormSubmission(ctx *cartridge.Context) error {
 	db := ctx.DB()
 
-	cfg := ctx.Config
+	cfg := ctx.Config.(*config.Config)
 
 	slug := ctx.Params("slug")
 	if slug == "" {

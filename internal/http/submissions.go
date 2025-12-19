@@ -2,15 +2,15 @@ package http
 
 import (
 	"encoding/json"
-	"formlander/internal/forms"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/karloscodes/cartridge"
 	"gorm.io/gorm"
 
-	"formlander/internal/pkg/cartridge"
+	"formlander/internal/forms"
 )
 
 type submissionWithPreview struct {
