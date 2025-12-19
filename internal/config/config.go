@@ -343,3 +343,12 @@ func Reset() {
 	cfgOnce = sync.Once{}
 	cfgInst = nil
 }
+
+// LogConfigProvider implementation for cartridge.NewLogger auto-detection.
+
+func (c *Config) GetLogLevel() string      { return string(c.LogLevel) }
+func (c *Config) GetLogDirectory() string  { return c.LogsDirectory }
+func (c *Config) GetLogMaxSizeMB() int     { return c.LogsMaxSizeInMB }
+func (c *Config) GetLogMaxBackups() int    { return c.LogsMaxBackups }
+func (c *Config) GetLogMaxAgeDays() int    { return c.LogsMaxAgeInDays }
+func (c *Config) GetAppName() string       { return c.AppName }

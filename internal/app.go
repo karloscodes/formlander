@@ -45,15 +45,8 @@ func NewAppWithOptions(opts *AppOptions) (*App, error) {
 	// Initialize auth
 	auth.Initialize(cfg)
 
-	// Initialize logger using cartridge
-	logger := cartridge.NewLogger(cfg, &cartridge.LogConfig{
-		Level:      string(cfg.LogLevel),
-		Directory:  cfg.LogsDirectory,
-		MaxSizeMB:  cfg.LogsMaxSizeInMB,
-		MaxBackups: cfg.LogsMaxBackups,
-		MaxAgeDays: cfg.LogsMaxAgeInDays,
-		AppName:    cfg.AppName,
-	})
+	// Initialize logger (auto-extracts log config from cfg via LogConfigProvider)
+	logger := cartridge.NewLogger(cfg, nil)
 	slog.SetDefault(logger)
 
 	// Initialize database manager
@@ -86,24 +79,17 @@ func NewAppWithOptions(opts *AppOptions) (*App, error) {
 	// Create jobs dispatcher as a background worker
 	dispatcher := jobs.NewUnifiedDispatcher(cfg, logger, dbManager)
 
-	// Create cartridge application with background worker
+	// Create cartridge application with pre-built server
 	application, err := cartridge.NewApplication(cartridge.ApplicationOptions{
 		Config:            cfg,
 		Logger:            logger,
 		DBManager:         dbManager,
+		Server:            srv,
 		BackgroundWorkers: []cartridge.BackgroundWorker{dispatcher},
-		ServerConfig: &cartridge.ServerConfig{
-			Config:    cfg,
-			Logger:    logger,
-			DBManager: dbManager,
-		},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("create application: %w", err)
 	}
-
-	// Replace the cartridge server with our formlander server
-	application.Server = srv
 
 	return &App{
 		Application: application,
