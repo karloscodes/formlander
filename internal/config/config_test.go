@@ -22,8 +22,8 @@ func TestConfig(t *testing.T) {
 		if cfg.Port != "8080" {
 			t.Errorf("Expected Port=8080, got %s", cfg.Port)
 		}
-		if cfg.LogLevel != "error" {
-			t.Errorf("Expected LogLevel=error, got %s", cfg.LogLevel)
+		if cfg.LogLevel != "info" {
+			t.Errorf("Expected LogLevel=info (development default), got %s", cfg.LogLevel)
 		}
 		if cfg.DataDirectory != "storage" {
 			t.Errorf("Expected DataDirectory=storage, got %s", cfg.DataDirectory)
