@@ -3,20 +3,20 @@ package database
 import (
 	"log/slog"
 
-	"github.com/karloscodes/cartridge"
+	"github.com/karloscodes/cartridge/sqlite"
 
 	"formlander/internal/config"
 )
 
-// Manager wraps cartridge.SQLiteManager with formlander config.
+// Manager wraps sqlite.Manager with formlander config.
 type Manager struct {
-	*cartridge.SQLiteManager
+	*sqlite.Manager
 }
 
-// NewManager creates a database manager using cartridge's SQLiteManager.
+// NewManager creates a database manager using cartridge's sqlite.Manager.
 func NewManager(cfg *config.Config, log *slog.Logger) *Manager {
 	return &Manager{
-		SQLiteManager: cartridge.NewSQLiteManager(cartridge.SQLiteConfig{
+		Manager: sqlite.NewManager(sqlite.Config{
 			Path:         cfg.DatabaseDSN(),
 			MaxOpenConns: cfg.GetMaxOpenConns(),
 			MaxIdleConns: cfg.GetMaxIdleConns(),

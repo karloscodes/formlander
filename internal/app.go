@@ -81,7 +81,7 @@ func NewAppWithOptions(opts *AppOptions) (*App, error) {
 	}
 
 	// Mount routes
-	MountRoutes(srv)
+	MountRoutes(srv, cfg)
 
 	// Create jobs dispatcher as a background worker
 	dispatcher := jobs.NewUnifiedDispatcher(cfg, logger, dbManager)

@@ -9,12 +9,13 @@ import (
 	"github.com/karloscodes/cartridge"
 
 	"formlander/internal/auth"
+	"formlander/internal/config"
 	httphandlers "formlander/internal/http"
 	"formlander/internal/middleware"
 )
 
 // MountRoutes registers all application routes.
-func MountRoutes(s *cartridge.Server) {
+func MountRoutes(s *cartridge.Server, cfg *config.Config) {
 	// Health Check - support both GET and HEAD requests
 	healthHandler := func(ctx *cartridge.Context) error {
 		return ctx.Status(fiber.StatusOK).JSON(fiber.Map{"status": "ok"})
@@ -31,7 +32,7 @@ func MountRoutes(s *cartridge.Server) {
 	// Public demo page
 	server.Get("/_demo", httphandlers.DemoContactForm)
 
-	// Build middleware chain for public routes
+	// Build middleware chain for public routes (rate limiting disabled in dev/test)
 	publicMiddleware := []fiber.Handler{
 		middleware.TurnstileMiddleware(),
 		limiter.New(limiter.Config{
@@ -46,12 +47,8 @@ func MountRoutes(s *cartridge.Server) {
 				})
 			},
 			Next: func(c *fiber.Ctx) bool {
-				// Skip rate limiting in test mode
-				ctx, ok := c.Locals("cartridge_ctx").(*cartridge.Context)
-				if ok && ctx.Config != nil && ctx.Config.IsTest() {
-					return true
-				}
-				return false
+				// Skip rate limiting in dev/test mode
+				return cfg.IsDevelopment() || cfg.IsTest()
 			},
 		}),
 	}
@@ -80,7 +77,7 @@ func MountRoutes(s *cartridge.Server) {
 
 	server.Get("/admin/login", httphandlers.AdminLoginPage)
 
-	// Rate limit login attempts: 5 per minute per IP (disabled in test mode)
+	// Rate limit login attempts: 5 per minute per IP (disabled in dev/test mode)
 	loginRateLimiter := limiter.New(limiter.Config{
 		Max:        5,
 		Expiration: 60 * time.Second,
@@ -96,12 +93,8 @@ func MountRoutes(s *cartridge.Server) {
 			}, "")
 		},
 		Next: func(c *fiber.Ctx) bool {
-			// Skip rate limiting in test mode
-			ctx, ok := c.Locals("cartridge_ctx").(*cartridge.Context)
-			if ok && ctx.Config != nil && ctx.Config.IsTest() {
-				return true
-			}
-			return false
+			// Skip rate limiting in dev/test mode
+			return cfg.IsDevelopment() || cfg.IsTest()
 		},
 	})
 
