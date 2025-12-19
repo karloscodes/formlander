@@ -20,7 +20,7 @@ func Initialize(cfg *config.Config) {
 	sessionManager = cartridge.NewSessionManager(cartridge.SessionConfig{
 		CookieName: SessionCookieName,
 		Secret:     cfg.SessionSecret,
-		TTL:        time.Duration(cfg.SessionTimeoutSeconds) * time.Second,
+		TTL:        time.Duration(cfg.SessionTimeout) * time.Second,
 		Secure:     cfg.IsProduction(),
 		LoginPath:  "/admin/login",
 	})
