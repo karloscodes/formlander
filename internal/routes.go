@@ -9,8 +9,8 @@ import (
 
 	"formlander/internal/auth"
 	httphandlers "formlander/internal/http"
+	"formlander/internal/middleware"
 	"formlander/internal/pkg/cartridge"
-	"formlander/internal/pkg/cartridge/middleware"
 )
 
 // MountRoutes registers all application routes.

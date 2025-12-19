@@ -5,11 +5,11 @@ import (
 	"time"
 
 	"log/slog"
+
 	"gorm.io/gorm"
 
 	"formlander/internal/config"
 	"formlander/internal/forms"
-	"formlander/internal/pkg/cartridge/jobs"
 	"formlander/internal/pkg/dbtxn"
 )
 
@@ -79,7 +79,7 @@ func NewEventUpdater(model interface{}) *EventUpdater {
 }
 
 // Update performs a transactional update of the event.
-func (u *EventUpdater) Update(ctx *jobs.JobContext, db *gorm.DB, id uint, status string, attemptTime time.Time, message string, opts ...UpdateOption) error {
+func (u *EventUpdater) Update(ctx *JobContext, db *gorm.DB, id uint, status string, attemptTime time.Time, message string, opts ...UpdateOption) error {
 	values := map[string]any{
 		"status":           status,
 		"last_attempt_at":  attemptTime.UTC(),
@@ -97,7 +97,7 @@ func (u *EventUpdater) Update(ctx *jobs.JobContext, db *gorm.DB, id uint, status
 }
 
 // MarkAsRetry marks an event for retry with backoff.
-func MarkWebhookAsRetry(ctx *jobs.JobContext, db *gorm.DB, event *forms.WebhookEvent, strategy *RetryStrategy, err error) {
+func MarkWebhookAsRetry(ctx *JobContext, db *gorm.DB, event *forms.WebhookEvent, strategy *RetryStrategy, err error) {
 	attemptCount := event.AttemptCount + 1
 	status := forms.WebhookStatusRetrying
 	var nextAttempt *time.Time
@@ -125,7 +125,7 @@ func MarkWebhookAsRetry(ctx *jobs.JobContext, db *gorm.DB, event *forms.WebhookE
 }
 
 // MarkWebhookAsFinal marks an event as final (delivered or failed).
-func MarkWebhookAsFinal(ctx *jobs.JobContext, db *gorm.DB, event *forms.WebhookEvent, status, message string) {
+func MarkWebhookAsFinal(ctx *JobContext, db *gorm.DB, event *forms.WebhookEvent, status, message string) {
 	updater := NewEventUpdater(&forms.WebhookEvent{})
 	if err := updater.Update(ctx, db, event.ID, status, time.Now(), message, WithNextAttempt(nil)); err != nil {
 		ctx.Logger.Error("finalize webhook", slog.Uint64("id", uint64(event.ID)), slog.Any("error", err))
@@ -141,7 +141,7 @@ func MarkWebhookAsFinal(ctx *jobs.JobContext, db *gorm.DB, event *forms.WebhookE
 }
 
 // MarkEmailAsRetry marks an email event for retry with backoff.
-func MarkEmailAsRetry(ctx *jobs.JobContext, db *gorm.DB, event *forms.EmailEvent, strategy *RetryStrategy, err error) {
+func MarkEmailAsRetry(ctx *JobContext, db *gorm.DB, event *forms.EmailEvent, strategy *RetryStrategy, err error) {
 	attemptCount := event.AttemptCount + 1
 	status := forms.WebhookStatusRetrying
 	var nextAttempt *time.Time
@@ -169,7 +169,7 @@ func MarkEmailAsRetry(ctx *jobs.JobContext, db *gorm.DB, event *forms.EmailEvent
 }
 
 // MarkEmailAsFinal marks an email event as final (delivered or failed).
-func MarkEmailAsFinal(ctx *jobs.JobContext, db *gorm.DB, event *forms.EmailEvent, status, message string) {
+func MarkEmailAsFinal(ctx *JobContext, db *gorm.DB, event *forms.EmailEvent, status, message string) {
 	updater := NewEventUpdater(&forms.EmailEvent{})
 	if err := updater.Update(ctx, db, event.ID, status, time.Now(), message, WithNextAttempt(nil)); err != nil {
 		ctx.Logger.Error("finalize email event", slog.Uint64("id", uint64(event.ID)), slog.Any("error", err))

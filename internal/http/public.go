@@ -12,8 +12,8 @@ import (
 
 	"formlander/internal/config"
 	"formlander/internal/forms"
+	"formlander/internal/middleware"
 	"formlander/internal/pkg/cartridge"
-	"formlander/internal/pkg/cartridge/middleware"
 )
 
 // PublicFormSubmission accepts a submission for the given form slug.

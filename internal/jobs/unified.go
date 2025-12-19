@@ -7,12 +7,11 @@ import (
 
 	"formlander/internal/config"
 	"formlander/internal/database"
-	cartridgeJobs "formlander/internal/pkg/cartridge/jobs"
 )
 
-// UnifiedDispatcher runs both webhook and email dispatchers using cartridge's job framework.
+// UnifiedDispatcher runs both webhook and email dispatchers using the job framework.
 type UnifiedDispatcher struct {
-	dispatcher *cartridgeJobs.Dispatcher
+	dispatcher *Dispatcher
 }
 
 // NewUnifiedDispatcher creates a single dispatcher that handles both webhooks and emails.
@@ -20,7 +19,7 @@ func NewUnifiedDispatcher(cfg *config.Config, logger *slog.Logger, db *database.
 	webhooks := NewWebhookDispatcher(cfg)
 	emails := NewEmailDispatcher(cfg)
 
-	dispatcher := cartridgeJobs.NewDispatcher(
+	dispatcher := NewDispatcher(
 		logger.With(slog.String("component", "unified-dispatcher")),
 		db,
 		2*time.Minute,

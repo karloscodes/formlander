@@ -22,7 +22,7 @@ import (
 
 	"formlander/internal/config"
 	"formlander/internal/database"
-	cartridgeMiddleware "formlander/internal/pkg/cartridge/middleware"
+	cartridgeMiddleware "formlander/internal/middleware"
 )
 
 // Build info set at compile time via ldflags

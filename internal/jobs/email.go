@@ -9,12 +9,12 @@ import (
 	"time"
 
 	"log/slog"
+
 	"gorm.io/gorm"
 
 	"formlander/internal/config"
 	"formlander/internal/forms"
 	"formlander/internal/integrations"
-	"formlander/internal/pkg/cartridge/jobs"
 )
 
 // EmailDispatcher delivers form submissions via Mailgun.
@@ -34,8 +34,8 @@ func NewEmailDispatcher(cfg *config.Config) *EmailDispatcher {
 	}
 }
 
-// ProcessBatch implements the jobs.Processor interface.
-func (d *EmailDispatcher) ProcessBatch(ctx *jobs.JobContext) error {
+// ProcessBatch implements the Processor interface.
+func (d *EmailDispatcher) ProcessBatch(ctx *JobContext) error {
 	db := ctx.DB
 	now := time.Now().UTC()
 	var events []forms.EmailEvent
@@ -58,7 +58,7 @@ func (d *EmailDispatcher) ProcessBatch(ctx *jobs.JobContext) error {
 	return nil
 }
 
-func (d *EmailDispatcher) handleEvent(ctx *jobs.JobContext, db *gorm.DB, event *forms.EmailEvent) {
+func (d *EmailDispatcher) handleEvent(ctx *JobContext, db *gorm.DB, event *forms.EmailEvent) {
 	if event.Submission == nil || event.Submission.Form == nil {
 		if err := db.
 			Preload("Submission").
@@ -135,7 +135,7 @@ func (m *mailgunConfig) Endpoint() string {
 	return fmt.Sprintf("https://api.mailgun.net/v3/%s/messages", m.Domain)
 }
 
-func (d *EmailDispatcher) resolveMailgunConfig(ctx *jobs.JobContext, emailDelivery *forms.EmailDelivery) *mailgunConfig {
+func (d *EmailDispatcher) resolveMailgunConfig(ctx *JobContext, emailDelivery *forms.EmailDelivery) *mailgunConfig {
 	db := ctx.DB
 
 	// Resolve recipient from overrides_json or fallback

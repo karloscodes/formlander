@@ -11,11 +11,11 @@ import (
 	"time"
 
 	"log/slog"
+
 	"gorm.io/gorm"
 
 	"formlander/internal/config"
 	"formlander/internal/forms"
-	"formlander/internal/pkg/cartridge/jobs"
 )
 
 // WebhookDispatcher asynchronously delivers webhook events.
@@ -35,8 +35,8 @@ func NewWebhookDispatcher(cfg *config.Config) *WebhookDispatcher {
 	}
 }
 
-// ProcessBatch implements the jobs.Processor interface.
-func (d *WebhookDispatcher) ProcessBatch(ctx *jobs.JobContext) error {
+// ProcessBatch implements the Processor interface.
+func (d *WebhookDispatcher) ProcessBatch(ctx *JobContext) error {
 	db := ctx.DB
 	now := time.Now().UTC()
 	var events []forms.WebhookEvent
@@ -62,7 +62,7 @@ func (d *WebhookDispatcher) ProcessBatch(ctx *jobs.JobContext) error {
 	return nil
 }
 
-func (d *WebhookDispatcher) handleEvent(ctx *jobs.JobContext, db *gorm.DB, event *forms.WebhookEvent) {
+func (d *WebhookDispatcher) handleEvent(ctx *JobContext, db *gorm.DB, event *forms.WebhookEvent) {
 	if event.Submission == nil || event.Submission.Form == nil {
 		// Ensure required associations are loaded.
 		if err := db.
@@ -159,7 +159,7 @@ func (d *WebhookDispatcher) buildPayload(event *forms.WebhookEvent) ([]byte, err
 	return json.Marshal(payload)
 }
 
-func (d *WebhookDispatcher) resolveHeaders(ctx *jobs.JobContext, webhookDelivery *forms.WebhookDelivery) map[string]string {
+func (d *WebhookDispatcher) resolveHeaders(ctx *JobContext, webhookDelivery *forms.WebhookDelivery) map[string]string {
 	if webhookDelivery == nil || webhookDelivery.HeadersJSON == "" {
 		return map[string]string{}
 	}
