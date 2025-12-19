@@ -1,4 +1,4 @@
-package cartridge
+package server
 
 import (
 	"bytes"
@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"html/template"
 	"io/fs"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -18,11 +19,13 @@ import (
 	fiberrecover "github.com/gofiber/fiber/v2/middleware/recover"
 	"github.com/gofiber/fiber/v2/middleware/requestid"
 	"github.com/gofiber/template/html/v2"
-	"log/slog"
+
+	"github.com/karloscodes/cartridge"
+	cartridgemiddleware "github.com/karloscodes/cartridge/middleware"
 
 	"formlander/internal/config"
 	"formlander/internal/database"
-	cartridgeMiddleware "formlander/internal/middleware"
+	"formlander/internal/middleware"
 )
 
 // Build info set at compile time via ldflags
@@ -30,24 +33,22 @@ var (
 	buildCommit = "dev"
 )
 
-// Config configures the cartridge server.
-// Note: This struct holds dependencies (Logger, Config, DBManager) that are
-// injected into each request's Context via wrapHandler.
+// Config configures the server.
 type Config struct {
-	Config    *config.Config    // Runtime configuration
-	Logger    *slog.Logger       // Application logger
-	DBManager *database.Manager // Database connection pool
+	Config    *config.Config
+	Logger    *slog.Logger
+	DBManager *database.Manager
 
 	ErrorHandler fiber.ErrorHandler
 
 	EnableTemplates    bool
 	TemplatesDirectory string
-	TemplatesFS        fs.FS // Embedded filesystem for templates
+	TemplatesFS        fs.FS
 
 	EnableStaticAssets bool
 	StaticDirectory    string
 	StaticPrefix       string
-	StaticFS           fs.FS // Embedded filesystem for static assets
+	StaticFS           fs.FS
 
 	EnableRequestLogger bool
 	EnableRequestID     bool
@@ -85,35 +86,33 @@ type RouteConfig struct {
 	CORSConfig         *cors.Config
 	WriteConcurrency   bool
 	EnableSecFetchSite *bool // CSRF protection, default true. Set to false for public/cross-origin routes.
-	// CustomMiddleware are standard fiber handlers (backward compatibility).
-	// These run before the route handler and receive fiber.Ctx directly.
-	CustomMiddleware []fiber.Handler
+	CustomMiddleware   []fiber.Handler
 }
 
 // Bool returns a pointer to a bool value.
 func Bool(v bool) *bool { return &v }
 
-// Server wraps a fiber.App with cartridge defaults.
+// Server wraps a fiber.App with formlander-specific configuration.
 type Server struct {
 	app      *fiber.App
 	cfg      *Config
-	limiter  *cartridgeMiddleware.ConcurrencyLimiter
+	limiter  *middleware.ConcurrencyLimiter
 	catchAll string
 }
 
-// NewServer creates a cartridge server using the provided configuration.
+// NewServer creates a server using the provided configuration.
 func NewServer(cfg *Config) (*Server, error) {
 	if cfg == nil {
-		return nil, fmt.Errorf("cartridge: config is required")
+		return nil, fmt.Errorf("server: config is required")
 	}
 	if cfg.Config == nil {
-		return nil, fmt.Errorf("cartridge: runtime config is required")
+		return nil, fmt.Errorf("server: runtime config is required")
 	}
 	if cfg.Logger == nil {
-		return nil, fmt.Errorf("cartridge: logger is required")
+		return nil, fmt.Errorf("server: logger is required")
 	}
 	if cfg.DBManager == nil {
-		return nil, fmt.Errorf("cartridge: database manager is required")
+		return nil, fmt.Errorf("server: database manager is required")
 	}
 
 	fiberCfg := fiber.Config{
@@ -127,10 +126,8 @@ func NewServer(cfg *Config) (*Server, error) {
 		var engine *html.Engine
 
 		if cfg.TemplatesFS != nil {
-			// Use embedded filesystem - convert io/fs.FS to http.FileSystem
 			engine = html.NewFileSystem(http.FS(cfg.TemplatesFS), ".html")
 		} else {
-			// Use directory (development mode)
 			dir := cfg.TemplatesDirectory
 			if dir == "" {
 				dir = "web/templates"
@@ -182,19 +179,22 @@ func NewServer(cfg *Config) (*Server, error) {
 
 	app := fiber.New(fiberCfg)
 
+	// Create slog adapter for cartridge middleware
+	slogAdapter := cartridge.NewSlogAdapter(cfg.Logger)
+
 	server := &Server{
 		app:     app,
 		cfg:     cfg,
-		limiter: cartridgeMiddleware.NewConcurrencyLimiter(int64(cfg.MaxConcurrentReads), int64(cfg.MaxConcurrentWrites), cfg.ConcurrencyTimeout, cfg.Logger),
+		limiter: middleware.NewConcurrencyLimiter(int64(cfg.MaxConcurrentReads), int64(cfg.MaxConcurrentWrites), cfg.ConcurrencyTimeout, cfg.Logger),
 	}
 
-	server.setupGlobalMiddleware()
+	server.setupGlobalMiddleware(slogAdapter)
 	server.setupStaticAssets()
 
 	return server, nil
 }
 
-func (s *Server) setupGlobalMiddleware() {
+func (s *Server) setupGlobalMiddleware(loggerAdapter cartridge.Logger) {
 	if s.cfg.EnableRequestID {
 		s.app.Use(requestid.New())
 	}
@@ -205,8 +205,6 @@ func (s *Server) setupGlobalMiddleware() {
 
 	if s.cfg.EnableHelmet {
 		s.app.Use(helmet.New(helmet.Config{
-			// Disable CSP - it's too strict by default and blocks inline styles/scripts.
-			// If you need CSP, configure it explicitly for your assets.
 			ContentSecurityPolicy: "",
 		}))
 	}
@@ -218,7 +216,7 @@ func (s *Server) setupGlobalMiddleware() {
 	}
 
 	// Sec-Fetch-Site CSRF protection (enabled globally, can be disabled per-route)
-	s.app.Use(cartridgeMiddleware.SecFetchSiteMiddleware(cartridgeMiddleware.SecFetchSiteConfig{
+	s.app.Use(cartridgemiddleware.SecFetchSiteMiddleware(cartridgemiddleware.SecFetchSiteConfig{
 		Next: func(c *fiber.Ctx) bool {
 			if skip, ok := c.Locals("skip_sec_fetch_site").(bool); ok && skip {
 				return true
@@ -228,7 +226,7 @@ func (s *Server) setupGlobalMiddleware() {
 	}))
 
 	if s.cfg.EnableRequestLogger {
-		s.app.Use(cartridgeMiddleware.RequestLogger(s.cfg.Logger))
+		s.app.Use(cartridgemiddleware.RequestLogger(loggerAdapter))
 	}
 }
 
@@ -250,7 +248,6 @@ func (s *Server) setupStaticAssets() {
 	}
 
 	if s.cfg.StaticFS != nil {
-		// Use embedded filesystem
 		s.app.Use(prefix, filesystem.New(filesystem.Config{
 			Root:       http.FS(s.cfg.StaticFS),
 			Browse:     false,
@@ -258,7 +255,6 @@ func (s *Server) setupStaticAssets() {
 			PathPrefix: "",
 		}))
 	} else {
-		// Use directory (development mode)
 		dir := s.cfg.StaticDirectory
 		if dir == "" {
 			dir = "web/static"
@@ -272,33 +268,33 @@ func (s *Server) SetCatchAllRedirect(path string) {
 	s.catchAll = path
 }
 
-// Get exposes fiber.App.Get with cartridge route configuration.
-func (s *Server) Get(path string, handler func(*Context) error, cfg ...*RouteConfig) {
+// Get registers a GET route.
+func (s *Server) Get(path string, handler HandlerFunc, cfg ...*RouteConfig) {
 	s.registerRoute(fiber.MethodGet, path, s.wrapHandler(handler), cfg...)
 }
 
-// Post exposes fiber.App.Post with cartridge route configuration.
-func (s *Server) Post(path string, handler func(*Context) error, cfg ...*RouteConfig) {
+// Post registers a POST route.
+func (s *Server) Post(path string, handler HandlerFunc, cfg ...*RouteConfig) {
 	s.registerRoute(fiber.MethodPost, path, s.wrapHandler(handler), cfg...)
 }
 
-// Put exposes fiber.App.Put with cartridge route configuration.
-func (s *Server) Put(path string, handler func(*Context) error, cfg ...*RouteConfig) {
+// Put registers a PUT route.
+func (s *Server) Put(path string, handler HandlerFunc, cfg ...*RouteConfig) {
 	s.registerRoute(fiber.MethodPut, path, s.wrapHandler(handler), cfg...)
 }
 
-// Delete exposes fiber.App.Delete with cartridge route configuration.
-func (s *Server) Delete(path string, handler func(*Context) error, cfg ...*RouteConfig) {
+// Delete registers a DELETE route.
+func (s *Server) Delete(path string, handler HandlerFunc, cfg ...*RouteConfig) {
 	s.registerRoute(fiber.MethodDelete, path, s.wrapHandler(handler), cfg...)
 }
 
-// Options exposes fiber.App.Options with cartridge route configuration.
-func (s *Server) Options(path string, handler func(*Context) error, cfg ...*RouteConfig) {
+// Options registers an OPTIONS route.
+func (s *Server) Options(path string, handler HandlerFunc, cfg ...*RouteConfig) {
 	s.registerRoute(fiber.MethodOptions, path, s.wrapHandler(handler), cfg...)
 }
 
-// wrapHandler converts a cartridge handler to a fiber handler.
-func (s *Server) wrapHandler(handler func(*Context) error) fiber.Handler {
+// wrapHandler converts a formlander handler to a fiber handler.
+func (s *Server) wrapHandler(handler HandlerFunc) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		ctx := &Context{
 			Ctx:       c,
@@ -320,9 +316,9 @@ func (s *Server) registerRoute(method, path string, handler fiber.Handler, cfg .
 	if routeCfg != nil {
 		capacity += len(routeCfg.CustomMiddleware)
 	}
-	handlers := make([]fiber.Handler, 0, capacity+1) // +1 for context injector
+	handlers := make([]fiber.Handler, 0, capacity+1)
 
-	// Always inject cartridge context first so custom middleware can access it
+	// Always inject context first so custom middleware can access it
 	contextInjector := func(c *fiber.Ctx) error {
 		ctx := &Context{
 			Ctx:       c,
@@ -330,7 +326,7 @@ func (s *Server) registerRoute(method, path string, handler fiber.Handler, cfg .
 			Config:    s.cfg.Config,
 			DBManager: s.cfg.DBManager,
 		}
-		c.Locals("cartridge_ctx", ctx)
+		c.Locals("context", ctx)
 		return c.Next()
 	}
 	handlers = append(handlers, contextInjector)
@@ -357,7 +353,7 @@ func (s *Server) registerRoute(method, path string, handler fiber.Handler, cfg .
 		}
 
 		if routeCfg.WriteConcurrency {
-			handlers = append(handlers, cartridgeMiddleware.WriteConcurrencyLimitMiddleware(s.limiter))
+			handlers = append(handlers, middleware.WriteConcurrencyLimitMiddleware(s.limiter))
 		}
 
 		if len(routeCfg.CustomMiddleware) > 0 {

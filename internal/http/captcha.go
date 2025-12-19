@@ -7,7 +7,7 @@ import (
 	"formlander/internal/integrations"
 	"strconv"
 
-	"formlander/internal/pkg/cartridge"
+	"formlander/internal/server"
 
 	"github.com/gofiber/fiber/v2"
 	"log/slog"
@@ -19,7 +19,7 @@ type siteKeyEntry struct {
 }
 
 // CaptchaProfileList shows all captcha profiles.
-func CaptchaProfileList(ctx *cartridge.Context) error {
+func CaptchaProfileList(ctx *server.Context) error {
 	db := ctx.DB()
 
 	var profiles []integrations.CaptchaProfile
@@ -55,7 +55,7 @@ func CaptchaProfileList(ctx *cartridge.Context) error {
 }
 
 // CaptchaProfileNew shows the create form.
-func CaptchaProfileNew(ctx *cartridge.Context) error {
+func CaptchaProfileNew(ctx *server.Context) error {
 	return ctx.Render("layouts/base", fiber.Map{
 		"Title":       "New Captcha Profile",
 		"ContentView": "admin/captcha/new/content",
@@ -63,7 +63,7 @@ func CaptchaProfileNew(ctx *cartridge.Context) error {
 }
 
 // CaptchaProfileCreate handles profile creation.
-func CaptchaProfileCreate(ctx *cartridge.Context) error {
+func CaptchaProfileCreate(ctx *server.Context) error {
 	db := ctx.DB()
 
 	logger := ctx.Logger
@@ -94,7 +94,7 @@ func CaptchaProfileCreate(ctx *cartridge.Context) error {
 }
 
 // CaptchaProfileShow displays a single profile.
-func CaptchaProfileShow(ctx *cartridge.Context) error {
+func CaptchaProfileShow(ctx *server.Context) error {
 	db := ctx.DB()
 
 	id := ctx.Params("id")
@@ -123,7 +123,7 @@ func CaptchaProfileShow(ctx *cartridge.Context) error {
 }
 
 // CaptchaProfileEdit shows the edit form.
-func CaptchaProfileEdit(ctx *cartridge.Context) error {
+func CaptchaProfileEdit(ctx *server.Context) error {
 	db := ctx.DB()
 
 	id := ctx.Params("id")
@@ -141,7 +141,7 @@ func CaptchaProfileEdit(ctx *cartridge.Context) error {
 }
 
 // CaptchaProfileUpdate handles profile updates.
-func CaptchaProfileUpdate(ctx *cartridge.Context) error {
+func CaptchaProfileUpdate(ctx *server.Context) error {
 	db := ctx.DB()
 
 	id := ctx.Params("id")
@@ -182,7 +182,7 @@ func CaptchaProfileUpdate(ctx *cartridge.Context) error {
 }
 
 // CaptchaProfileDelete removes a profile.
-func CaptchaProfileDelete(ctx *cartridge.Context) error {
+func CaptchaProfileDelete(ctx *server.Context) error {
 	db := ctx.DB()
 
 	id := ctx.Params("id")

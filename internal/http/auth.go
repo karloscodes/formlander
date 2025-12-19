@@ -8,7 +8,7 @@ import (
 
 	"formlander/internal/accounts"
 	"formlander/internal/auth"
-	"formlander/internal/pkg/cartridge"
+	"formlander/internal/server"
 )
 
 // RequirePasswordChanged is a middleware that redirects users to change password page if needed.
@@ -23,7 +23,7 @@ func RequirePasswordChanged() fiber.Handler {
 }
 
 // AdminLoginPage renders the admin login form.
-func AdminLoginPage(ctx *cartridge.Context) error {
+func AdminLoginPage(ctx *server.Context) error {
 	return ctx.Render("layouts/base", fiber.Map{
 		"Title":             "Sign in",
 		"HideHeaderActions": true,
@@ -32,7 +32,7 @@ func AdminLoginPage(ctx *cartridge.Context) error {
 }
 
 // AdminLoginSubmit handles credential verification.
-func AdminLoginSubmit(ctx *cartridge.Context) error {
+func AdminLoginSubmit(ctx *server.Context) error {
 	email := ctx.FormValue("email")
 	password := ctx.FormValue("password")
 
@@ -61,12 +61,12 @@ func AdminLoginSubmit(ctx *cartridge.Context) error {
 }
 
 // AdminLogout destroys the session and redirects to login.
-func AdminLogout(ctx *cartridge.Context) error {
+func AdminLogout(ctx *server.Context) error {
 	auth.ClearAuthCookie(ctx.Ctx)
 	return ctx.Redirect("/admin/login")
 }
 
-func renderLoginError(ctx *cartridge.Context, message string) error {
+func renderLoginError(ctx *server.Context, message string) error {
 	return ctx.Render("layouts/base", fiber.Map{
 		"Title":             "Sign in",
 		"Error":             message,
@@ -76,7 +76,7 @@ func renderLoginError(ctx *cartridge.Context, message string) error {
 }
 
 // AdminChangePasswordPage renders the password change form.
-func AdminChangePasswordPage(ctx *cartridge.Context) error {
+func AdminChangePasswordPage(ctx *server.Context) error {
 	return ctx.Render("layouts/base", fiber.Map{
 		"Title":             "Change Password",
 		"HideHeaderActions": true,
@@ -85,7 +85,7 @@ func AdminChangePasswordPage(ctx *cartridge.Context) error {
 }
 
 // AdminChangePasswordSubmit handles password change requests.
-func AdminChangePasswordSubmit(ctx *cartridge.Context) error {
+func AdminChangePasswordSubmit(ctx *server.Context) error {
 	currentPassword := ctx.FormValue("current_password")
 	newPassword := ctx.FormValue("new_password")
 	confirmPassword := ctx.FormValue("confirm_password")
@@ -126,7 +126,7 @@ func AdminChangePasswordSubmit(ctx *cartridge.Context) error {
 	return ctx.Redirect("/admin")
 }
 
-func renderChangePasswordError(ctx *cartridge.Context, message string) error {
+func renderChangePasswordError(ctx *server.Context, message string) error {
 	return ctx.Render("layouts/base", fiber.Map{
 		"Title":             "Change Password",
 		"Error":             message,

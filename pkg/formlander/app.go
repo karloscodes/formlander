@@ -9,20 +9,20 @@ import (
 	"formlander/internal/auth"
 	"formlander/internal/database"
 	httphandlers "formlander/internal/http"
-	"formlander/internal/pkg/cartridge"
+	"formlander/internal/server"
 
 	"github.com/gofiber/fiber/v2"
 	"gorm.io/gorm"
 )
 
-// Context is the public alias for cartridge.Context
-type Context = cartridge.Context
+// Context is the public alias for server.Context
+type Context = server.Context
 
-// Server is the public alias for cartridge.Server
-type Server = cartridge.Server
+// Server is the public alias for server.Server
+type Server = server.Server
 
-// RouteConfig is the public alias for cartridge.RouteConfig
-type RouteConfig = cartridge.RouteConfig
+// RouteConfig is the public alias for server.RouteConfig
+type RouteConfig = server.RouteConfig
 
 // App wraps the internal application with a public API
 type App struct {
@@ -63,8 +63,8 @@ func (a *App) GetFiber() *fiber.App {
 	return a.internal.Server.App()
 }
 
-// GetServer returns the cartridge server for registering routes with context
-func (a *App) GetServer() *cartridge.Server {
+// GetServer returns the server for registering routes with context
+func (a *App) GetServer() *server.Server {
 	return a.internal.Server
 }
 

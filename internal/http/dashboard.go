@@ -6,11 +6,11 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 
-	"formlander/internal/pkg/cartridge"
+	"formlander/internal/server"
 )
 
 // AdminDashboard shows the main dashboard with stats and recent activity
-func AdminDashboard(ctx *cartridge.Context) error {
+func AdminDashboard(ctx *server.Context) error {
 	db := ctx.DB()
 
 	// Get total counts

@@ -7,11 +7,11 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"gorm.io/gorm"
 
-	"formlander/internal/pkg/cartridge"
+	"formlander/internal/server"
 )
 
 // DemoContactForm renders a public demo contact form page.
-func DemoContactForm(ctx *cartridge.Context) error {
+func DemoContactForm(ctx *server.Context) error {
 	db := ctx.DB()
 
 	// Find the demo form by slug

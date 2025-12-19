@@ -10,7 +10,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"gorm.io/gorm"
 
-	"formlander/internal/pkg/cartridge"
+	"formlander/internal/server"
 )
 
 type submissionWithPreview struct {
@@ -19,7 +19,7 @@ type submissionWithPreview struct {
 }
 
 // SubmissionList shows all submissions with pagination and filters.
-func SubmissionList(ctx *cartridge.Context) error {
+func SubmissionList(ctx *server.Context) error {
 	db := ctx.DB()
 
 	// Parse pagination
@@ -117,7 +117,7 @@ func SubmissionList(ctx *cartridge.Context) error {
 }
 
 // AdminSubmissionShow renders a single submission payload.
-func AdminSubmissionShow(ctx *cartridge.Context) error {
+func AdminSubmissionShow(ctx *server.Context) error {
 	db := ctx.DB()
 
 	id, err := strconv.Atoi(ctx.Params("id"))

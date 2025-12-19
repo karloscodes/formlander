@@ -15,14 +15,14 @@ import (
 	"formlander/internal/config"
 	"formlander/internal/forms"
 	"formlander/internal/integrations"
-	"formlander/internal/pkg/cartridge"
+	"formlander/internal/server"
 	"formlander/internal/pkg/dbtxn"
 
 	"log/slog"
 )
 
 // AdminFormsIndex renders the list of forms.
-func AdminFormsIndex(ctx *cartridge.Context) error {
+func AdminFormsIndex(ctx *server.Context) error {
 	db := ctx.DB()
 
 	formsList, err := forms.List(db)
@@ -44,7 +44,7 @@ func AdminFormsIndex(ctx *cartridge.Context) error {
 }
 
 // AdminFormsNew renders the new form view or template selector.
-func AdminFormsNew(ctx *cartridge.Context) error {
+func AdminFormsNew(ctx *server.Context) error {
 	db := ctx.DB()
 
 	// Check if a template is selected
@@ -107,7 +107,7 @@ func AdminFormsNew(ctx *cartridge.Context) error {
 }
 
 // AdminFormsCreate persists a new form configuration.
-func AdminFormsCreate(ctx *cartridge.Context) error {
+func AdminFormsCreate(ctx *server.Context) error {
 	db := ctx.DB()
 
 	cfg := ctx.Config
@@ -175,7 +175,7 @@ func AdminFormsCreate(ctx *cartridge.Context) error {
 }
 
 // AdminFormShow displays a form summary and recent submissions.
-func AdminFormShow(ctx *cartridge.Context) error {
+func AdminFormShow(ctx *server.Context) error {
 	db := ctx.DB()
 	logger := ctx.Logger
 
@@ -260,7 +260,7 @@ func AdminFormShow(ctx *cartridge.Context) error {
 }
 
 // AdminFormsEdit renders the edit form.
-func AdminFormsEdit(ctx *cartridge.Context) error {
+func AdminFormsEdit(ctx *server.Context) error {
 	db := ctx.DB()
 
 	id, err := strconv.Atoi(ctx.Params("id"))
@@ -332,7 +332,7 @@ func AdminFormsEdit(ctx *cartridge.Context) error {
 }
 
 // AdminFormsUpdate persists changes to an existing form.
-func AdminFormsUpdate(ctx *cartridge.Context) error {
+func AdminFormsUpdate(ctx *server.Context) error {
 	db := ctx.DB()
 
 	cfg := ctx.Config
@@ -391,7 +391,7 @@ func AdminFormsUpdate(ctx *cartridge.Context) error {
 	return ctx.Redirect(fmt.Sprintf("/admin/forms/%d", updatedForm.ID))
 }
 
-func renderFormError(ctx *cartridge.Context, cfg *config.Config, message string, form *forms.Form, emailDelivery *forms.EmailDelivery, webhookDelivery *forms.WebhookDelivery, isEdit bool, template *FormTemplate) error {
+func renderFormError(ctx *server.Context, cfg *config.Config, message string, form *forms.Form, emailDelivery *forms.EmailDelivery, webhookDelivery *forms.WebhookDelivery, isEdit bool, template *FormTemplate) error {
 	// Load profiles for dropdowns
 	db := ctx.DB()
 	mailerProfiles, _ := integrations.ListMailerProfiles(db)
