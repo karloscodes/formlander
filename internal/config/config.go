@@ -156,6 +156,13 @@ func bindEnvVars(v *viper.Viper) {
 func (c *Config) Validate() error {
 	var problems []string
 
+	// Set default log level based on environment if not explicitly set
+	if c.LogLevel == "" || c.LogLevel == LogLevelError {
+		if c.IsDevelopment() {
+			c.LogLevel = LogLevelInfo
+		}
+	}
+
 	// In production, REQUIRE session secret
 	if c.IsProduction() {
 		if c.SessionSecret == "" {
