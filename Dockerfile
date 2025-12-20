@@ -41,7 +41,7 @@ COPY pkg ./pkg
 # Build binary with commit SHA for cache busting
 RUN CGO_ENABLED=1 GOOS=linux go build \
   -trimpath \
-  -ldflags="-X formlander/internal/pkg/cartridge.buildCommit=${COMMIT_SHA}" \
+  -ldflags="-X formlander/internal/server.buildCommit=${COMMIT_SHA}" \
   -o /src/formlander \
   ./cmd/formlander
 # Runtime stage
