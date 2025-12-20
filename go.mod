@@ -3,8 +3,8 @@ module formlander
 go 1.25.5
 
 require (
-	github.com/gofiber/fiber/v2 v2.52.9
-	github.com/karloscodes/cartridge v0.0.0-20251219232941-85e5ab16ddb9
+	github.com/gofiber/fiber/v2 v2.52.10
+	github.com/karloscodes/cartridge v0.0.0-20251220093024-5981843b5c7b
 	github.com/spf13/viper v1.21.0
 	github.com/stretchr/testify v1.11.1
 	golang.org/x/crypto v0.45.0
