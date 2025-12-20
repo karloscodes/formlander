@@ -37,8 +37,12 @@ func main() {
 		return
 	}
 
-	// Run with graceful shutdown
-	if err := app.RunWithTimeout(10 * time.Second); err != nil {
+	// Run with graceful shutdown (shorter timeout in dev/test)
+	shutdownTimeout := 2 * time.Second
+	if app.Config.IsProduction() {
+		shutdownTimeout = 10 * time.Second
+	}
+	if err := app.RunWithTimeout(shutdownTimeout); err != nil {
 		log.Fatal(err)
 	}
 }
