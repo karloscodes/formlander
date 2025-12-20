@@ -3,14 +3,14 @@ package http
 import (
 	"encoding/json"
 	"fmt"
-	"formlander/internal/forms"
-	"formlander/internal/integrations"
+	"log/slog"
 	"strconv"
 
-	"formlander/internal/pkg/cartridge"
-
 	"github.com/gofiber/fiber/v2"
-	"log/slog"
+	"github.com/karloscodes/cartridge"
+
+	"formlander/internal/forms"
+	"formlander/internal/integrations"
 )
 
 type siteKeyEntry struct {

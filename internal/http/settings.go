@@ -2,13 +2,12 @@ package http
 
 import (
 	"errors"
-
-	"github.com/gofiber/fiber/v2"
 	"log/slog"
 
+	"github.com/gofiber/fiber/v2"
+	"github.com/karloscodes/cartridge"
+
 	"formlander/internal/accounts"
-	"formlander/internal/auth"
-	"formlander/internal/pkg/cartridge"
 	"formlander/pkg/extension"
 )
 
@@ -17,7 +16,7 @@ func AdminSettingsPage(ctx *cartridge.Context) error {
 	db := ctx.DB()
 
 	// Get current user
-	userID, ok := auth.GetUserID(ctx.Ctx)
+	userID, ok := GetSession(ctx).GetUserID(ctx.Ctx)
 	if !ok {
 		return fiber.ErrUnauthorized
 	}
@@ -59,7 +58,7 @@ func AdminSettingsUpdatePassword(ctx *cartridge.Context) error {
 		return renderSettingsError(ctx, "New passwords do not match")
 	}
 
-	userID, ok := auth.GetUserID(ctx.Ctx)
+	userID, ok := GetSession(ctx).GetUserID(ctx.Ctx)
 	if !ok {
 		return fiber.ErrUnauthorized
 	}
@@ -97,7 +96,7 @@ func AdminSettingsUpdateTurnstile(ctx *cartridge.Context) error {
 
 func renderSettingsError(ctx *cartridge.Context, message string) error {
 	db := ctx.DB()
-	userID, _ := auth.GetUserID(ctx.Ctx)
+	userID, _ := GetSession(ctx).GetUserID(ctx.Ctx)
 
 	user, _ := accounts.FindByID(db, userID)
 
@@ -111,7 +110,7 @@ func renderSettingsError(ctx *cartridge.Context, message string) error {
 
 func renderSettingsSuccess(ctx *cartridge.Context, message string) error {
 	db := ctx.DB()
-	userID, _ := auth.GetUserID(ctx.Ctx)
+	userID, _ := GetSession(ctx).GetUserID(ctx.Ctx)
 
 	user, _ := accounts.FindByID(db, userID)
 

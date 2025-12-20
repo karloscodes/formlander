@@ -4,15 +4,14 @@ package formlander
 import (
 	"time"
 
+	"github.com/gofiber/fiber/v2"
+	"github.com/karloscodes/cartridge"
+	"gorm.io/gorm"
+
 	"formlander/internal"
 	"formlander/internal/accounts"
-	"formlander/internal/auth"
 	"formlander/internal/database"
 	httphandlers "formlander/internal/http"
-	"formlander/internal/pkg/cartridge"
-
-	"github.com/gofiber/fiber/v2"
-	"gorm.io/gorm"
 )
 
 // Context is the public alias for cartridge.Context
@@ -29,33 +28,13 @@ type App struct {
 	internal *internal.App
 }
 
-// AppOptions configures formlander application initialization
-type AppOptions struct {
-	TemplatesDirectory string // Optional: custom template directory for development
-}
-
 // NewApp creates a new Formlander application
 func NewApp() (*App, error) {
-	return NewAppWithOptions(nil)
-}
-
-// NewAppWithOptions creates a new Formlander application with custom options
-func NewAppWithOptions(opts *AppOptions) (*App, error) {
-	app, err := internal.NewAppWithOptions(&internal.AppOptions{
-		TemplatesDirectory: getTemplatesDirectory(opts),
-	})
+	app, err := internal.NewApp()
 	if err != nil {
 		return nil, err
 	}
-
 	return &App{internal: app}, nil
-}
-
-func getTemplatesDirectory(opts *AppOptions) string {
-	if opts != nil && opts.TemplatesDirectory != "" {
-		return opts.TemplatesDirectory
-	}
-	return ""
 }
 
 // GetFiber returns the underlying Fiber app for adding routes
@@ -63,7 +42,7 @@ func (a *App) GetFiber() *fiber.App {
 	return a.internal.Server.App()
 }
 
-// GetServer returns the cartridge server for registering routes with context
+// GetServer returns the server for registering routes with context
 func (a *App) GetServer() *cartridge.Server {
 	return a.internal.Server
 }
@@ -95,12 +74,22 @@ func FindUserByID(db *gorm.DB, id uint) (*accounts.User, error) {
 
 // GetUserID retrieves the current user ID from context
 func GetUserID(ctx *fiber.Ctx) (uint, bool) {
-	return auth.GetUserID(ctx)
+	session := httphandlers.GetSessionFromFiber(ctx)
+	if session == nil {
+		return 0, false
+	}
+	return session.GetUserID(ctx)
 }
 
 // AuthMiddleware returns the authentication middleware
 func AuthMiddleware() fiber.Handler {
-	return auth.Middleware()
+	return func(c *fiber.Ctx) error {
+		session := httphandlers.GetSessionFromFiber(c)
+		if session == nil {
+			return c.Redirect("/admin/login")
+		}
+		return session.Middleware()(c)
+	}
 }
 
 // RequirePasswordChangedMiddleware returns middleware that enforces password change

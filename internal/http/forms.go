@@ -5,20 +5,19 @@ import (
 	"errors"
 	"fmt"
 	htmlstd "html"
+	"log/slog"
 	"strconv"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/karloscodes/cartridge"
 	htmlnode "golang.org/x/net/html"
 	"gorm.io/gorm"
 
 	"formlander/internal/config"
 	"formlander/internal/forms"
 	"formlander/internal/integrations"
-	"formlander/internal/pkg/cartridge"
 	"formlander/internal/pkg/dbtxn"
-
-	"log/slog"
 )
 
 // AdminFormsIndex renders the list of forms.
@@ -110,7 +109,7 @@ func AdminFormsNew(ctx *cartridge.Context) error {
 func AdminFormsCreate(ctx *cartridge.Context) error {
 	db := ctx.DB()
 
-	cfg := ctx.Config
+	cfg := ctx.Config.(*config.Config)
 	templateID := strings.TrimSpace(ctx.FormValue("template_id"))
 	selectedTemplate := GetTemplateByID(templateID)
 
@@ -335,7 +334,7 @@ func AdminFormsEdit(ctx *cartridge.Context) error {
 func AdminFormsUpdate(ctx *cartridge.Context) error {
 	db := ctx.DB()
 
-	cfg := ctx.Config
+	cfg := ctx.Config.(*config.Config)
 	logger := ctx.Logger
 
 	id, err := strconv.Atoi(ctx.Params("id"))

@@ -2,13 +2,12 @@ package http
 
 import (
 	"errors"
-
-	"github.com/gofiber/fiber/v2"
 	"log/slog"
 
+	"github.com/gofiber/fiber/v2"
+	"github.com/karloscodes/cartridge"
+
 	"formlander/internal/accounts"
-	"formlander/internal/auth"
-	"formlander/internal/pkg/cartridge"
 )
 
 // RequirePasswordChanged is a middleware that redirects users to change password page if needed.
@@ -47,7 +46,7 @@ func AdminLoginSubmit(ctx *cartridge.Context) error {
 		return fiber.ErrInternalServerError
 	}
 
-	if err := auth.SetAuthCookie(ctx.Ctx, result.User.ID); err != nil {
+	if err := GetSession(ctx).SetSession(ctx.Ctx, result.User.ID); err != nil {
 		ctx.Logger.Error("failed to set session cookie", slog.Any("error", err), slog.Uint64("userID", uint64(result.User.ID)))
 		return fiber.ErrInternalServerError
 	}
@@ -62,7 +61,7 @@ func AdminLoginSubmit(ctx *cartridge.Context) error {
 
 // AdminLogout destroys the session and redirects to login.
 func AdminLogout(ctx *cartridge.Context) error {
-	auth.ClearAuthCookie(ctx.Ctx)
+	GetSession(ctx).ClearSession(ctx.Ctx)
 	return ctx.Redirect("/admin/login")
 }
 
@@ -98,7 +97,7 @@ func AdminChangePasswordSubmit(ctx *cartridge.Context) error {
 		return renderChangePasswordError(ctx, "New passwords do not match")
 	}
 
-	userID, ok := auth.GetUserID(ctx.Ctx)
+	userID, ok := GetSession(ctx).GetUserID(ctx.Ctx)
 	if !ok {
 		return fiber.ErrUnauthorized
 	}

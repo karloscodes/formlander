@@ -6,32 +6,39 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/limiter"
+	"github.com/karloscodes/cartridge"
 
-	"formlander/internal/auth"
+	"formlander/internal/config"
 	httphandlers "formlander/internal/http"
 	"formlander/internal/middleware"
-	"formlander/internal/pkg/cartridge"
 )
 
 // MountRoutes registers all application routes.
-func MountRoutes(server *cartridge.Server) {
+func MountRoutes(s *cartridge.Server, cfg *config.Config) {
+	// Store formlander config and session in all requests for handlers
+	s.App().Use(func(c *fiber.Ctx) error {
+		c.Locals("app_config", cfg)
+		c.Locals("session", s.Session())
+		return c.Next()
+	})
+
 	// Health Check - support both GET and HEAD requests
 	healthHandler := func(ctx *cartridge.Context) error {
 		return ctx.Status(fiber.StatusOK).JSON(fiber.Map{"status": "ok"})
 	}
-	server.Get("/_health", healthHandler)
-	server.App().Head("/_health", func(c *fiber.Ctx) error {
+	s.Get("/_health", healthHandler)
+	s.App().Head("/_health", func(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusOK).JSON(fiber.Map{"status": "ok"})
 	})
 
-	server.Get("/", func(ctx *cartridge.Context) error {
+	s.Get("/", func(ctx *cartridge.Context) error {
 		return ctx.Redirect("/admin")
 	})
 
 	// Public demo page
-	server.Get("/_demo", httphandlers.DemoContactForm)
+	s.Get("/_demo", httphandlers.DemoContactForm)
 
-	// Build middleware chain for public routes
+	// Build middleware chain for public routes (rate limiting disabled in dev/test)
 	publicMiddleware := []fiber.Handler{
 		middleware.TurnstileMiddleware(),
 		limiter.New(limiter.Config{
@@ -46,12 +53,8 @@ func MountRoutes(server *cartridge.Server) {
 				})
 			},
 			Next: func(c *fiber.Ctx) bool {
-				// Skip rate limiting in test mode
-				ctx, ok := c.Locals("cartridge_ctx").(*cartridge.Context)
-				if ok && ctx.Config != nil && ctx.Config.IsTest() {
-					return true
-				}
-				return false
+				// Skip rate limiting in dev/test mode
+				return cfg.IsDevelopment() || cfg.IsTest()
 			},
 		}),
 	}
@@ -68,19 +71,19 @@ func MountRoutes(server *cartridge.Server) {
 		CustomMiddleware: publicMiddleware,
 	}
 
-	server.Post("/forms/:slug/submit", httphandlers.PublicFormSubmission, publicConfig)
-	server.Options("/forms/:slug/submit", func(ctx *cartridge.Context) error {
+	s.Post("/forms/:slug/submit", httphandlers.PublicFormSubmission, publicConfig)
+	s.Options("/forms/:slug/submit", func(ctx *cartridge.Context) error {
 		return ctx.SendStatus(fiber.StatusNoContent)
 	}, publicConfig)
 
-	server.Post("/x/api/v1/submissions", httphandlers.APISubmissionCreate, publicConfig)
-	server.Options("/x/api/v1/submissions", func(ctx *cartridge.Context) error {
+	s.Post("/x/api/v1/submissions", httphandlers.APISubmissionCreate, publicConfig)
+	s.Options("/x/api/v1/submissions", func(ctx *cartridge.Context) error {
 		return ctx.SendStatus(fiber.StatusNoContent)
 	}, publicConfig)
 
-	server.Get("/admin/login", httphandlers.AdminLoginPage)
+	s.Get("/admin/login", httphandlers.AdminLoginPage)
 
-	// Rate limit login attempts: 5 per minute per IP (disabled in test mode)
+	// Rate limit login attempts: 5 per minute per IP (disabled in dev/test mode)
 	loginRateLimiter := limiter.New(limiter.Config{
 		Max:        5,
 		Expiration: 60 * time.Second,
@@ -96,71 +99,67 @@ func MountRoutes(server *cartridge.Server) {
 			}, "")
 		},
 		Next: func(c *fiber.Ctx) bool {
-			// Skip rate limiting in test mode
-			ctx, ok := c.Locals("cartridge_ctx").(*cartridge.Context)
-			if ok && ctx.Config != nil && ctx.Config.IsTest() {
-				return true
-			}
-			return false
+			// Skip rate limiting in dev/test mode
+			return cfg.IsDevelopment() || cfg.IsTest()
 		},
 	})
 
-	server.Post("/admin/login", httphandlers.AdminLoginSubmit, &cartridge.RouteConfig{
+	s.Post("/admin/login", httphandlers.AdminLoginSubmit, &cartridge.RouteConfig{
 		CustomMiddleware: []fiber.Handler{loginRateLimiter},
 	})
 
 	// Auth config without password check (for change-password routes)
 	authConfigBasic := &cartridge.RouteConfig{
-		CustomMiddleware: []fiber.Handler{auth.Middleware()},
+		CustomMiddleware: []fiber.Handler{s.Session().Middleware()},
 	}
 
 	// Auth config with password change enforcement (for protected routes)
 	authConfig := &cartridge.RouteConfig{
-		CustomMiddleware: []fiber.Handler{auth.Middleware(), httphandlers.RequirePasswordChanged()},
+		CustomMiddleware: []fiber.Handler{s.Session().Middleware(), httphandlers.RequirePasswordChanged()},
 	}
 
 	// Password change routes (accessible to authenticated users)
 	// Note: First login password change is enforced at login time via LastLoginAt check
-	server.Get("/admin/change-password", httphandlers.AdminChangePasswordPage, authConfigBasic)
-	server.Post("/admin/change-password", httphandlers.AdminChangePasswordSubmit, authConfigBasic)
+	s.Get("/admin/change-password", httphandlers.AdminChangePasswordPage, authConfigBasic)
+	s.Post("/admin/change-password", httphandlers.AdminChangePasswordSubmit, authConfigBasic)
 
 	// Protected routes that require password to be changed
-	server.Get("/admin", httphandlers.AdminDashboard, authConfig)
-	server.Post("/admin/logout", httphandlers.AdminLogout, authConfig)
-	server.Get("/admin/forms", httphandlers.AdminFormsIndex, authConfig)
-	server.Get("/admin/forms/new", httphandlers.AdminFormsNew, authConfig)
-	server.Post("/admin/forms", httphandlers.AdminFormsCreate, authConfig)
-	server.Get("/admin/forms/:id", httphandlers.AdminFormShow, authConfig)
-	server.Get("/admin/forms/:id/edit", httphandlers.AdminFormsEdit, authConfig)
-	server.Post("/admin/forms/:id", httphandlers.AdminFormsUpdate, authConfig)
-	server.Get("/admin/submissions/:id", httphandlers.AdminSubmissionShow, authConfig)
+	s.Get("/admin", httphandlers.AdminDashboard, authConfig)
+	s.Post("/admin/logout", httphandlers.AdminLogout, authConfig)
+	s.Get("/admin/forms", httphandlers.AdminFormsIndex, authConfig)
+	s.Get("/admin/forms/new", httphandlers.AdminFormsNew, authConfig)
+	s.Post("/admin/forms", httphandlers.AdminFormsCreate, authConfig)
+	s.Get("/admin/forms/:id", httphandlers.AdminFormShow, authConfig)
+	s.Get("/admin/forms/:id/edit", httphandlers.AdminFormsEdit, authConfig)
+	s.Post("/admin/forms/:id", httphandlers.AdminFormsUpdate, authConfig)
+	s.Get("/admin/submissions/:id", httphandlers.AdminSubmissionShow, authConfig)
 
 	// Pro feature paywall pages
 
 	// Settings routes
-	server.Get("/admin/settings", httphandlers.AdminSettingsPage, authConfig)
-	server.Post("/admin/settings/password", httphandlers.AdminSettingsUpdatePassword, authConfig)
-	server.Post("/admin/settings/mailgun", httphandlers.AdminSettingsUpdateMailgun, authConfig)
-	server.Post("/admin/settings/turnstile", httphandlers.AdminSettingsUpdateTurnstile, authConfig)
+	s.Get("/admin/settings", httphandlers.AdminSettingsPage, authConfig)
+	s.Post("/admin/settings/password", httphandlers.AdminSettingsUpdatePassword, authConfig)
+	s.Post("/admin/settings/mailgun", httphandlers.AdminSettingsUpdateMailgun, authConfig)
+	s.Post("/admin/settings/turnstile", httphandlers.AdminSettingsUpdateTurnstile, authConfig)
 
 	// Mailer Profile routes
-	server.Get("/admin/settings/mailers", httphandlers.MailerProfileList, authConfig)
-	server.Get("/admin/settings/mailers/new", httphandlers.MailerProfileNew, authConfig)
-	server.Post("/admin/settings/mailers", httphandlers.MailerProfileCreate, authConfig)
-	server.Get("/admin/settings/mailers/:id", httphandlers.MailerProfileShow, authConfig)
-	server.Get("/admin/settings/mailers/:id/edit", httphandlers.MailerProfileEdit, authConfig)
-	server.Post("/admin/settings/mailers/:id", httphandlers.MailerProfileUpdate, authConfig)
-	server.Post("/admin/settings/mailers/:id/delete", httphandlers.MailerProfileDelete, authConfig)
+	s.Get("/admin/settings/mailers", httphandlers.MailerProfileList, authConfig)
+	s.Get("/admin/settings/mailers/new", httphandlers.MailerProfileNew, authConfig)
+	s.Post("/admin/settings/mailers", httphandlers.MailerProfileCreate, authConfig)
+	s.Get("/admin/settings/mailers/:id", httphandlers.MailerProfileShow, authConfig)
+	s.Get("/admin/settings/mailers/:id/edit", httphandlers.MailerProfileEdit, authConfig)
+	s.Post("/admin/settings/mailers/:id", httphandlers.MailerProfileUpdate, authConfig)
+	s.Post("/admin/settings/mailers/:id/delete", httphandlers.MailerProfileDelete, authConfig)
 
 	// Captcha Profile routes
-	server.Get("/admin/settings/captcha", httphandlers.CaptchaProfileList, authConfig)
-	server.Get("/admin/settings/captcha/new", httphandlers.CaptchaProfileNew, authConfig)
-	server.Post("/admin/settings/captcha", httphandlers.CaptchaProfileCreate, authConfig)
-	server.Get("/admin/settings/captcha/:id", httphandlers.CaptchaProfileShow, authConfig)
-	server.Get("/admin/settings/captcha/:id/edit", httphandlers.CaptchaProfileEdit, authConfig)
-	server.Post("/admin/settings/captcha/:id", httphandlers.CaptchaProfileUpdate, authConfig)
-	server.Post("/admin/settings/captcha/:id/delete", httphandlers.CaptchaProfileDelete, authConfig)
+	s.Get("/admin/settings/captcha", httphandlers.CaptchaProfileList, authConfig)
+	s.Get("/admin/settings/captcha/new", httphandlers.CaptchaProfileNew, authConfig)
+	s.Post("/admin/settings/captcha", httphandlers.CaptchaProfileCreate, authConfig)
+	s.Get("/admin/settings/captcha/:id", httphandlers.CaptchaProfileShow, authConfig)
+	s.Get("/admin/settings/captcha/:id/edit", httphandlers.CaptchaProfileEdit, authConfig)
+	s.Post("/admin/settings/captcha/:id", httphandlers.CaptchaProfileUpdate, authConfig)
+	s.Post("/admin/settings/captcha/:id/delete", httphandlers.CaptchaProfileDelete, authConfig)
 
 	// Submissions routes
-	server.Get("/admin/submissions", httphandlers.SubmissionList, authConfig)
+	s.Get("/admin/submissions", httphandlers.SubmissionList, authConfig)
 }
