@@ -25,6 +25,20 @@ type Server = cartridge.Server
 // RouteConfig is the public alias for cartridge.RouteConfig
 type RouteConfig = cartridge.RouteConfig
 
+// JobContext is the public alias for cartridge.JobContext
+type JobContext = cartridge.JobContext
+
+// Processor is the public alias for cartridge.Processor
+type Processor = cartridge.Processor
+
+// JobDispatcher is the public alias for cartridge.JobDispatcher
+type JobDispatcher = cartridge.JobDispatcher
+
+// NewJobDispatcher creates a new job dispatcher
+func NewJobDispatcher(logger *slog.Logger, dbManager cartridge.DBManager, interval time.Duration, processors ...cartridge.Processor) *cartridge.JobDispatcher {
+	return cartridge.NewJobDispatcher(logger, dbManager, interval, processors...)
+}
+
 // App wraps the internal application with a public API
 type App struct {
 	internal *internal.App

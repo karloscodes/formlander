@@ -14,7 +14,6 @@ import (
 	htmlnode "golang.org/x/net/html"
 	"gorm.io/gorm"
 
-	"formlander/internal/config"
 	"formlander/internal/forms"
 	"formlander/internal/integrations"
 	"formlander/internal/pkg/dbtxn"
@@ -109,7 +108,6 @@ func AdminFormsNew(ctx *cartridge.Context) error {
 func AdminFormsCreate(ctx *cartridge.Context) error {
 	db := ctx.DB()
 
-	cfg := ctx.Config.(*config.Config)
 	templateID := strings.TrimSpace(ctx.FormValue("template_id"))
 	selectedTemplate := GetTemplateByID(templateID)
 
@@ -153,7 +151,7 @@ func AdminFormsCreate(ctx *cartridge.Context) error {
 	if err != nil {
 		// Handle validation errors
 		if validationErr, ok := err.(*forms.ValidationError); ok {
-			return renderFormError(ctx, cfg, validationErr.Message, nil, nil, nil, false, selectedTemplate)
+			return renderFormError(ctx, validationErr.Message, nil, nil, nil, false, selectedTemplate)
 		}
 		ctx.Logger.Error("failed to create form", slog.Any("error", err))
 		return fiber.ErrInternalServerError
@@ -334,8 +332,6 @@ func AdminFormsEdit(ctx *cartridge.Context) error {
 // AdminFormsUpdate persists changes to an existing form.
 func AdminFormsUpdate(ctx *cartridge.Context) error {
 	db := ctx.DB()
-
-	cfg := ctx.Config.(*config.Config)
 	logger := ctx.Logger
 
 	id, err := strconv.Atoi(ctx.Params("id"))
@@ -381,7 +377,7 @@ func AdminFormsUpdate(ctx *cartridge.Context) error {
 		// Handle validation errors
 		if valErr, ok := err.(*forms.ValidationError); ok {
 			form, _ := forms.GetByID(db, uint(id))
-			return renderFormError(ctx, cfg, valErr.Message, form, form.EmailDelivery, form.WebhookDelivery, true, nil)
+			return renderFormError(ctx, valErr.Message, form, form.EmailDelivery, form.WebhookDelivery, true, nil)
 		}
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return fiber.ErrNotFound
@@ -392,7 +388,7 @@ func AdminFormsUpdate(ctx *cartridge.Context) error {
 	return ctx.Redirect(fmt.Sprintf("/admin/forms/%d", updatedForm.ID))
 }
 
-func renderFormError(ctx *cartridge.Context, cfg *config.Config, message string, form *forms.Form, emailDelivery *forms.EmailDelivery, webhookDelivery *forms.WebhookDelivery, isEdit bool, template *FormTemplate) error {
+func renderFormError(ctx *cartridge.Context, message string, form *forms.Form, emailDelivery *forms.EmailDelivery, webhookDelivery *forms.WebhookDelivery, isEdit bool, template *FormTemplate) error {
 	// Load profiles for dropdowns
 	db := ctx.DB()
 	mailerProfiles, _ := integrations.ListMailerProfiles(db)
