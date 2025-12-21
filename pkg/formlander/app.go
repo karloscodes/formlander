@@ -2,6 +2,7 @@
 package formlander
 
 import (
+	"log/slog"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -11,6 +12,7 @@ import (
 	"formlander/internal"
 	"formlander/internal/accounts"
 	"formlander/internal/database"
+	"formlander/internal/forms"
 	httphandlers "formlander/internal/http"
 )
 
@@ -50,6 +52,16 @@ func (a *App) GetServer() *cartridge.Server {
 // GetDB returns the database connection
 func (a *App) GetDB() *gorm.DB {
 	return a.internal.GetDB()
+}
+
+// GetDBManager returns the database manager for creating job dispatchers
+func (a *App) GetDBManager() cartridge.DBManager {
+	return a.internal.DBManager
+}
+
+// GetLogger returns the application logger
+func (a *App) GetLogger() *slog.Logger {
+	return a.internal.Logger
 }
 
 // RunMigrations runs database migrations
@@ -95,4 +107,33 @@ func AuthMiddleware() fiber.Handler {
 // RequirePasswordChangedMiddleware returns middleware that enforces password change
 func RequirePasswordChangedMiddleware() fiber.Handler {
 	return httphandlers.RequirePasswordChanged()
+}
+
+// Form represents a form configuration (public type)
+type Form struct {
+	ID             uint
+	Name           string
+	Slug           string
+	AllowedOrigins string
+	UseSDK         bool
+}
+
+// ListForms returns all forms
+func ListForms(db *gorm.DB) ([]Form, error) {
+	internalForms, err := forms.List(db)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]Form, len(internalForms))
+	for i, f := range internalForms {
+		result[i] = Form{
+			ID:             f.ID,
+			Name:           f.Name,
+			Slug:           f.Slug,
+			AllowedOrigins: f.AllowedOrigins,
+			UseSDK:         f.UseSDK,
+		}
+	}
+	return result, nil
 }

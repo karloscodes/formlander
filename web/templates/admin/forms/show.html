@@ -172,7 +172,8 @@
             <!-- SDK Toggle -->
             <div class="mt-4 flex items-center gap-2">
                 <input type="checkbox" id="include-sdk" onchange="toggleSDK()"
-                    class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                    class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    {{ if .Form.UseSDK }}checked{{ end }}>
                 <label for="include-sdk" class="text-sm font-medium text-gray-700">
                     Include JavaScript SDK
                 </label>
@@ -247,6 +248,13 @@
             // Capture original code before any modifications
             originalFormCode = document.getElementById('form-code').textContent;
             hljs.highlightAll();
+
+            // Apply SDK if checkbox is checked (persisted setting)
+            const checkbox = document.getElementById('include-sdk');
+            if (checkbox && checkbox.checked) {
+                toggleSDK();
+            }
+
             loadPreview();
         });
 

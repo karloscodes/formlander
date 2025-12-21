@@ -16,6 +16,7 @@ type CreateParams struct {
 	Name               string
 	Slug               string
 	AllowedOrigins     string
+	UseSDK             bool
 	GeneratedHTML      string
 	MailerProfileID    *uint
 	CaptchaProfileID   *uint
@@ -34,6 +35,7 @@ type UpdateParams struct {
 	Name               string
 	Slug               string
 	AllowedOrigins     string
+	UseSDK             bool
 	GeneratedHTML      string
 	MailerProfileID    *uint
 	CaptchaProfileID   *uint
@@ -62,13 +64,16 @@ func Create(logger *slog.Logger, db *gorm.DB, params CreateParams) (*Form, error
 		return nil, &ValidationError{Field: "name", Message: "Name is required"}
 	}
 
-	// Generate slug if not provided
+	// Validate slug is provided
 	slug := strings.TrimSpace(params.Slug)
-	if slug != "" {
-		slug = Slugify(slug)
-	}
 	if slug == "" {
-		slug = Slugify(params.Name)
+		return nil, &ValidationError{Field: "slug", Message: "Slug is required"}
+	}
+	slug = Slugify(slug)
+
+	// Validate allowed origins
+	if strings.TrimSpace(params.AllowedOrigins) == "" {
+		return nil, &ValidationError{Field: "allowed_origins", Message: "Allowed origins is required"}
 	}
 
 	// Build email overrides JSON
@@ -118,6 +123,7 @@ func Create(logger *slog.Logger, db *gorm.DB, params CreateParams) (*Form, error
 		Name:             strings.TrimSpace(params.Name),
 		Slug:             slug,
 		AllowedOrigins:   strings.TrimSpace(params.AllowedOrigins),
+		UseSDK:           params.UseSDK,
 		GeneratedHTML:    strings.TrimSpace(params.GeneratedHTML),
 		CaptchaProfileID: params.CaptchaProfileID,
 	}
@@ -324,6 +330,7 @@ func Update(logger *slog.Logger, db *gorm.DB, params UpdateParams) (*Form, error
 				"name":               strings.TrimSpace(params.Name),
 				"captcha_profile_id": params.CaptchaProfileID,
 				"allowed_origins":    strings.TrimSpace(params.AllowedOrigins),
+				"use_sdk":            params.UseSDK,
 			}).Error; err != nil {
 			return err
 		}

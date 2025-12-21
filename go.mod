@@ -4,7 +4,7 @@ go 1.25.5
 
 require (
 	github.com/gofiber/fiber/v2 v2.52.10
-	github.com/karloscodes/cartridge v0.0.0-20251220100341-5662508b23c5
+	github.com/karloscodes/cartridge v0.0.0-20251221123927-fc38133e3b7c
 	github.com/spf13/viper v1.21.0
 	github.com/stretchr/testify v1.11.1
 	golang.org/x/crypto v0.45.0
