@@ -94,12 +94,12 @@
 
       var submitBtn = getSubmitButton(form);
       var originalText = submitBtn ? submitBtn.textContent : '';
+      var formData = new FormData(form);
 
       clearMessage(form);
       setFormDisabled(form, true);
       if (submitBtn) submitBtn.textContent = 'Sending...';
 
-      var formData = new FormData(form);
       var successUrl = formData.get('_success_url');
       var errorUrl = formData.get('_error_url');
 
