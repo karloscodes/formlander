@@ -4,24 +4,31 @@ before:
   hooks:
     - go mod tidy
 
-# Minimal build config - just for file context in Docker builds
-# Actual build happens inside Docker
 builds:
   - id: formlander
-    skip: true
+    main: ./cmd/formlander
+    binary: formlander
+    env:
+      - CGO_ENABLED=0
     goos:
       - linux
     goarch:
       - amd64
       - arm64
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.buildTime={{.Date}}
 
-# No archives needed for Docker-only release
+# Create binaries with pattern: formlander-v1.0.0-amd64
 archives:
-  - id: skip-archives
+  - id: binary
+    format: binary
+    name_template: "{{ .ProjectName }}-v{{ .Version }}-{{ .Arch }}"
 
-# Skip checksums since we're not distributing binaries
 checksum:
-  disable: true
+  name_template: "checksums.txt"
 
 changelog:
   sort: asc
@@ -115,34 +122,30 @@ release:
   mode: replace
   header: |
     ## Formlander {{ .Tag }}
-    
+
     Self-hosted form backend with SQLite storage.
-    
-    ### Quick Start with Docker
-    
+
+    ### One-Line Installation (Recommended)
+
+    ```bash
+    curl -fsSL https://raw.githubusercontent.com/karloscodes/formlander/master/install.sh | sudo bash
+    ```
+
+    This installs Formlander with Docker, Caddy reverse proxy, and automatic SSL certificates.
+
+    ### Quick Start with Docker (Manual)
+
     ```bash
     docker run -d \
       -p 8080:8080 \
       -e FORMLANDER_SESSION_SECRET=$(openssl rand -hex 32) \
-      -e 
       -v $(pwd)/storage:/app/storage \
       karloscodes/formlander:{{ .Version }}
     ```
-    
+
     Then visit `http://localhost:8080` with default credentials:
     - Email: `admin@formlander.local`
     - Password: `formlander`
-    
-    ### Building from Source
-    
-    ```bash
-    git clone https://github.com/karloscodes/formlander.git
-    cd formlander
-    git checkout {{ .Tag }}
-    make build
-    export FORMLANDER_SESSION_SECRET=$(openssl rand -hex 32)
-    ./bin/formlander
-    ```
   footer: |
     ---
     
