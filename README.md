@@ -37,9 +37,39 @@ The SDK auto-detects Formlander forms and enhances them with:
 
 Forms work without the SDK via standard HTML POST. The SDK is purely an enhancement.
 
-## Quick Start
+## Installation
 
-### Using Docker (Recommended)
+### One-Line Install (Recommended for VPS/Servers)
+
+Install Formlander with Docker, Caddy reverse proxy, and automatic SSL certificates:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/karloscodes/formlander/master/install.sh | sudo bash
+```
+
+This interactive installer will:
+- Check system requirements (Docker, ports 80/443)
+- Prompt for your domain name
+- Set up Caddy as a reverse proxy with automatic HTTPS
+- Configure automatic daily backups
+- Start the Formlander container
+
+After installation, access your dashboard at `https://your-domain.com`
+
+**Management commands:**
+```bash
+formlander update              # Update to latest version
+formlander reload              # Reload containers
+formlander restore-db          # Restore from backup
+formlander change-admin-password  # Reset admin password
+formlander upgrade-to-pro      # Upgrade to Pro version
+```
+
+---
+
+## Quick Start (Development/Local)
+
+### Using Docker
 
 **First, generate and save your session secret:**
 

@@ -6,7 +6,7 @@ TAILWIND = $(BIN_DIR)/tailwindcss
 WATCHEXEC ?= $(shell command -v watchexec 2>/dev/null)
 GOTESTSUM ?= $(shell command -v gotestsum 2>/dev/null)
 
-.PHONY: help build run dev test test-unit test-e2e test-e2e-setup tidy fmt clean deps release vendor css css-watch
+.PHONY: help build run dev test test-unit test-e2e test-e2e-setup test-integration tidy fmt clean deps release vendor css css-watch
 
 	help:
 	@echo "Available targets:"
@@ -21,6 +21,7 @@ GOTESTSUM ?= $(shell command -v gotestsum 2>/dev/null)
 	@echo "  test-unit    - run package tests under internal/"
 	@echo "  test-e2e     - run Playwright end-to-end tests in e2e/"
 	@echo "  test-e2e-setup - install Playwright dependencies"
+	@echo "  test-integration - run VM-based installer integration tests (requires Multipass)"
 	@echo "  tidy         - add/remove go.mod entries"
 	@echo "  fmt          - gofmt Go source files"
 	@echo "  clean        - remove build artifacts"
@@ -78,6 +79,11 @@ test-e2e-setup:
 test-e2e: deps
 	@echo ">> running Playwright E2E tests"
 	cd e2e && npm test
+
+test-integration: build
+	@echo ">> running VM-based installer integration tests"
+	@echo "   (requires Multipass: brew install multipass)"
+	FORMLANDER_ENV=test BINARY_PATH=$(BIN_DIR)/$(APP) go test -v -timeout 15m ./tests/integration/...
 
 tidy: deps
 	GOCACHE=$(GOCACHE) go mod tidy
