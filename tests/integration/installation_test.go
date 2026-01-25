@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"formlander/internal/installer/pkg/testrunner"
+	"formlander/internal/manager/pkg/testrunner"
 )
 
 func isRunningInCI() bool {

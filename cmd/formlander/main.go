@@ -13,14 +13,14 @@ import (
 
 	"formlander/internal"
 	"formlander/internal/database"
-	"formlander/internal/installer/admin"
-	"formlander/internal/installer/config"
-	installerPkg "formlander/internal/installer/installer"
-	"formlander/internal/installer/license"
-	"formlander/internal/installer/logging"
-	"formlander/internal/installer/product"
-	"formlander/internal/installer/updater"
-	"formlander/internal/installer/validation"
+	"formlander/internal/manager/admin"
+	"formlander/internal/manager/config"
+	installerPkg "formlander/internal/manager/installer"
+	"formlander/internal/manager/license"
+	"formlander/internal/manager/logging"
+	"formlander/internal/manager/product"
+	"formlander/internal/manager/updater"
+	"formlander/internal/manager/validation"
 
 	"golang.org/x/term"
 )
