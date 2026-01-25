@@ -1,6 +1,6 @@
 # Formlander
 
-A self-hosted drop-in backend for HTML forms. Accept, store, review, and route form submissions without surrendering control to third-party SaaS providers.
+Form backend you actually own. Collect submissions on your server. One Docker command. No SaaS bills.
 
 🌐 **[formlander.com](https://formlander.com)**
 
@@ -15,7 +15,7 @@ Formlander enables developers running static or serverless sites to handle form 
 - **Asynchronous delivery** — Queue webhook and email notifications with retry logic
 - **Spam protection** — Configurable honeypot fields and rate limiting
 - **API-first design** — Dashboard consumes the same REST endpoints available for integrations
-- **Privacy-focused** — All data stored locally; optional Mailgun integration for email forwarding
+- **Your server, your data** — We don't run servers. We can't see your submissions. That's the point.
 
 ## JavaScript SDK (Optional)
 
@@ -62,7 +62,6 @@ formlander update              # Update to latest version
 formlander reload              # Reload containers
 formlander restore-db          # Restore from backup
 formlander change-admin-password  # Reset admin password
-formlander upgrade-to-pro      # Upgrade to Pro version
 ```
 
 ---
