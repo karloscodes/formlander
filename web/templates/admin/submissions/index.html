@@ -13,7 +13,7 @@
             <input type="text" name="q" value="{{ .Search }}" placeholder="Search..."
                 class="w-full sm:w-64 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20">
             <button type="submit"
-                class="inline-flex items-center rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-gray-800">
+                class="inline-flex items-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700">
                 <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
@@ -36,13 +36,13 @@
 
         <div class="flex rounded-lg border border-gray-300 bg-white shadow-sm overflow-hidden">
             <button type="submit" name="range" value="7d"
-                class="px-3 py-2 text-sm {{ if eq .Range "7d" }}bg-gray-900 text-white{{ else }}text-gray-700 hover:bg-gray-50{{ end }}">7d</button>
+                class="px-3 py-2 text-sm {{ if eq .Range "7d" }}bg-blue-600 text-white{{ else }}text-gray-700 hover:bg-gray-50{{ end }}">7d</button>
             <button type="submit" name="range" value="30d"
-                class="px-3 py-2 text-sm border-l border-gray-300 {{ if eq .Range "30d" }}bg-gray-900 text-white{{ else }}text-gray-700 hover:bg-gray-50{{ end }}">30d</button>
+                class="px-3 py-2 text-sm border-l border-gray-300 {{ if eq .Range "30d" }}bg-blue-600 text-white{{ else }}text-gray-700 hover:bg-gray-50{{ end }}">30d</button>
             <button type="submit" name="range" value="90d"
-                class="px-3 py-2 text-sm border-l border-gray-300 {{ if eq .Range "90d" }}bg-gray-900 text-white{{ else }}text-gray-700 hover:bg-gray-50{{ end }}">90d</button>
+                class="px-3 py-2 text-sm border-l border-gray-300 {{ if eq .Range "90d" }}bg-blue-600 text-white{{ else }}text-gray-700 hover:bg-gray-50{{ end }}">90d</button>
             <button type="submit" name="range" value="all"
-                class="px-3 py-2 text-sm border-l border-gray-300 {{ if or (eq .Range "all") (eq .Range "") }}bg-gray-900 text-white{{ else }}text-gray-700 hover:bg-gray-50{{ end }}">All</button>
+                class="px-3 py-2 text-sm border-l border-gray-300 {{ if or (eq .Range "all") (eq .Range "") }}bg-blue-600 text-white{{ else }}text-gray-700 hover:bg-gray-50{{ end }}">All</button>
         </div>
 
         {{ if or .FormID .Range .Search }}
