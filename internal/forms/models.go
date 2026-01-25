@@ -162,6 +162,7 @@ type Submission struct {
 
 	WebhookEvents []WebhookEvent
 	EmailEvents   []EmailEvent
+	Files         []*SubmissionFile
 }
 
 // WebhookEvent captures delivery attempts for a submission.
@@ -201,6 +202,19 @@ type EmailEvent struct {
 	LastAttemptAt  *time.Time
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
+}
+
+// SubmissionFile stores metadata for uploaded files.
+type SubmissionFile struct {
+	ID           uint        `gorm:"primaryKey"`
+	SubmissionID uint        `gorm:"index;not null"`
+	Submission   *Submission `gorm:"constraint:OnDelete:CASCADE"`
+	FieldName    string      `gorm:"size:255;not null"`
+	Filename     string      `gorm:"size:255;not null"`
+	ContentType  string      `gorm:"size:100"`
+	Size         int64       `gorm:"not null"`
+	StoragePath  string      `gorm:"size:500;not null"`
+	CreatedAt    time.Time
 }
 
 // NewEmailEvent prepares a pending email forwarding attempt.

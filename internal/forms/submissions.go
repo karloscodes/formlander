@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"log/slog"
+
 	"gorm.io/gorm"
 
 	"formlander/internal/pkg/dbtxn"
@@ -21,6 +22,11 @@ type SubmissionParams struct {
 
 // CreateSubmission creates a new submission and associated delivery events
 func CreateSubmission(logger *slog.Logger, db *gorm.DB, form *Form, payload map[string]any, userAgent string) (*Submission, error) {
+	return CreateSubmissionWithFiles(logger, db, form, payload, userAgent, "", nil)
+}
+
+// CreateSubmissionWithFiles creates a submission with optional file uploads
+func CreateSubmissionWithFiles(logger *slog.Logger, db *gorm.DB, form *Form, payload map[string]any, userAgent string, dataDir string, files []*UploadedFile) (*Submission, error) {
 	encoded, err := json.Marshal(payload)
 	if err != nil {
 		logger.Error("encode submission payload", slog.Any("error", err))
@@ -38,6 +44,21 @@ func CreateSubmission(logger *slog.Logger, db *gorm.DB, form *Form, payload map[
 	if err := dbtxn.WithRetry(logger, db, func(tx *gorm.DB) error {
 		if err := tx.Create(submission).Error; err != nil {
 			return err
+		}
+
+		// Save files to disk and create records
+		if len(files) > 0 && dataDir != "" {
+			fileRecords, err := SaveFiles(dataDir, form.ID, submission.ID, files)
+			if err != nil {
+				return fmt.Errorf("failed to save files: %w", err)
+			}
+			for _, record := range fileRecords {
+				record.SubmissionID = submission.ID
+				if err := tx.Create(record).Error; err != nil {
+					return err
+				}
+			}
+			submission.Files = fileRecords
 		}
 
 		// Check webhook delivery
@@ -63,6 +84,10 @@ func CreateSubmission(logger *slog.Logger, db *gorm.DB, form *Form, payload map[
 
 		return nil
 	}); err != nil {
+		// Clean up files on failure
+		if len(files) > 0 && dataDir != "" && submission.ID > 0 {
+			DeleteSubmissionFiles(dataDir, form.ID, submission.ID)
+		}
 		logger.Error("store submission failed", slog.Any("error", err))
 		return nil, fmt.Errorf("failed to save submission")
 	}

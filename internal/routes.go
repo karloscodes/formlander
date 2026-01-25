@@ -131,6 +131,7 @@ func MountRoutes(s *cartridge.Server, cfg *config.Config) {
 	s.Get("/admin/forms/:id/edit", httphandlers.AdminFormsEdit, authConfig)
 	s.Post("/admin/forms/:id", httphandlers.AdminFormsUpdate, authConfig)
 	s.Get("/admin/submissions/:id", httphandlers.AdminSubmissionShow, authConfig)
+	s.Get("/admin/submissions/:id/files/:file_id", httphandlers.AdminSubmissionFileDownload, authConfig)
 
 	// Pro feature paywall pages
 
