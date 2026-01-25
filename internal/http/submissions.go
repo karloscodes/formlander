@@ -33,12 +33,18 @@ func SubmissionList(ctx *cartridge.Context) error {
 	// Parse filters
 	formID := ctx.Query("form_id")
 	rangeFilter := ctx.Query("range")
+	search := strings.TrimSpace(ctx.Query("q"))
 
 	// Build query
 	query := db.Model(&forms.Submission{}).Preload("Form")
 
 	if formID != "" {
 		query = query.Where("form_id = ?", formID)
+	}
+
+	// Search in data_json
+	if search != "" {
+		query = query.Where("data_json LIKE ?", "%"+search+"%")
 	}
 
 	// Handle date range filter
@@ -112,6 +118,7 @@ func SubmissionList(ctx *cartridge.Context) error {
 		"HasPrev":     hasPrev,
 		"FormID":      formID,
 		"Range":       rangeFilter,
+		"Search":      search,
 		"ContentView": "admin/submissions/index/content",
 	}, "")
 }

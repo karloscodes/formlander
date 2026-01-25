@@ -157,17 +157,60 @@ func Seed(db *gorm.DB) error {
 		{
 			"name":    "Alice Johnson",
 			"email":   "alice@example.com",
+			"company": "Acme Corp",
 			"message": "I love using Formlander! It's so easy to set up.",
 		},
 		{
 			"name":    "Bob Smith",
 			"email":   "bob@example.com",
+			"company": "TechStart Inc",
 			"message": "Quick question about webhook configuration. Can I use multiple URLs?",
 		},
 		{
 			"name":    "Charlie Brown",
 			"email":   "charlie@example.com",
 			"message": "Just wanted to say thanks for creating this tool!",
+		},
+		{
+			"name":    "Diana Martinez",
+			"email":   "diana@bigcorp.com",
+			"company": "BigCorp",
+			"phone":   "+1-555-123-4567",
+			"message": "We're evaluating self-hosted form solutions. Can we schedule a demo?",
+		},
+		{
+			"name":    "Edward Kim",
+			"email":   "edward.kim@startup.io",
+			"message": "Bug report: file uploads failing on Safari. Please investigate.",
+		},
+		{
+			"name":    "Fiona O'Brien",
+			"email":   "fiona@agency.co",
+			"company": "Creative Agency",
+			"budget":  "$5k-10k",
+			"message": "Looking for a white-label solution for our clients.",
+		},
+		{
+			"name":    "George Wilson",
+			"email":   "george@freelancer.com",
+			"message": "Feature request: can you add Zapier integration?",
+		},
+		{
+			"name":    "Hannah Lee",
+			"email":   "hannah@nonprofit.org",
+			"company": "Green Earth Foundation",
+			"message": "Do you offer discounts for non-profits?",
+		},
+		{
+			"name":    "Ivan Petrov",
+			"email":   "ivan@enterprise.ru",
+			"company": "Enterprise Solutions",
+			"message": "Need GDPR compliance documentation for our legal team.",
+		},
+		{
+			"name":    "Julia Santos",
+			"email":   "julia@marketing.com",
+			"message": "Great product! Already recommended to 3 colleagues.",
 		},
 	}
 
