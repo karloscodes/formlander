@@ -19,6 +19,11 @@
             </div>
             <p class="text-sm text-gray-600">{{ if .IsEdit }}Update form configuration and delivery settings{{ else
                 }}Define a new endpoint for form submissions{{ end }}</p>
+            {{ if not .IsEdit }}
+            <p class="mt-2 text-xs text-gray-500">
+                No schema required—send any fields you want. Formlander stores everything as JSON.
+            </p>
+            {{ end }}
         </div>
     </div>
 
