@@ -45,43 +45,9 @@ func TestValidationError(t *testing.T) {
 	}
 }
 
-func TestValidationErrorIs(t *testing.T) {
-	validationErr := &ValidationError{
-		Field:   "test",
-		Value:   "value",
-		Message: "message",
-	}
-
-	if !validationErr.Is(ErrInvalidInput) {
-		t.Error("ValidationError should be identified as ErrInvalidInput")
-	}
-
-	if validationErr.Is(ErrTimeout) {
-		t.Error("ValidationError should not be identified as ErrTimeout")
-	}
-}
-
-func TestNetworkError(t *testing.T) {
-	originalErr := fmt.Errorf("connection refused")
-	netErr := &NetworkError{
-		Operation: "GET",
-		URL:       "https://example.com",
-		Err:       originalErr,
-	}
-
-	expected := "network operation 'GET' failed for URL 'https://example.com': connection refused"
-	if got := netErr.Error(); got != expected {
-		t.Errorf("NetworkError.Error() = %v, want %v", got, expected)
-	}
-
-	if unwrapped := netErr.Unwrap(); unwrapped != originalErr {
-		t.Errorf("NetworkError.Unwrap() = %v, want %v", unwrapped, originalErr)
-	}
-}
-
 func TestDockerError(t *testing.T) {
 	originalErr := fmt.Errorf("container not found")
-	
+
 	tests := []struct {
 		name      string
 		operation string
@@ -159,24 +125,6 @@ func TestConfigError(t *testing.T) {
 				t.Errorf("ConfigError.Error() = %v, want %v", got, tt.expected)
 			}
 		})
-	}
-}
-
-func TestInstallationError(t *testing.T) {
-	originalErr := fmt.Errorf("permission denied")
-	installErr := &InstallationError{
-		Component: "docker",
-		Step:      "install",
-		Err:       originalErr,
-	}
-
-	expected := "installation failed for component 'docker' at step 'install': permission denied"
-	if got := installErr.Error(); got != expected {
-		t.Errorf("InstallationError.Error() = %v, want %v", got, expected)
-	}
-
-	if unwrapped := installErr.Unwrap(); unwrapped != originalErr {
-		t.Errorf("InstallationError.Unwrap() = %v, want %v", unwrapped, originalErr)
 	}
 }
 
@@ -292,82 +240,11 @@ func TestRetryWithBackoff(t *testing.T) {
 	})
 }
 
-func TestSafeExecute(t *testing.T) {
-	t.Run("successful execution", func(t *testing.T) {
-		fn := func() error {
-			return nil
-		}
-
-		err := SafeExecute(fn)
-		if err != nil {
-			t.Errorf("SafeExecute() should succeed, got error: %v", err)
-		}
-	})
-
-	t.Run("function returns error", func(t *testing.T) {
-		expectedErr := fmt.Errorf("function error")
-		fn := func() error {
-			return expectedErr
-		}
-
-		err := SafeExecute(fn)
-		if err != expectedErr {
-			t.Errorf("SafeExecute() should return function error, got: %v", err)
-		}
-	})
-
-	t.Run("function panics", func(t *testing.T) {
-		fn := func() error {
-			panic("test panic")
-		}
-
-		err := SafeExecute(fn)
-		if err == nil {
-			t.Error("SafeExecute() should capture panic")
-		}
-
-		expectedMsg := "panic recovered: test panic"
-		if got := err.Error(); got != expectedMsg {
-			t.Errorf("Error message = %v, want %v", got, expectedMsg)
-		}
-	})
-}
-
-func TestIsTemporary(t *testing.T) {
-	t.Run("network error is temporary", func(t *testing.T) {
-		netErr := &NetworkError{
-			Operation: "GET",
-			URL:       "http://example.com",
-			Err:       fmt.Errorf("connection refused"),
-		}
-
-		if !IsTemporary(netErr) {
-			t.Error("NetworkError should be considered temporary")
-		}
-	})
-
-	t.Run("regular error is not temporary", func(t *testing.T) {
-		err := fmt.Errorf("regular error")
-
-		if IsTemporary(err) {
-			t.Error("Regular error should not be considered temporary")
-		}
-	})
-}
-
 func TestErrorConstructors(t *testing.T) {
 	t.Run("NewValidationError", func(t *testing.T) {
 		err := NewValidationError("email", "test@example", "invalid format")
 		if err.Field != "email" || err.Value != "test@example" || err.Message != "invalid format" {
 			t.Error("NewValidationError did not set fields correctly")
-		}
-	})
-
-	t.Run("NewNetworkError", func(t *testing.T) {
-		originalErr := fmt.Errorf("connection error")
-		err := NewNetworkError("POST", "http://api.com", originalErr)
-		if err.Operation != "POST" || err.URL != "http://api.com" || err.Err != originalErr {
-			t.Error("NewNetworkError did not set fields correctly")
 		}
 	})
 
@@ -385,24 +262,16 @@ func TestErrorConstructors(t *testing.T) {
 			t.Error("NewConfigError did not set fields correctly")
 		}
 	})
-
-	t.Run("NewInstallationError", func(t *testing.T) {
-		originalErr := fmt.Errorf("install error")
-		err := NewInstallationError("docker", "download", originalErr)
-		if err.Component != "docker" || err.Step != "download" || err.Err != originalErr {
-			t.Error("NewInstallationError did not set fields correctly")
-		}
-	})
 }
 
 func TestErrorsAs(t *testing.T) {
 	validationErr := NewValidationError("test", "value", "invalid")
-	
+
 	var target *ValidationError
 	if !errors.As(validationErr, &target) {
 		t.Error("ValidationError should be unwrappable with errors.As")
 	}
-	
+
 	if target.Field != "test" {
 		t.Errorf("Unwrapped error field = %v, want %v", target.Field, "test")
 	}

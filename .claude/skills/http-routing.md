@@ -29,7 +29,6 @@ func (s *Server) setupRoutes() {
         },
         WriteConcurrency: true,
         CustomMiddleware: []fiber.Handler{
-            middleware.TurnstileMiddleware(),
             limiter.New(limiter.Config{
                 Max:        30,
                 Expiration: 60 * time.Second,
