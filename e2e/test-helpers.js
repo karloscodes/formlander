@@ -161,16 +161,16 @@ class TestHelpers {
   /**
    * Create captcha profile
    */
-  async createCaptchaProfile(name = "Test Captcha", provider = "turnstile") {
+  async createCaptchaProfile(name = "Test Captcha", provider = "turnstile", secretKey = "test-secret-key") {
     try {
       const now = new Date().toISOString();
-      const siteKeys = JSON.stringify([{ "host_pattern": "*", "site_key": "" }]);
+      const siteKeys = JSON.stringify([{ "host_pattern": "*", "site_key": "test-site-key" }]);
       const policy = JSON.stringify({ "required": false, "action": "submit", "widget": "managed" });
 
       const result = await this.execSQL(
-        `INSERT INTO captcha_profiles (name, provider, site_keys_json, policy_json, created_at, updated_at) 
-         VALUES (?, ?, ?, ?, ?, ?)`,
-        [name, provider, siteKeys, policy, now, now]
+        `INSERT INTO captcha_profiles (name, provider, secret_key, site_keys_json, policy_json, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [name, provider, secretKey, siteKeys, policy, now, now]
       );
 
       this.log(`✅ Created captcha profile: ${name}`);
@@ -207,9 +207,9 @@ class TestHelpers {
 
       // Create form
       const formResult = await this.execSQL(
-        `INSERT INTO forms (public_id, name, slug, token, allowed_origins, created_at, updated_at) 
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [publicId, name, slug, token, allowedOrigins, now, now]
+        `INSERT INTO forms (public_id, name, slug, token, allowed_origins, captcha_profile_id, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [publicId, name, slug, token, allowedOrigins, captchaProfileId, now, now]
       );
 
       const formId = formResult.lastID;
