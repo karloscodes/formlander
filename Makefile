@@ -6,7 +6,7 @@ TAILWIND = $(BIN_DIR)/tailwindcss
 WATCHEXEC ?= $(shell command -v watchexec 2>/dev/null)
 GOTESTSUM ?= $(shell command -v gotestsum 2>/dev/null)
 
-.PHONY: help build run dev test test-unit test-e2e test-e2e-setup test-integration tidy fmt clean deps release vendor css css-watch
+.PHONY: help build run seed dev test test-unit test-e2e test-e2e-setup test-integration tidy fmt clean deps release vendor css css-watch
 
 	help:
 	@echo "Available targets:"
@@ -49,6 +49,10 @@ build: deps css
 
 run: deps
 	FORMLANDER_ENV=development GOCACHE=$(GOCACHE) go run ./cmd/$(APP)
+
+seed: deps
+	@echo ">> seeding database"
+	FORMLANDER_ENV=development GOCACHE=$(GOCACHE) go run ./cmd/$(APP) --seed
 
 dev: deps
 ifeq ($(strip $(WATCHEXEC)),)
