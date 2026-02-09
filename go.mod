@@ -3,7 +3,7 @@ module formlander
 go 1.25.5
 
 require (
-	github.com/gofiber/fiber/v2 v2.52.10
+	github.com/gofiber/fiber/v2 v2.52.11
 	github.com/google/go-containerregistry v0.20.7
 	github.com/karloscodes/cartridge v0.0.0-20251221123927-fc38133e3b7c
 	github.com/sirupsen/logrus v1.9.3
