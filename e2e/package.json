@@ -15,7 +15,7 @@
     "@playwright/test": "^1.47.2"
   },
   "overrides": {
-    "tar": "^7.5.8",
+    "tar": "^7.5.11",
     "minimatch": "^10.2.1",
     "glob": "^11.0.0"
   }
