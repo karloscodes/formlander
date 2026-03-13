@@ -62,4 +62,44 @@ test.describe("Captcha Profiles", () => {
 
     helpers.log("✅ Captcha profile exists in list");
   });
+
+  test("4. Form submission rejected without captcha token", async ({ page, request }) => {
+    helpers.log("=== Testing Captcha Enforcement ===");
+
+    // Create captcha profile with a secret key
+    const captchaProfileId = await helpers.createCaptchaProfile(
+      "Enforcement Test Captcha",
+      "turnstile",
+      "test-secret-for-enforcement"
+    );
+
+    // Create form with captcha enabled
+    const uniqueSlug = `captcha-test-${Date.now()}`;
+    const formData = await helpers.createFormData("Captcha Test Form", uniqueSlug, {
+      captchaProfileId,
+    });
+
+    helpers.log(`Created form with slug: ${uniqueSlug}, token: ${formData.token}, captcha profile: ${captchaProfileId}`);
+
+    // Submit to form WITHOUT captcha token - should be rejected
+    const response = await request.post(`/forms/${uniqueSlug}/submit?token=${formData.token}`, {
+      headers: {
+        "Content-Type": "application/json",
+        "Origin": "http://localhost:3000",
+      },
+      data: {
+        name: "Test User",
+        email: "test@example.com",
+        message: "This should be rejected",
+        // NOTE: No cf-turnstile-response token!
+      },
+    });
+
+    // Expect rejection due to missing captcha
+    expect(response.status()).toBe(400);
+    const body = await response.json();
+    expect(body.error).toContain("captcha");
+
+    helpers.log("✅ Form submission correctly rejected without captcha token");
+  });
 });

@@ -8,8 +8,6 @@ import (
 	"io"
 	"net/http"
 	"time"
-
-	"github.com/gofiber/fiber/v2"
 )
 
 // turnstileVerifyURL is the Cloudflare Turnstile verification endpoint.
@@ -46,17 +44,6 @@ type TurnstileResult struct {
 	Success  bool
 	Hostname string
 	Action   string
-}
-
-// TurnstileMiddleware validates Cloudflare Turnstile tokens on form submissions.
-// NOTE: This is now a no-op. Turnstile verification is handled per-form via CaptchaProfile.
-func TurnstileMiddleware() fiber.Handler {
-	return func(c *fiber.Ctx) error {
-		// Turnstile verification is now handled per-form in the public controller
-		// Individual forms check their captcha_profile_id for captcha requirements
-
-		return c.Next()
-	}
 }
 
 // VerifyTurnstileToken validates a Cloudflare Turnstile token.

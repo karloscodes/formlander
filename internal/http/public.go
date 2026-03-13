@@ -82,11 +82,25 @@ func PublicFormSubmission(ctx *cartridge.Context) error {
 	delete(payload, "_success_url")
 	delete(payload, "_error_url")
 
+	// Extract files from multipart form
+	var uploadedFiles []*forms.UploadedFile
+	if multipartForm, err := ctx.MultipartForm(); err == nil && multipartForm != nil {
+		uploadedFiles, err = forms.ExtractFiles(multipartForm)
+		if err != nil {
+			if errorURL != "" {
+				return ctx.Redirect(errorURL)
+			}
+			return jsonError(ctx, fiber.StatusBadRequest, err.Error())
+		}
+	}
+
 	logger := ctx.Logger
 	userAgent := ctx.Get(fiber.HeaderUserAgent)
-	submission, err := forms.CreateSubmission(logger, db, form, payload, userAgent)
+	dataDir := cfg.DataDirectory
+
+	submission, err := forms.CreateSubmissionWithFiles(logger, db, form, payload, userAgent, dataDir, uploadedFiles)
 	if err != nil {
-		// Check for custom error redirect
+		forms.CloseFiles(uploadedFiles) // Clean up on error
 		if errorURL != "" {
 			return ctx.Redirect(errorURL)
 		}

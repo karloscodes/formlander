@@ -21,5 +21,6 @@ func Migrate(db *gorm.DB) error {
 		&forms.Submission{},
 		&forms.WebhookEvent{},
 		&forms.EmailEvent{},
+		&forms.SubmissionFile{},
 	)
 }

@@ -1,70 +1,41 @@
 {{ define "admin/submissions/index/content" }}
-<div class="mx-auto max-w-7xl space-y-8 px-4 py-8 sm:px-6 lg:px-8">
+<div class="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
     <!-- Header -->
     <div>
         <h1 class="text-3xl font-bold tracking-tight text-gray-900">Submissions</h1>
-        <p class="mt-2 text-sm text-gray-600">View and filter form submissions</p>
+        <p class="mt-1 text-sm text-gray-600">{{ .TotalCount }} total</p>
     </div>
 
-    <!-- Filters -->
+    <!-- Search and Filters -->
     <form method="GET" action="/admin/submissions"
-        class="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
-        <div class="px-6 py-4 bg-gray-50 border-b border-gray-200">
-            <h2 class="text-sm font-semibold text-gray-900">Filters</h2>
-        </div>
-        <div class="p-6">
-            <div class="space-y-6">
-                <!-- Form Filter -->
-                <div>
-                    <label for="form_id" class="block text-sm font-medium text-gray-700 mb-2">Form</label>
-                    <select id="form_id" name="form_id" onchange="this.form.submit()"
-                        class="block w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm shadow-sm transition-colors focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20">
-                        <option value="">All Forms</option>
-                        {{ range .Forms }}
-                        <option value="{{ .ID }}" {{ if eq $.FormID (printf "%d" .ID) }}selected{{ end }}>{{ .Name }}
-                        </option>
-                        {{ end }}
-                    </select>
-                </div>
+        class="flex flex-wrap items-center gap-3 p-4 bg-white rounded-xl border border-gray-200 shadow-sm">
+        <input type="text" name="q" value="{{ .Search }}" placeholder="Search..."
+            class="flex-1 min-w-0 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20">
 
-                <!-- Time Range Pills -->
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Time Range</label>
-                    <div class="grid grid-cols-2 sm:flex sm:flex-wrap gap-2">
-                        <button type="submit" name="range" value="7d"
-                            class="inline-flex items-center justify-center rounded-lg px-4 py-2.5 text-sm font-medium transition-all {{ if eq .Range "7d" }}bg-blue-600 text-white shadow-sm{{ else }}bg-gray-50 text-gray-700 hover:bg-gray-100 border border-gray-200{{ end }}">
-                            Last 7 days
-                        </button>
-                        <button type="submit" name="range" value="30d"
-                            class="inline-flex items-center justify-center rounded-lg px-4 py-2.5 text-sm font-medium transition-all {{ if eq .Range "30d" }}bg-blue-600 text-white shadow-sm{{ else }}bg-gray-50 text-gray-700 hover:bg-gray-100 border border-gray-200{{ end }}">
-                            Last 30 days
-                        </button>
-                        <button type="submit" name="range" value="90d"
-                            class="inline-flex items-center justify-center rounded-lg px-4 py-2.5 text-sm font-medium transition-all {{ if eq .Range "90d" }}bg-blue-600 text-white shadow-sm{{ else }}bg-gray-50 text-gray-700 hover:bg-gray-100 border border-gray-200{{ end }}">
-                            Last 90 days
-                        </button>
-                        <button type="submit" name="range" value="all"
-                            class="inline-flex items-center justify-center rounded-lg px-4 py-2.5 text-sm font-medium transition-all {{ if or (eq .Range "all") (eq .Range "") }}bg-blue-600 text-white shadow-sm{{ else }}bg-gray-50 text-gray-700 hover:bg-gray-100 border border-gray-200{{ end }}">
-                            All time
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Reset Button -->
-            {{ if or .FormID .Range }}
-            <div class="mt-6 pt-6 border-t border-gray-200">
-                <a href="/admin/submissions"
-                    class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition-all hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
-                    <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                    Clear Filters
-                </a>
-            </div>
+        <select name="form_id" onchange="this.form.submit()"
+            class="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20">
+            <option value="">All forms</option>
+            {{ range .Forms }}
+            <option value="{{ .ID }}" {{ if eq $.FormID (printf "%d" .ID) }}selected{{ end }}>{{ .Name }}</option>
             {{ end }}
+        </select>
+
+        <div class="flex rounded-lg border border-gray-300 overflow-hidden">
+            <button type="submit" name="range" value="7d"
+                class="px-3 py-2 text-sm {{ if eq .Range "7d" }}bg-blue-600 text-white{{ else }}bg-white text-gray-700 hover:bg-gray-50{{ end }}">7d</button>
+            <button type="submit" name="range" value="30d"
+                class="px-3 py-2 text-sm border-l border-gray-300 {{ if eq .Range "30d" }}bg-blue-600 text-white{{ else }}bg-white text-gray-700 hover:bg-gray-50{{ end }}">30d</button>
+            <button type="submit" name="range" value="90d"
+                class="px-3 py-2 text-sm border-l border-gray-300 {{ if eq .Range "90d" }}bg-blue-600 text-white{{ else }}bg-white text-gray-700 hover:bg-gray-50{{ end }}">90d</button>
+            <button type="submit" name="range" value="all"
+                class="px-3 py-2 text-sm border-l border-gray-300 {{ if or (eq .Range "all") (eq .Range "") }}bg-blue-600 text-white{{ else }}bg-white text-gray-700 hover:bg-gray-50{{ end }}">All</button>
         </div>
+
+        <button type="submit" class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">Search</button>
+
+        {{ if or .FormID .Range .Search }}
+        <a href="/admin/submissions" class="text-sm text-gray-500 hover:text-gray-700">Clear</a>
+        {{ end }}
     </form>
 
     <!-- Results -->
@@ -149,7 +120,7 @@
                 </div>
                 <div class="flex gap-2">
                     {{ if .HasPrev }}
-                    <a href="/admin/submissions?page={{ .PrevPage }}{{ if .FormID }}&form_id={{ .FormID }}{{ end }}{{ if .Range }}&range={{ .Range }}{{ end }}"
+                    <a href="/admin/submissions?page={{ .PrevPage }}{{ if .FormID }}&form_id={{ .FormID }}{{ end }}{{ if .Range }}&range={{ .Range }}{{ end }}{{ if .Search }}&q={{ .Search }}{{ end }}"
                         class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm transition-all hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
                         <svg class="mr-1 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
@@ -167,7 +138,7 @@
                     {{ end }}
 
                     {{ if .HasNext }}
-                    <a href="/admin/submissions?page={{ .NextPage }}{{ if .FormID }}&form_id={{ .FormID }}{{ end }}{{ if .Range }}&range={{ .Range }}{{ end }}"
+                    <a href="/admin/submissions?page={{ .NextPage }}{{ if .FormID }}&form_id={{ .FormID }}{{ end }}{{ if .Range }}&range={{ .Range }}{{ end }}{{ if .Search }}&q={{ .Search }}{{ end }}"
                         class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm transition-all hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
                         Next
                         <svg class="ml-1 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -199,8 +170,8 @@
         </div>
         <h3 class="mt-4 text-lg font-semibold text-gray-900">No submissions found</h3>
         <p class="mt-2 text-sm text-gray-600">
-            {{ if or .FormID .Range }}
-            Try adjusting your filters to see more results.
+            {{ if or .FormID .Range .Search }}
+            Try adjusting your filters or search to see more results.
             {{ else }}
             Submissions will appear here when forms receive data.
             {{ end }}

@@ -15,6 +15,11 @@ updates:
       - "go"
     commit-message:
       prefix: "deps(go)"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-minor", "version-update:semver-patch"]
+      - dependency-name: "github.com/karloscodes/*"
+        update-types: []
 
   # Docker base images
   - package-ecosystem: "docker"

@@ -10,7 +10,6 @@ import (
 
 	"formlander/internal/config"
 	httphandlers "formlander/internal/http"
-	"formlander/internal/middleware"
 )
 
 // MountRoutes registers all application routes.
@@ -40,7 +39,6 @@ func MountRoutes(s *cartridge.Server, cfg *config.Config) {
 
 	// Build middleware chain for public routes (rate limiting disabled in dev/test)
 	publicMiddleware := []fiber.Handler{
-		middleware.TurnstileMiddleware(),
 		limiter.New(limiter.Config{
 			Max:        30,
 			Expiration: 60 * time.Second,
@@ -133,6 +131,7 @@ func MountRoutes(s *cartridge.Server, cfg *config.Config) {
 	s.Get("/admin/forms/:id/edit", httphandlers.AdminFormsEdit, authConfig)
 	s.Post("/admin/forms/:id", httphandlers.AdminFormsUpdate, authConfig)
 	s.Get("/admin/submissions/:id", httphandlers.AdminSubmissionShow, authConfig)
+	s.Get("/admin/submissions/:id/files/:file_id", httphandlers.AdminSubmissionFileDownload, authConfig)
 
 	// Pro feature paywall pages
 

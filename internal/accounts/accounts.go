@@ -150,15 +150,3 @@ func ChangePassword(logger *slog.Logger, db *gorm.DB, email, currentPassword, ne
 
 	return nil
 }
-
-// GetByEmail retrieves user by email
-func GetByEmail(db *gorm.DB, email string) (*User, error) {
-	var user User
-	if err := db.Where("email = ?", email).First(&user).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, ErrUserNotFound
-		}
-		return nil, err
-	}
-	return &user, nil
-}

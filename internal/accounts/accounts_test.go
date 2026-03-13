@@ -155,13 +155,13 @@ func TestChangePassword(t *testing.T) {
 	})
 }
 
-func TestGetByEmail(t *testing.T) {
+func TestFindByEmail(t *testing.T) {
 	db := testsupport.SetupTestDB(t)
 
 	t.Run("retrieves existing user", func(t *testing.T) {
 		created := createTestUser(t, db, "user@example.com", "password123", false)
 
-		user, err := accounts.GetByEmail(db, "user@example.com")
+		user, err := accounts.FindByEmail(db, "user@example.com")
 		require.NoError(t, err)
 		assert.NotNil(t, user)
 		assert.Equal(t, created.ID, user.ID)
@@ -171,7 +171,7 @@ func TestGetByEmail(t *testing.T) {
 	t.Run("returns error for non-existent user", func(t *testing.T) {
 		db2 := testsupport.SetupTestDB(t)
 
-		_, err := accounts.GetByEmail(db2, "nonexistent@example.com")
+		_, err := accounts.FindByEmail(db2, "nonexistent@example.com")
 		assert.ErrorIs(t, err, accounts.ErrUserNotFound)
 	})
 }

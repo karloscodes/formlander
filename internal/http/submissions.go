@@ -33,12 +33,18 @@ func SubmissionList(ctx *cartridge.Context) error {
 	// Parse filters
 	formID := ctx.Query("form_id")
 	rangeFilter := ctx.Query("range")
+	search := strings.TrimSpace(ctx.Query("q"))
 
 	// Build query
 	query := db.Model(&forms.Submission{}).Preload("Form")
 
 	if formID != "" {
 		query = query.Where("form_id = ?", formID)
+	}
+
+	// Search in data_json
+	if search != "" {
+		query = query.Where("data_json LIKE ?", "%"+search+"%")
 	}
 
 	// Handle date range filter
@@ -112,6 +118,7 @@ func SubmissionList(ctx *cartridge.Context) error {
 		"HasPrev":     hasPrev,
 		"FormID":      formID,
 		"Range":       rangeFilter,
+		"Search":      search,
 		"ContentView": "admin/submissions/index/content",
 	}, "")
 }
@@ -126,7 +133,7 @@ func AdminSubmissionShow(ctx *cartridge.Context) error {
 	}
 
 	var submission forms.Submission
-	if err := db.Preload("Form").Preload("WebhookEvents").Preload("EmailEvents").Where("id = ?", id).First(&submission).Error; err != nil {
+	if err := db.Preload("Form").Preload("WebhookEvents").Preload("EmailEvents").Preload("Files").Where("id = ?", id).First(&submission).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return fiber.ErrNotFound
 		}
@@ -148,6 +155,41 @@ func AdminSubmissionShow(ctx *cartridge.Context) error {
 		"Title":       "Submission",
 		"Submission":  submission,
 		"JSON":        prettyJSON,
+		"HasFiles":    len(submission.Files) > 0,
 		"ContentView": "admin/submissions/show/content",
 	}, "")
+}
+
+// AdminSubmissionFileDownload serves a file from a submission.
+func AdminSubmissionFileDownload(ctx *cartridge.Context) error {
+	db := ctx.DB()
+	cfg := GetAppConfig(ctx)
+
+	submissionID, err := strconv.Atoi(ctx.Params("id"))
+	if err != nil {
+		return fiber.ErrNotFound
+	}
+
+	fileID, err := strconv.Atoi(ctx.Params("file_id"))
+	if err != nil {
+		return fiber.ErrNotFound
+	}
+
+	var file forms.SubmissionFile
+	if err := db.Where("id = ? AND submission_id = ?", fileID, submissionID).First(&file).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return fiber.ErrNotFound
+		}
+		return fiber.ErrInternalServerError
+	}
+
+	filePath := forms.GetFilePath(cfg.DataDirectory, &file)
+
+	// Set content disposition for download
+	ctx.Set("Content-Disposition", "attachment; filename=\""+file.Filename+"\"")
+	if file.ContentType != "" {
+		ctx.Set("Content-Type", file.ContentType)
+	}
+
+	return ctx.SendFile(filePath)
 }

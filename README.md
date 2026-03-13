@@ -1,6 +1,6 @@
 # Formlander
 
-A self-hosted drop-in backend for HTML forms. Accept, store, review, and route form submissions without surrendering control to third-party SaaS providers.
+Form backend you actually own. Collect submissions on your server. One Docker command. No SaaS bills.
 
 🌐 **[formlander.com](https://formlander.com)**
 
@@ -15,7 +15,7 @@ Formlander enables developers running static or serverless sites to handle form 
 - **Asynchronous delivery** — Queue webhook and email notifications with retry logic
 - **Spam protection** — Configurable honeypot fields and rate limiting
 - **API-first design** — Dashboard consumes the same REST endpoints available for integrations
-- **Privacy-focused** — All data stored locally; optional Mailgun integration for email forwarding
+- **Your server, your data** — We don't run servers. We can't see your submissions. That's the point.
 
 ## JavaScript SDK (Optional)
 
@@ -37,9 +37,38 @@ The SDK auto-detects Formlander forms and enhances them with:
 
 Forms work without the SDK via standard HTML POST. The SDK is purely an enhancement.
 
-## Quick Start
+## Installation
 
-### Using Docker (Recommended)
+### One-Line Install (Recommended for VPS/Servers)
+
+Install Formlander with Docker, Caddy reverse proxy, and automatic SSL certificates:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/karloscodes/formlander/master/install.sh | sudo bash
+```
+
+This interactive installer will:
+- Check system requirements (Docker, ports 80/443)
+- Prompt for your domain name
+- Set up Caddy as a reverse proxy with automatic HTTPS
+- Configure automatic daily backups
+- Start the Formlander container
+
+After installation, access your dashboard at `https://your-domain.com`
+
+**Management commands:**
+```bash
+formlander update              # Update to latest version
+formlander reload              # Reload containers
+formlander restore-db          # Restore from backup
+formlander change-admin-password  # Reset admin password
+```
+
+---
+
+## Quick Start (Development/Local)
+
+### Using Docker
 
 **First, generate and save your session secret:**
 

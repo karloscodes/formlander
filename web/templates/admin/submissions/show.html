@@ -50,6 +50,40 @@
         </div>
     </div>
 
+    <!-- Files -->
+    {{ if .HasFiles }}
+    <div class="rounded-xl border border-gray-200 bg-white shadow-sm">
+        <div class="border-b border-gray-200 px-6 py-4">
+            <h2 class="text-lg font-semibold text-gray-900">Uploaded Files</h2>
+            <p class="text-sm text-gray-500">{{ len .Submission.Files }} file{{ if ne (len .Submission.Files) 1 }}s{{ end }} attached</p>
+        </div>
+        <div class="divide-y divide-gray-200">
+            {{ range .Submission.Files }}
+            <div class="px-6 py-4 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="flex-shrink-0 w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center">
+                        <svg class="h-5 w-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                        </svg>
+                    </div>
+                    <div>
+                        <p class="text-sm font-medium text-gray-900">{{ .Filename }}</p>
+                        <p class="text-xs text-gray-500">{{ .FieldName }} · {{ .Size }} bytes · {{ .ContentType }}</p>
+                    </div>
+                </div>
+                <a href="/admin/submissions/{{ .SubmissionID }}/files/{{ .ID }}"
+                    class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 shadow-sm transition-all hover:bg-gray-50">
+                    <svg class="mr-1.5 h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    Download
+                </a>
+            </div>
+            {{ end }}
+        </div>
+    </div>
+    {{ end }}
+
     <!-- Metadata -->
     <div class="rounded-xl border border-gray-200 bg-white shadow-sm">
         <div class="border-b border-gray-200 px-6 py-4">

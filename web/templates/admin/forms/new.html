@@ -19,6 +19,11 @@
             </div>
             <p class="text-sm text-gray-600">{{ if .IsEdit }}Update form configuration and delivery settings{{ else
                 }}Define a new endpoint for form submissions{{ end }}</p>
+            {{ if not .IsEdit }}
+            <p class="mt-2 text-xs text-gray-500">
+                No schema required—send any fields you want. Formlander stores everything as JSON.
+            </p>
+            {{ end }}
         </div>
     </div>
 
@@ -94,18 +99,18 @@
         </div>
 
         {{ if $previewHTML }}
-        <!-- Preview & Embed Code -->
+        <!-- Starter Template -->
         <div class="rounded-xl border border-gray-200 bg-white shadow-sm">
             <div class="border-b border-gray-200 px-6 py-4">
-                <h2 class="text-lg font-semibold text-gray-900">Form Preview & Embed Code</h2>
+                <h2 class="text-lg font-semibold text-gray-900">Starter Template</h2>
                 <p class="mt-1 text-sm text-gray-600">
-                    Use this snippet on your site. The preview uses placeholder endpoints until the form is saved.
+                    We've included a starting point to save you time. Use it as-is, tweak it, or replace it entirely—your call.
                 </p>
             </div>
             <div class="border-b border-gray-200 flex -mb-px px-6" aria-label="Tabs">
                 <button type="button" data-embed-tab="preview"
                     class="embed-tab border-b-2 border-blue-500 py-4 px-4 text-sm font-medium text-blue-600">
-                    Preview
+                    Example Preview
                 </button>
                 <button type="button" data-embed-tab="code"
                     class="embed-tab border-b-2 border-transparent py-4 px-4 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300">
@@ -121,7 +126,7 @@
                 </div>
                 <div id="embed-panel-code" class="hidden">
                     <div class="flex items-center justify-between mb-3">
-                        <p class="text-sm text-gray-600">Copy and paste this HTML into your site.</p>
+                        <p class="text-sm text-gray-600">Copy, paste, and customize as needed.</p>
                         <button type="button" id="copyEmbedCodeBtn"
                             class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 shadow-sm transition-all hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500">
                             Copy
