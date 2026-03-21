@@ -52,15 +52,9 @@ WORKDIR /app
 
 # Install minimal runtime dependencies
 RUN apk add --no-cache ca-certificates tzdata curl && \
-  addgroup -g 1000 formlander && \
-  adduser -D -u 1000 -G formlander formlander && \
-  mkdir -p /app/storage /app/storage/logs && \
-  chown -R formlander:formlander /app
+  mkdir -p /app/storage /app/storage/logs
 
 COPY --from=builder /src/formlander /usr/local/bin/formlander
-
-# Run as non-root user
-USER formlander
 
 ENV FORMLANDER_ENV=production \
   FORMLANDER_PORT=8080 \
