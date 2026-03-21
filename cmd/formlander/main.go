@@ -6,22 +6,15 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
 
 	"formlander/internal"
 	"formlander/internal/database"
-	"formlander/internal/manager/admin"
-	"formlander/internal/manager/config"
-	installerPkg "formlander/internal/manager/installer"
-	"formlander/internal/manager/license"
-	"formlander/internal/manager/logging"
-	"formlander/internal/manager/product"
-	"formlander/internal/manager/updater"
-	"formlander/internal/manager/validation"
+	"formlander/internal/license"
 
+	"github.com/karloscodes/matcha"
 	"golang.org/x/term"
 )
 
@@ -31,35 +24,54 @@ var (
 	buildTime = "unknown"
 )
 
-var productSettings = product.Get()
-
 func main() {
-	// If no args or first arg starts with -, run the web server
 	if len(os.Args) < 2 || strings.HasPrefix(os.Args[1], "-") {
 		runServer()
 		return
 	}
 
-	// Handle subcommands
+	m := newMatcha()
+
 	switch os.Args[1] {
 	case "serve", "server", "run":
-		// Remove the subcommand from args so flags work
 		os.Args = append(os.Args[:1], os.Args[2:]...)
 		runServer()
 	case "install":
-		runInstall()
+		if err := m.Install(); err != nil {
+			fmt.Printf("Error: %v\n", err)
+			os.Exit(1)
+		}
 	case "update":
-		runUpdate()
+		if err := m.Update(); err != nil {
+			fmt.Printf("Error: %v\n", err)
+			os.Exit(1)
+		}
 	case "reload":
-		runReload()
-	case "upgrade-to-pro":
-		runUpgradeToPro()
+		if err := m.Reload(); err != nil {
+			fmt.Printf("Error: %v\n", err)
+			os.Exit(1)
+		}
 	case "restore-db":
-		runRestoreDB()
+		if err := m.RestoreDB(); err != nil {
+			fmt.Printf("Error: %v\n", err)
+			os.Exit(1)
+		}
 	case "change-admin-password":
-		runAdminPasswordChange()
+		if err := runAdminPasswordChange(m); err != nil {
+			fmt.Printf("Error: %v\n", err)
+			os.Exit(1)
+		}
+	case "upgrade-to-pro":
+		runUpgradeToPro(m)
 	case "update-license-key":
-		runUpdateLicenseKey()
+		if err := runUpdateLicenseKey(m); err != nil {
+			fmt.Printf("Error: %v\n", err)
+			os.Exit(1)
+		}
+	case "check":
+		if err := matcha.Check(); err != nil {
+			os.Exit(1)
+		}
 	case "version", "--version", "-v":
 		printVersion()
 	case "help", "--help", "-h":
@@ -71,7 +83,19 @@ func main() {
 	}
 }
 
-// runServer starts the Formlander web application
+func newMatcha() *matcha.Matcha {
+	return matcha.New(matcha.Config{
+		Name:           "formlander",
+		AppImage:       "karloscodes/formlander:latest",
+		HealthPath:     "/_health",
+		Volumes:        []string{"/app/storage", "/app/logs"},
+		CronUpdates:    true,
+		Backups:        true,
+		ManagerRepo:    "karloscodes/formlander",
+		ManagerVersion: version,
+	})
+}
+
 func runServer() {
 	seedFlag := flag.Bool("seed", false, "Seed the database with sample data")
 	versionFlag := flag.Bool("version", false, "Print version and exit")
@@ -87,17 +111,14 @@ func runServer() {
 		log.Fatal(err)
 	}
 
-	// Run database migrations
 	log.Println("Running database migrations...")
 	if err := internal.RunMigrations(app); err != nil {
 		log.Fatalf("Failed to run migrations: %v", err)
 	}
 	log.Println("Database migrations completed")
 
-	// If seed flag is provided, seed and exit
 	if *seedFlag {
 		db := app.GetDB()
-
 		log.Println("Seeding database...")
 		if err := database.Seed(db); err != nil {
 			log.Fatalf("Failed to seed database: %v", err)
@@ -106,7 +127,6 @@ func runServer() {
 		return
 	}
 
-	// Run with graceful shutdown (shorter timeout in dev/test)
 	shutdownTimeout := 2 * time.Second
 	if app.Config.IsProduction() {
 		shutdownTimeout = 10 * time.Second
@@ -116,287 +136,157 @@ func runServer() {
 	}
 }
 
-func initLogger() *logging.Logger {
-	logLevel := "info"
-	if envLevel := os.Getenv("LOG_LEVEL"); envLevel != "" {
-		logLevel = envLevel
-	}
-	return logging.NewLogger(logging.Config{
-		Level:   logLevel,
-		Verbose: os.Getenv("VERBOSE") == "true",
-		Quiet:   os.Getenv("QUIET") == "true",
-	})
-}
-
-func runInstall() {
-	startTime := time.Now()
-	logger := initLogger()
-	inst := installerPkg.NewInstaller(logger)
-
-	if err := inst.RunCompleteInstallation(); err != nil {
-		logger.Error("Installation failed: %v", err)
-		os.Exit(1)
-	}
-
-	elapsed := time.Since(startTime).Round(time.Second)
-	logger.Success("Installation completed in %s", elapsed)
-	inst.DisplayCompletionMessage()
-}
-
-func runUpdate() {
-	startTime := time.Now()
-	logger := initLogger()
-
-	u := updater.NewUpdater(logger)
-	if err := u.Run(version); err != nil {
-		logger.Error("Update failed: %v", err)
-		os.Exit(1)
-	}
-
-	elapsed := time.Since(startTime).Round(time.Second)
-	logger.Success("Update completed in %s", elapsed)
-}
-
-func runReload() {
-	startTime := time.Now()
-	logger := initLogger()
-
-	reloader := updater.NewReloader(logger)
-	if err := reloader.Run(); err != nil {
-		logger.Error("Reload failed: %v", err)
-		os.Exit(1)
-	}
-
-	elapsed := time.Since(startTime).Round(time.Second)
-	logger.Success("Reload completed in %s", elapsed)
-}
-
-func runUpgradeToPro() {
-	startTime := time.Now()
-	logger := initLogger()
+func runAdminPasswordChange(m *matcha.Matcha) error {
 	reader := bufio.NewReader(os.Stdin)
 
-	envFile := filepath.Join(productSettings.InstallDir, ".env")
-
-	// Check if .env file exists (installation required first)
-	if _, err := os.Stat(envFile); os.IsNotExist(err) {
-		logger.Error(".env file not found at %s", envFile)
-		logger.Error("Please run 'formlander install' first")
-		os.Exit(1)
+	fmt.Print("Enter admin email: ")
+	email, err := reader.ReadString('\n')
+	if err != nil {
+		return fmt.Errorf("failed to read email: %w", err)
+	}
+	email = strings.TrimSpace(email)
+	if email == "" {
+		return fmt.Errorf("email cannot be empty")
 	}
 
-	// Load current configuration
-	cfg := config.NewConfig(logger)
-	if err := cfg.LoadFromFile(envFile); err != nil {
-		logger.Error("Failed to load configuration: %v", err)
-		os.Exit(1)
+	var password string
+	for {
+		fmt.Print("Enter new admin password (minimum 8 characters): ")
+		passBytes, err := term.ReadPassword(int(syscall.Stdin))
+		if err != nil {
+			return fmt.Errorf("failed to read password: %w", err)
+		}
+		fmt.Println()
+
+		password = strings.TrimSpace(string(passBytes))
+		if len(password) < 8 {
+			fmt.Println("Error: password must be at least 8 characters")
+			continue
+		}
+
+		fmt.Print("Confirm new admin password: ")
+		confirmBytes, err := term.ReadPassword(int(syscall.Stdin))
+		if err != nil {
+			return fmt.Errorf("failed to read password: %w", err)
+		}
+		fmt.Println()
+
+		if password != strings.TrimSpace(string(confirmBytes)) {
+			fmt.Println("Error: Passwords do not match. Please try again.")
+			continue
+		}
+		break
 	}
 
-	// Check if already on Pro
-	data := cfg.GetData()
-	if strings.Contains(data.AppImage, "formlander-pro") {
-		logger.Info("Already running Formlander Pro")
-		os.Exit(0)
+	fmt.Println("Changing password...")
+	if err := m.Exec("/app/fnctl", "change-admin-password", email, password); err != nil {
+		return fmt.Errorf("failed to change password: %w", err)
 	}
 
-	fmt.Println("")
-	fmt.Println("╔════════════════════════════════════════════════════════════╗")
-	fmt.Println("║           Upgrade to Formlander Pro                        ║")
-	fmt.Println("╚════════════════════════════════════════════════════════════╝")
-	fmt.Println("")
-	fmt.Println("Pro features include:")
-	fmt.Println("  • AI-powered form builder")
-	fmt.Println("  • Email autoresponders")
-	fmt.Println("  • Priority support")
-	fmt.Println("")
-	fmt.Println("Purchase at: https://formlander.com/pro")
-	fmt.Println("")
+	fmt.Println("Password changed successfully.")
+	return nil
+}
 
-	// Prompt for license key
+const proImage = "karloscodes/formlander-pro:latest"
+
+func runUpgradeToPro(m *matcha.Matcha) {
+	fmt.Println("Upgrade to Formlander Pro")
+	fmt.Println("========================")
+	fmt.Println()
+	fmt.Println("This will:")
+	fmt.Println("  - Back up your current database")
+	fmt.Println("  - Validate your license key")
+	fmt.Println("  - Switch to the Pro Docker image")
+	fmt.Println("  - Restart containers")
+	fmt.Println()
+
+	reader := bufio.NewReader(os.Stdin)
+
 	fmt.Print("Enter your Gumroad license key: ")
 	licenseKeyInput, err := reader.ReadString('\n')
 	if err != nil {
-		logger.Error("Failed to read license key: %v", err)
+		fmt.Printf("Error: %v\n", err)
 		os.Exit(1)
 	}
 	licenseKey := strings.TrimSpace(licenseKeyInput)
 
 	if licenseKey == "" {
-		logger.Error("License key cannot be empty")
+		fmt.Println("Error: License key cannot be empty")
 		os.Exit(1)
 	}
 
-	// Validate license key format
-	if err := validation.ValidateLicenseKey(licenseKey); err != nil {
-		logger.Error("Invalid license key format: %v", err)
-		os.Exit(1)
-	}
-
-	// Validate with Gumroad
-	logger.Info("Validating license with Gumroad...")
+	fmt.Println("Validating license with Gumroad...")
 	email, err := license.Validate(licenseKey)
 	if err != nil {
-		logger.Error("License validation failed: %v", err)
+		fmt.Printf("Error: License validation failed: %v\n", err)
 		os.Exit(1)
 	}
-	logger.Success("License valid for: %s", email)
+	fmt.Printf("License valid for: %s\n", email)
 
-	// Update configuration
-	data.AppImage = productSettings.ProAppImage
-	data.LicenseKey = licenseKey
-	cfg.SetData(data)
-
-	if err := cfg.SaveToFile(envFile); err != nil {
-		logger.Error("Failed to save configuration: %v", err)
-		os.Exit(1)
+	fmt.Println("Backing up database...")
+	if _, err := m.BackupDB(); err != nil {
+		fmt.Printf("Warning: backup failed: %v\n", err)
+		fmt.Println("Proceeding without backup...")
 	}
 
-	logger.Info("Configuration updated to use Pro image")
+	fmt.Println("Switching to Formlander Pro...")
+	m.SetImage(proImage)
 
-	// Reload containers
-	logger.Info("Reloading containers with Pro version...")
-	reloader := updater.NewReloader(logger)
-	if err := reloader.Run(); err != nil {
-		logger.Error("Failed to reload containers: %v", err)
+	if err := m.SaveImage(); err != nil {
+		fmt.Printf("Error: failed to save image config: %v\n", err)
 		os.Exit(1)
 	}
 
-	elapsed := time.Since(startTime).Round(time.Second)
-	fmt.Println("")
-	logger.Success("Upgraded to Formlander Pro in %s", elapsed)
-	fmt.Println("")
-	fmt.Println("Pro features are now available!")
-	fmt.Println("Visit your dashboard to try the AI Form Builder.")
+	if err := m.Deploy(); err != nil {
+		fmt.Printf("Error: upgrade failed: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Println("Upgrade completed successfully!")
+	if domain, err := m.GetDomain(); err == nil && domain != "" {
+		fmt.Printf("Visit https://%s to complete Pro setup\n", domain)
+	}
 }
 
-func runRestoreDB() {
-	startTime := time.Now()
-	logger := initLogger()
-	inst := installerPkg.NewInstaller(logger)
-	reader := bufio.NewReader(os.Stdin)
-
-	backups, err := inst.ListBackups()
-	if err != nil {
-		logger.Error("Failed to list backups: %v", err)
-		os.Exit(1)
-	}
-
-	if len(backups) == 0 {
-		logger.Error("No backups found in %s", inst.GetBackupDir())
-		os.Exit(1)
-	}
-
-	selectedBackup, err := inst.PromptBackupSelection(backups)
-	if err != nil {
-		logger.Error("Backup selection failed: %v", err)
-		os.Exit(1)
-	}
-
-	if err := inst.ValidateBackup(selectedBackup); err != nil {
-		logger.Error("Backup validation failed: %v", err)
-		os.Exit(1)
-	}
-
-	fmt.Printf("⚠️  This will replace your current database.\n")
-	fmt.Printf("   Selected backup: %s\n", selectedBackup)
-	fmt.Print("Are you sure? (yes/no): ")
-
-	confirm, _ := reader.ReadString('\n')
-	if strings.TrimSpace(strings.ToLower(confirm)) != "yes" {
-		logger.Info("Restore cancelled")
-		os.Exit(0)
-	}
-
-	if err := inst.RestoreFromBackup(selectedBackup); err != nil {
-		logger.Error("Restore failed: %v", err)
-		os.Exit(1)
-	}
-
-	elapsed := time.Since(startTime).Round(time.Second)
-	logger.Success("Database restored in %s", elapsed)
-}
-
-func runAdminPasswordChange() {
-	logger := initLogger()
-	adminMgr := admin.NewManager(logger)
-	reader := bufio.NewReader(os.Stdin)
-
-	fmt.Print("Enter admin email: ")
-	emailInput, _ := reader.ReadString('\n')
-	email := strings.TrimSpace(emailInput)
-
-	if err := validation.ValidateEmail(email); err != nil {
-		logger.Error("Invalid email: %v", err)
-		os.Exit(1)
-	}
-
-	fmt.Print("Enter new password (min 8 chars): ")
-	passBytes, _ := term.ReadPassword(int(syscall.Stdin))
-	fmt.Println()
-	password := strings.TrimSpace(string(passBytes))
-
-	if err := validation.ValidatePassword(password); err != nil {
-		logger.Error("Invalid password: %v", err)
-		os.Exit(1)
-	}
-
-	if err := adminMgr.ChangeAdminPassword(email, password); err != nil {
-		logger.Error("Failed to change password: %v", err)
-		os.Exit(1)
-	}
-
-	logger.Success("Password changed successfully")
-}
-
-func runUpdateLicenseKey() {
-	startTime := time.Now()
-	logger := initLogger()
-	envFile := filepath.Join(productSettings.InstallDir, ".env")
-
+func runUpdateLicenseKey(m *matcha.Matcha) error {
 	var licenseKey string
 	if len(os.Args) >= 3 {
 		licenseKey = os.Args[2]
 	} else {
 		reader := bufio.NewReader(os.Stdin)
 		fmt.Print("Enter license key: ")
-		input, _ := reader.ReadString('\n')
+		input, err := reader.ReadString('\n')
+		if err != nil {
+			return fmt.Errorf("failed to read license key: %w", err)
+		}
 		licenseKey = strings.TrimSpace(input)
 	}
 
 	if licenseKey == "" {
-		logger.Error("License key cannot be empty")
-		os.Exit(1)
+		return fmt.Errorf("license key cannot be empty")
 	}
 
-	if err := validation.ValidateLicenseKey(licenseKey); err != nil {
-		logger.Error("Invalid license key: %v", err)
-		os.Exit(1)
+	app, err := matcha.LoadApp("formlander")
+	if err != nil {
+		return fmt.Errorf("failed to load config: %w", err)
 	}
 
-	cfg := config.NewConfig(logger)
-	if err := cfg.LoadFromFile(envFile); err != nil {
-		logger.Error("Failed to load config: %v", err)
-		os.Exit(1)
+	if app.Env == nil {
+		app.Env = make(map[string]string)
+	}
+	app.Env["FORMLANDER_LICENSE_KEY"] = licenseKey
+
+	if err := matcha.SaveApp("formlander", app); err != nil {
+		return fmt.Errorf("failed to save config: %w", err)
 	}
 
-	data := cfg.GetData()
-	data.LicenseKey = licenseKey
-	cfg.SetData(data)
-
-	if err := cfg.SaveToFile(envFile); err != nil {
-		logger.Error("Failed to save config: %v", err)
-		os.Exit(1)
+	fmt.Println("Reloading containers with new license key...")
+	if err := m.Reload(); err != nil {
+		return fmt.Errorf("failed to reload: %w", err)
 	}
 
-	logger.Info("Reloading containers...")
-	reloader := updater.NewReloader(logger)
-	if err := reloader.Run(); err != nil {
-		logger.Error("Reload failed: %v", err)
-		os.Exit(1)
-	}
-
-	elapsed := time.Since(startTime).Round(time.Second)
-	logger.Success("License key updated in %s", elapsed)
+	fmt.Println("License key updated successfully.")
+	return nil
 }
 
 func printVersion() {
@@ -418,9 +308,12 @@ func printUsage() {
 	fmt.Println("  install                     Install Formlander via Docker")
 	fmt.Println("  update                      Update existing installation")
 	fmt.Println("  reload                      Reload containers")
-	fmt.Println("  upgrade-to-pro              Upgrade to Formlander Pro")
 	fmt.Println("  restore-db                  Restore database from backup")
 	fmt.Println("  change-admin-password       Change admin password")
+	fmt.Println("  check                       Check server security")
+	fmt.Println("")
+	fmt.Println("Pro Commands:")
+	fmt.Println("  upgrade-to-pro              Upgrade to Formlander Pro")
 	fmt.Println("  update-license-key [key]    Update license key")
 	fmt.Println("")
 	fmt.Println("Other Commands:")

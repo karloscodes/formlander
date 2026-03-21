@@ -25,7 +25,7 @@ builds:
 archives:
   - id: binary
     format: binary
-    name_template: "{{ .ProjectName }}-v{{ .Version }}-{{ .Arch }}"
+    name_template: "{{ .ProjectName }}-linux-{{ .Arch }}"
 
 checksum:
   name_template: "checksums.txt"
