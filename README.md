@@ -1,8 +1,12 @@
 # Formlander
 
+[![GitHub stars](https://img.shields.io/github/stars/karloscodes/formlander?style=flat-square)](https://github.com/karloscodes/formlander/stargazers)
+[![License](https://img.shields.io/github/license/karloscodes/formlander?style=flat-square)](LICENSE)
+[![Docker Pulls](https://img.shields.io/docker/pulls/karloscodes/formlander?style=flat-square)](https://hub.docker.com/r/karloscodes/formlander)
+
 Form backend you actually own. Collect submissions on your server. One Docker command. No SaaS bills.
 
-🌐 **[formlander.com](https://formlander.com)**
+**[Website](https://formlander.com)** · **[Docs](https://formlander.com/docs/)** · **[Deploy](https://formlander.com/docs/deployment/)**
 
 ## Overview
 
