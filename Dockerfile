@@ -56,7 +56,8 @@ RUN apk add --no-cache ca-certificates tzdata curl && \
 
 COPY --from=builder /src/formlander /usr/local/bin/formlander
 
-ENV FORMLANDER_PORT=8080 \
+ENV FORMLANDER_ENV=production \
+  FORMLANDER_PORT=8080 \
   FORMLANDER_DATA_DIR=/app/storage \
   FORMLANDER_LOGS_DIR=/app/storage/logs \
   FORMLANDER_SESSION_TIMEOUT_SECONDS=1800

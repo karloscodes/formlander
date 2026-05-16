@@ -94,7 +94,7 @@ docker run -d \
 
 **Important:** Use the same `FORMLANDER_SESSION_SECRET` value across restarts to prevent logging out all users.
 
-**Production deploys:** add `-e FORMLANDER_ENV=production` only if Formlander is reachable over HTTPS (TLS terminator like Caddy/Nginx in front). Production marks the session cookie `Secure`, so plain-HTTP setups will silently drop the cookie and login will appear to fail. The default is `development`, which is safe for any HTTP setup.
+**HTTPS is required.** The Docker image runs in production mode, which marks the session cookie `Secure`. Without TLS in front (Caddy, Nginx, Traefik, etc.) browsers silently drop the cookie and login appears to fail. The bundled `install.sh` sets up Caddy with automatic certificates; if you roll your own with docker-compose, put a TLS terminator in front of `:8080`.
 
 Access the admin dashboard at `http://localhost:8080` with default credentials:
 - Email: `admin@formlander.local`
@@ -127,7 +127,7 @@ Formlander uses [Viper](https://github.com/spf13/viper) for flexible configurati
 - `FORMLANDER_SESSION_SECRET` - HMAC secret for signing session cookies (fixed default in dev/test)
 
 **Optional Environment Variables:**
-- `FORMLANDER_ENV` - Environment mode: `development`, `production` (default: `development`)
+- `FORMLANDER_ENV` - Environment mode: `development`, `production` (default: `development` for binary / `go run`; the Docker image sets `production`)
 - `FORMLANDER_PORT` - HTTP port (default: `8080`)
 - `FORMLANDER_LOG_LEVEL` - Log level: `debug`, `info`, `warn`, `error` (default: `error`)
 - `FORMLANDER_DATA_DIR` - Data directory path (default: `./storage`)
