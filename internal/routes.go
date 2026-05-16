@@ -74,11 +74,6 @@ func MountRoutes(s *cartridge.Server, cfg *config.Config) {
 		return ctx.SendStatus(fiber.StatusNoContent)
 	}, publicConfig)
 
-	s.Post("/x/api/v1/submissions", httphandlers.APISubmissionCreate, publicConfig)
-	s.Options("/x/api/v1/submissions", func(ctx *cartridge.Context) error {
-		return ctx.SendStatus(fiber.StatusNoContent)
-	}, publicConfig)
-
 	s.Get("/admin/login", httphandlers.AdminLoginPage)
 
 	// Rate limit login attempts: 5 per minute per IP (disabled in dev/test mode)
@@ -102,8 +97,15 @@ func MountRoutes(s *cartridge.Server, cfg *config.Config) {
 		},
 	})
 
+	// Disable Sec-Fetch-Site enforcement on login: cartridge's strict
+	// middleware rejects requests missing the header (older browsers,
+	// reverse proxies that strip fetch-metadata), which locked users
+	// out of fresh deployments. CSRF on an unauthenticated login form
+	// is low-risk — the attacker gains nothing by forcing a victim to
+	// submit credentials they don't already control.
 	s.Post("/admin/login", httphandlers.AdminLoginSubmit, &cartridge.RouteConfig{
-		CustomMiddleware: []fiber.Handler{loginRateLimiter},
+		EnableSecFetchSite: cartridge.Bool(false),
+		CustomMiddleware:   []fiber.Handler{loginRateLimiter},
 	})
 
 	// Auth config without password check (for change-password routes)

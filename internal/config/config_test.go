@@ -30,6 +30,17 @@ func TestConfig(t *testing.T) {
 		}
 	})
 
+	t.Run("defaults Environment to development when FORMLANDER_ENV is unset", func(t *testing.T) {
+		defer Reset()
+		os.Clearenv()
+		// Intentionally do not set FORMLANDER_ENV.
+
+		cfg := Get()
+		if cfg.Environment != "development" {
+			t.Errorf("Expected default Environment=development, got %s", cfg.Environment)
+		}
+	})
+
 	t.Run("Reset creates new config instance", func(t *testing.T) {
 		defer Reset()
 		os.Clearenv()

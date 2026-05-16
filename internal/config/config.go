@@ -2,6 +2,7 @@ package config
 
 import (
 	"log"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -38,6 +39,15 @@ var (
 // Get returns the singleton configuration instance.
 func Get() *Config {
 	cfgOnce.Do(func() {
+		// Default FORMLANDER_ENV to development; production is opt-in.
+		// Cartridge defaults to production, which marks the session cookie
+		// Secure and breaks login on plain-HTTP self-hosted deploys. Set
+		// this before config.Load so cartridge's production-mode validation
+		// (e.g. SESSION_SECRET required) doesn't fire on an empty env.
+		if os.Getenv("FORMLANDER_ENV") == "" {
+			os.Setenv("FORMLANDER_ENV", config.Development)
+		}
+
 		// Load base cartridge config
 		base, err := config.Load(appName)
 		if err != nil {
