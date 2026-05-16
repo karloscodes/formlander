@@ -97,22 +97,87 @@ func seedAdmin(t *testing.T, ts *cartridgetestsupport.TestServer, email, passwor
 	require.NoError(t, ts.DB.GetConnection().Create(user).Error)
 }
 
+// secFetchBlockedBody is cartridge's strict-middleware rejection body —
+// any route returning this without a Sec-Fetch-Site header was blocked
+// by CSRF protection.
+const secFetchBlockedBody = "browser requests only"
+
+// TestRoutesSecFetchSiteBoundary asserts which routes accept POSTs from
+// clients that don't send the Sec-Fetch-Site header (older browsers,
+// proxies that strip fetch-metadata, server-to-server) and which are
+// still protected by cartridge's strict CSRF middleware.
+//
+// The two groups together describe the intended security boundary:
+//
+//   OPEN (no Sec-Fetch-Site required)
+//     - POST /admin/login              ← unauthenticated entry point
+//     - POST /forms/:slug/submit       ← public form ingestion
+//     - POST /x/api/v1/submissions     ← public API ingestion
+//
+//   PROTECTED (Sec-Fetch-Site required for state-changing requests)
+//     - POST /admin/logout
+//     - POST /admin/change-password
+//     - POST /admin/forms
+//     - POST /admin/settings/password
+//
+// If a new state-changing admin route is added, add it to the protected
+// group below to prevent it from being accidentally exposed.
 func TestRoutesSecFetchSiteBoundary(t *testing.T) {
 	// Silence cartridge's default slog during tests.
 	prev := slog.Default()
 	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
 	t.Cleanup(func() { slog.SetDefault(prev) })
 
-	t.Run("login accepts POST without Sec-Fetch-Site (issue #35)", func(t *testing.T) {
-		ts := mountTestServer(t)
-		seedAdmin(t, ts, "admin@formlander.local", "formlander")
+	openRoutes := []struct {
+		name string
+		path string
+		body string
+	}{
+		{"POST /admin/login (issue #35)", "/admin/login", "email=admin@formlander.local&password=formlander"},
+		{"POST /forms/:slug/submit (public form)", "/forms/does-not-exist/submit?token=x", "field=value"},
+		{"POST /x/api/v1/submissions (public API)", "/x/api/v1/submissions", `{"form":"x"}`},
+	}
 
-		status, body := formPost(t, ts, "/admin/login",
-			"email=admin@formlander.local&password=formlander", nil)
+	protectedRoutes := []struct {
+		name string
+		path string
+		body string
+	}{
+		{"POST /admin/logout", "/admin/logout", ""},
+		{"POST /admin/change-password", "/admin/change-password", "current_password=x&new_password=y&confirm_password=y"},
+		{"POST /admin/forms", "/admin/forms", "name=test"},
+		{"POST /admin/settings/password", "/admin/settings/password", ""},
+	}
 
-		assert.Equal(t, 302, status, "login must succeed without Sec-Fetch-Site")
-		assert.NotContains(t, body, "browser requests only",
-			"login must not be rejected by SecFetchSite middleware")
+	t.Run("OPEN: accept POST without Sec-Fetch-Site", func(t *testing.T) {
+		for _, r := range openRoutes {
+			t.Run(r.name, func(t *testing.T) {
+				ts := mountTestServer(t)
+				seedAdmin(t, ts, "admin@formlander.local", "formlander")
+
+				status, body := formPost(t, ts, r.path, r.body, nil)
+
+				assert.NotEqual(t, 403, status,
+					"route is opted out of Sec-Fetch-Site but returned 403")
+				assert.NotContains(t, body, secFetchBlockedBody,
+					"route was rejected by cartridge's strict SecFetchSite middleware")
+			})
+		}
+	})
+
+	t.Run("PROTECTED: reject POST without Sec-Fetch-Site", func(t *testing.T) {
+		for _, r := range protectedRoutes {
+			t.Run(r.name, func(t *testing.T) {
+				ts := mountTestServer(t)
+
+				status, body := formPost(t, ts, r.path, r.body, nil)
+
+				assert.Equal(t, 403, status,
+					"protected route must reject requests missing Sec-Fetch-Site")
+				assert.Contains(t, body, secFetchBlockedBody,
+					"rejection must come from SecFetchSite middleware, not the handler")
+			})
+		}
 	})
 
 	t.Run("login accepts POST with Sec-Fetch-Site: same-origin", func(t *testing.T) {
@@ -124,43 +189,5 @@ func TestRoutesSecFetchSiteBoundary(t *testing.T) {
 			map[string]string{"Sec-Fetch-Site": "same-origin"})
 
 		assert.Equal(t, 302, status)
-	})
-
-	t.Run("logout rejects POST without Sec-Fetch-Site (still protected)", func(t *testing.T) {
-		ts := mountTestServer(t)
-		status, body := formPost(t, ts, "/admin/logout", "", nil)
-		assert.Equal(t, 403, status)
-		assert.Contains(t, body, "browser requests only")
-	})
-
-	t.Run("change-password rejects POST without Sec-Fetch-Site (still protected)", func(t *testing.T) {
-		ts := mountTestServer(t)
-		status, body := formPost(t, ts, "/admin/change-password",
-			"current_password=x&new_password=y&confirm_password=y", nil)
-		assert.Equal(t, 403, status)
-		assert.Contains(t, body, "browser requests only")
-	})
-
-	t.Run("forms create rejects POST without Sec-Fetch-Site (still protected)", func(t *testing.T) {
-		ts := mountTestServer(t)
-		status, body := formPost(t, ts, "/admin/forms", "name=test", nil)
-		assert.Equal(t, 403, status)
-		assert.Contains(t, body, "browser requests only")
-	})
-
-	t.Run("settings password rejects POST without Sec-Fetch-Site (still protected)", func(t *testing.T) {
-		ts := mountTestServer(t)
-		status, body := formPost(t, ts, "/admin/settings/password", "", nil)
-		assert.Equal(t, 403, status)
-		assert.Contains(t, body, "browser requests only")
-	})
-
-	t.Run("public form submission allows missing Sec-Fetch-Site (unchanged)", func(t *testing.T) {
-		ts := mountTestServer(t)
-		// No form exists with this slug; we only care the SecFetchSite
-		// middleware does NOT block — a 404 from the handler is fine.
-		status, body := formPost(t, ts, "/forms/does-not-exist/submit?token=x", "field=value", nil)
-		assert.NotEqual(t, 403, status, "public ingestion must not require Sec-Fetch-Site")
-		assert.NotContains(t, body, "browser requests only")
 	})
 }
