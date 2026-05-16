@@ -102,8 +102,15 @@ func MountRoutes(s *cartridge.Server, cfg *config.Config) {
 		},
 	})
 
+	// Disable Sec-Fetch-Site enforcement on login: cartridge's strict
+	// middleware rejects requests missing the header (older browsers,
+	// reverse proxies that strip fetch-metadata), which locked users
+	// out of fresh deployments. CSRF on an unauthenticated login form
+	// is low-risk — the attacker gains nothing by forcing a victim to
+	// submit credentials they don't already control.
 	s.Post("/admin/login", httphandlers.AdminLoginSubmit, &cartridge.RouteConfig{
-		CustomMiddleware: []fiber.Handler{loginRateLimiter},
+		EnableSecFetchSite: cartridge.Bool(false),
+		CustomMiddleware:   []fiber.Handler{loginRateLimiter},
 	})
 
 	// Auth config without password check (for change-password routes)
