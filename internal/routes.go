@@ -74,11 +74,6 @@ func MountRoutes(s *cartridge.Server, cfg *config.Config) {
 		return ctx.SendStatus(fiber.StatusNoContent)
 	}, publicConfig)
 
-	s.Post("/x/api/v1/submissions", httphandlers.APISubmissionCreate, publicConfig)
-	s.Options("/x/api/v1/submissions", func(ctx *cartridge.Context) error {
-		return ctx.SendStatus(fiber.StatusNoContent)
-	}, publicConfig)
-
 	s.Get("/admin/login", httphandlers.AdminLoginPage)
 
 	// Rate limit login attempts: 5 per minute per IP (disabled in dev/test mode)

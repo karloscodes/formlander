@@ -111,8 +111,7 @@ const secFetchBlockedBody = "browser requests only"
 //
 //   OPEN (no Sec-Fetch-Site required)
 //     - POST /admin/login              ← unauthenticated entry point
-//     - POST /forms/:slug/submit       ← public form ingestion
-//     - POST /x/api/v1/submissions     ← public API ingestion
+//     - POST /forms/:slug/submit       ← public form ingestion (token + origin allowlist)
 //
 //   PROTECTED (Sec-Fetch-Site required for state-changing requests)
 //     - POST /admin/logout
@@ -135,7 +134,6 @@ func TestRoutesSecFetchSiteBoundary(t *testing.T) {
 	}{
 		{"POST /admin/login (issue #35)", "/admin/login", "email=admin@formlander.local&password=formlander"},
 		{"POST /forms/:slug/submit (public form)", "/forms/does-not-exist/submit?token=x", "field=value"},
-		{"POST /x/api/v1/submissions (public API)", "/x/api/v1/submissions", `{"form":"x"}`},
 	}
 
 	protectedRoutes := []struct {
@@ -189,5 +187,79 @@ func TestRoutesSecFetchSiteBoundary(t *testing.T) {
 			map[string]string{"Sec-Fetch-Site": "same-origin"})
 
 		assert.Equal(t, 302, status)
+	})
+}
+
+// TestPublicFormSubmissionGuards covers the protections the public ingestion
+// endpoint relies on instead of Sec-Fetch-Site: per-form token and the
+// per-form Origin/Referer allowlist. If either guard regresses, an attacker
+// could either replay submissions cross-site or post without knowing the
+// form's secret.
+func TestPublicFormSubmissionGuards(t *testing.T) {
+	prev := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
+	t.Cleanup(func() { slog.SetDefault(prev) })
+
+	seedForm := func(t *testing.T, ts *cartridgetestsupport.TestServer) *forms.Form {
+		t.Helper()
+		f := &forms.Form{
+			Name:           "Contact",
+			Slug:           "contact",
+			Token:          "secret-token",
+			AllowedOrigins: "example.com",
+		}
+		require.NoError(t, ts.DB.GetConnection().Create(f).Error)
+		return f
+	}
+
+	t.Run("rejects request with missing token", func(t *testing.T) {
+		ts := mountTestServer(t)
+		seedForm(t, ts)
+
+		status, _ := formPost(t, ts, "/forms/contact/submit", "field=value",
+			map[string]string{"Origin": "https://example.com"})
+
+		assert.Equal(t, 401, status)
+	})
+
+	t.Run("rejects request with wrong token", func(t *testing.T) {
+		ts := mountTestServer(t)
+		seedForm(t, ts)
+
+		status, _ := formPost(t, ts, "/forms/contact/submit?token=wrong", "field=value",
+			map[string]string{"Origin": "https://example.com"})
+
+		assert.Equal(t, 401, status)
+	})
+
+	t.Run("rejects request from origin not in allowlist", func(t *testing.T) {
+		ts := mountTestServer(t)
+		seedForm(t, ts)
+
+		status, body := formPost(t, ts, "/forms/contact/submit?token=secret-token", "field=value",
+			map[string]string{"Origin": "https://attacker.com"})
+
+		assert.Equal(t, 403, status)
+		assert.Contains(t, body, "origin not allowed")
+	})
+
+	t.Run("rejects request with no Origin or Referer when allowlist is set", func(t *testing.T) {
+		ts := mountTestServer(t)
+		seedForm(t, ts)
+
+		status, body := formPost(t, ts, "/forms/contact/submit?token=secret-token", "field=value", nil)
+
+		assert.Equal(t, 403, status)
+		assert.Contains(t, body, "origin not allowed")
+	})
+
+	t.Run("accepts request with valid token and allowed origin", func(t *testing.T) {
+		ts := mountTestServer(t)
+		seedForm(t, ts)
+
+		status, _ := formPost(t, ts, "/forms/contact/submit?token=secret-token", "field=value",
+			map[string]string{"Origin": "https://example.com"})
+
+		assert.Equal(t, 200, status)
 	})
 }
