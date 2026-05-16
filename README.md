@@ -94,6 +94,8 @@ docker run -d \
 
 **Important:** Use the same `FORMLANDER_SESSION_SECRET` value across restarts to prevent logging out all users.
 
+**Production deploys:** add `-e FORMLANDER_ENV=production` only if Formlander is reachable over HTTPS (TLS terminator like Caddy/Nginx in front). Production marks the session cookie `Secure`, so plain-HTTP setups will silently drop the cookie and login will appear to fail. The default is `development`, which is safe for any HTTP setup.
+
 Access the admin dashboard at `http://localhost:8080` with default credentials:
 - Email: `admin@formlander.local`
 - Password: `formlander` (you'll be prompted to change this on first login)
