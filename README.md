@@ -132,6 +132,8 @@ Formlander uses [Viper](https://github.com/spf13/viper) for flexible configurati
 
 > **Note:** In development/test, a fixed default secret is used if not set, allowing sessions to persist across restarts.
 
+> **HTTPS required in production.** Production mode sets the `Secure` flag on the session cookie, so browsers will not send it back over plain HTTP and login will appear to silently fail. Terminate TLS in front of Formlander (the bundled `install.sh` does this with Caddy automatically). If you must run on plain HTTP for local testing, set `FORMLANDER_ENV=development`.
+
 **Or use a .env file** (`.env`):
 ```bash
 FORMLANDER_ENV=production
