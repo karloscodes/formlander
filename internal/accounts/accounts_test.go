@@ -35,6 +35,29 @@ func createTestUser(t *testing.T, db *gorm.DB, email, password string, withLastL
 	return user
 }
 
+func TestIsDefaultAdminActive(t *testing.T) {
+	t.Run("true when default admin still has the default password", func(t *testing.T) {
+		db := testsupport.SetupTestDB(t)
+		createTestUser(t, db, accounts.DefaultAdminEmail, accounts.DefaultAdminPassword, false)
+
+		assert.True(t, accounts.IsDefaultAdminActive(db))
+	})
+
+	t.Run("false once the default admin password is changed", func(t *testing.T) {
+		db := testsupport.SetupTestDB(t)
+		createTestUser(t, db, accounts.DefaultAdminEmail, "something-else", false)
+
+		assert.False(t, accounts.IsDefaultAdminActive(db))
+	})
+
+	t.Run("false when no default admin exists", func(t *testing.T) {
+		db := testsupport.SetupTestDB(t)
+		createTestUser(t, db, "someone@example.com", accounts.DefaultAdminPassword, false)
+
+		assert.False(t, accounts.IsDefaultAdminActive(db))
+	})
+}
+
 func TestAuthenticate(t *testing.T) {
 	db := testsupport.SetupTestDB(t)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
