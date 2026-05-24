@@ -20,6 +20,11 @@ type MailerProfileParams struct {
 	DefaultFromName  string
 	DefaultFromEmail string
 	DefaultsJSON     string
+	SMTPHost         string
+	SMTPPort         int
+	SMTPUsername     string
+	SMTPPassword     string
+	SMTPEncryption   string
 }
 
 // ValidationError represents a validation error
@@ -66,6 +71,11 @@ func CreateMailerProfile(logger *slog.Logger, db *gorm.DB, params MailerProfileP
 		DefaultFromName:  strings.TrimSpace(params.DefaultFromName),
 		DefaultFromEmail: strings.TrimSpace(params.DefaultFromEmail),
 		DefaultsJSON:     defaultsJSON,
+		SMTPHost:         strings.TrimSpace(params.SMTPHost),
+		SMTPPort:         params.SMTPPort,
+		SMTPUsername:     strings.TrimSpace(params.SMTPUsername),
+		SMTPPassword:     strings.TrimSpace(params.SMTPPassword),
+		SMTPEncryption:   strings.TrimSpace(params.SMTPEncryption),
 	}
 
 	if err := dbtxn.WithRetry(logger, db, func(tx *gorm.DB) error {
@@ -119,6 +129,11 @@ func UpdateMailerProfile(logger *slog.Logger, db *gorm.DB, id uint, params Maile
 			"default_from_name":  strings.TrimSpace(params.DefaultFromName),
 			"default_from_email": strings.TrimSpace(params.DefaultFromEmail),
 			"defaults_json":      defaultsJSON,
+			"smtp_host":          strings.TrimSpace(params.SMTPHost),
+			"smtp_port":          params.SMTPPort,
+			"smtp_username":      strings.TrimSpace(params.SMTPUsername),
+			"smtp_password":      strings.TrimSpace(params.SMTPPassword),
+			"smtp_encryption":    strings.TrimSpace(params.SMTPEncryption),
 		}).Error
 	}); err != nil {
 		logger.Error("failed to update mailer profile", slog.Any("error", err), slog.Uint64("id", uint64(id)))

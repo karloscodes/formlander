@@ -11,13 +11,19 @@ type MailerProfile struct {
 	ID               uint   `gorm:"primaryKey"`
 	Name             string `gorm:"size:255;not null;uniqueIndex"`
 	Provider         string `gorm:"size:50;not null;default:'mailgun'"` // mailgun, smtp, etc.
-	APIKey           string `gorm:"type:text"`                          // Secret credential
-	Domain           string `gorm:"size:255"`
+	APIKey           string `gorm:"type:text"`                          // Mailgun: secret credential
+	Domain           string `gorm:"size:255"`                           // Mailgun: sending domain
 	DefaultFromName  string `gorm:"size:255"`
 	DefaultFromEmail string `gorm:"size:255"`
 	DefaultsJSON     string `gorm:"type:text"` // JSON: tags, template, headers
-	CreatedAt        time.Time
-	UpdatedAt        time.Time
+	// SMTP provider fields (null for mailgun profiles).
+	SMTPHost       string `gorm:"size:255"`
+	SMTPPort       int    `gorm:"default:587"`
+	SMTPUsername   string `gorm:"size:255"`
+	SMTPPassword   string `gorm:"type:text"` // Secret credential
+	SMTPEncryption string `gorm:"size:20;default:'starttls'"` // starttls | tls | none
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
 }
 
 // CaptchaProfile stores reusable captcha provider configuration.
