@@ -5,9 +5,9 @@ import (
 	"strings"
 	"time"
 
-	"log/slog"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
+	"log/slog"
 
 	"formlander/internal/pkg/dbtxn"
 )
@@ -19,6 +19,30 @@ var (
 	ErrPasswordMismatch   = errors.New("current password is incorrect")
 	ErrMissingFields      = errors.New("required fields are missing")
 )
+
+// Default admin credentials created on first boot of an empty install. They
+// work in every environment and remain valid until the operator changes them.
+const (
+	DefaultAdminEmail    = "admin@formlander.local"
+	DefaultAdminPassword = "formlander"
+)
+
+// timingEqualizerHash is a valid bcrypt digest compared against when the
+// supplied email doesn't exist, so Authenticate takes constant time regardless
+// of whether the account exists (email-enumeration defense). It is the digest
+// of a random string; no real password matches it.
+const timingEqualizerHash = "$2a$10$Q1pg.L2uyfJ2QportzoH9.UPdkdy2skSFqtGaRfOXpO0SBGCQ1qIW"
+
+// IsDefaultAdminActive reports whether the default admin still has the default
+// password. The login page uses this to show the credentials hint only while
+// it's accurate, so it can never go stale.
+func IsDefaultAdminActive(db *gorm.DB) bool {
+	user, err := FindByEmail(db, DefaultAdminEmail)
+	if err != nil {
+		return false
+	}
+	return bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(DefaultAdminPassword)) == nil
+}
 
 // User represents the single admin user for the MVP.
 type User struct {
@@ -79,15 +103,19 @@ func Authenticate(logger *slog.Logger, db *gorm.DB, email, password string) (*Au
 	}
 
 	var user User
-	if err := db.Where("email = ?", email).First(&user).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, ErrInvalidCredentials
-		}
+	err := db.Where("email = ?", email).First(&user).Error
+	if err != nil && err != gorm.ErrRecordNotFound {
 		logger.Error("database query failed during authentication", slog.Any("error", err), slog.String("email", email))
 		return nil, err
 	}
 
-	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
+	// Always run bcrypt — against the real hash, or a dummy when the email
+	// doesn't exist — so response time can't reveal whether an account exists.
+	hash := user.PasswordHash
+	if err == gorm.ErrRecordNotFound {
+		hash = timingEqualizerHash
+	}
+	if bcrypt.CompareHashAndPassword([]byte(hash), []byte(password)) != nil || err == gorm.ErrRecordNotFound {
 		return nil, ErrInvalidCredentials
 	}
 

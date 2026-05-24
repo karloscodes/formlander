@@ -82,8 +82,8 @@ func ensureAdminUser(db *gorm.DB, cfg *config.Config, logger *slog.Logger) error
 		return nil
 	}
 
-	defaultEmail := "admin@formlander.local"
-	defaultPassword := "formlander"
+	defaultEmail := accounts.DefaultAdminEmail
+	defaultPassword := accounts.DefaultAdminPassword
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(defaultPassword), bcrypt.DefaultCost)
 	if err != nil {
