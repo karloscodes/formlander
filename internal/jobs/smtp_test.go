@@ -2,11 +2,19 @@ package jobs
 
 import (
 	"bufio"
+	"context"
+	"io"
+	"log/slog"
 	"net"
 	"strings"
 	"sync"
 	"testing"
 	"time"
+
+	"formlander/internal/config"
+	"formlander/internal/forms"
+	"formlander/internal/integrations"
+	"formlander/internal/pkg/testsupport"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -135,6 +143,62 @@ func TestSendSMTP(t *testing.T) {
 		assert.False(t, captured.authReceived, "expected no AUTH when username empty")
 		assert.Contains(t, captured.from, "a@x.com")
 	})
+}
+
+func TestEmailDispatcherDeliversViaSMTP(t *testing.T) {
+	db := testsupport.SetupTestDB(t)
+	host, port, captured := startFakeSMTPServer(t)
+
+	profile := &integrations.MailerProfile{
+		Name:             "SMTP relay",
+		Provider:         "smtp",
+		DefaultFromName:  "Forms",
+		DefaultFromEmail: "forms@example.com",
+		SMTPHost:         host,
+		SMTPPort:         port,
+		SMTPUsername:     "relay-user",
+		SMTPPassword:     "relay-pass",
+		SMTPEncryption:   "none",
+	}
+	require.NoError(t, db.Create(profile).Error)
+
+	form := &forms.Form{Name: "Contact", AllowedOrigins: "*"}
+	require.NoError(t, db.Create(form).Error)
+
+	pid := profile.ID
+	require.NoError(t, db.Create(&forms.EmailDelivery{
+		FormID:          form.ID,
+		Enabled:         true,
+		MailerProfileID: &pid,
+		OverridesJSON:   `{"to":"owner@example.com"}`,
+	}).Error)
+
+	sub := &forms.Submission{FormID: form.ID, DataJSON: `{"name":"Alice","email":"alice@example.com"}`}
+	require.NoError(t, db.Create(sub).Error)
+
+	event := &forms.EmailEvent{SubmissionID: sub.ID, Status: forms.WebhookStatusPending}
+	require.NoError(t, db.Create(event).Error)
+
+	d := NewEmailDispatcher(&config.Config{})
+	ctx := &JobContext{
+		Context: context.Background(),
+		Logger:  slog.New(slog.NewTextHandler(io.Discard, nil)),
+		DB:      db,
+	}
+
+	require.NoError(t, d.ProcessBatch(ctx))
+
+	var updated forms.EmailEvent
+	require.NoError(t, db.First(&updated, event.ID).Error)
+	assert.Equal(t, forms.WebhookStatusDelivered, updated.Status, "event should be marked delivered")
+
+	captured.mu.Lock()
+	defer captured.mu.Unlock()
+	assert.True(t, captured.authReceived)
+	assert.Contains(t, captured.from, "forms@example.com")
+	assert.Contains(t, captured.to, "owner@example.com")
+	assert.Contains(t, captured.data, "Subject: New submission")
+	assert.Contains(t, captured.data, "Alice")
 }
 
 func TestBuildSMTPMessage(t *testing.T) {
