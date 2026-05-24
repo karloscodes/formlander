@@ -1,7 +1,9 @@
-// e2e/002-change-password.spec.js - Test password change functionality
+// e2e/002-change-password.spec.js - Test password change via Settings
 const { test, expect } = require("@playwright/test");
 const { TestHelpers } = require("./test-helpers");
 const { TEST_EMAIL, TEST_PASSWORD } = require("./test-constants");
+
+const PW_FORM = 'form[action="/admin/settings/password"]';
 
 test.describe("Change Password", () => {
   let helpers;
@@ -17,63 +19,43 @@ test.describe("Change Password", () => {
     }
   });
 
+  async function changePassword(page, current, next) {
+    await helpers.navigateTo("/admin/settings");
+    await page.fill(`${PW_FORM} input[name="current_password"]`, current);
+    await page.fill(`${PW_FORM} input[name="new_password"]`, next);
+    await page.fill(`${PW_FORM} input[name="confirm_password"]`, next);
+    await page.click(`${PW_FORM} button[type="submit"]`);
+    await page.waitForLoadState("networkidle");
+    await expect(page.locator("text=Password updated successfully")).toBeVisible({
+      timeout: 10000,
+    });
+  }
+
   test("1. Change password and change back", async ({ page }) => {
-    helpers.log("=== Testing Password Change ===");
+    helpers.log("=== Testing Password Change (Settings) ===");
 
     const TEMP_PASSWORD = "temporary-password-123!";
 
-    // Login with current password
+    // Login with current password, change to a temporary one via Settings.
     await helpers.login(TEST_EMAIL, TEST_PASSWORD);
-
-    // Navigate to change password page
-    await helpers.navigateTo("/admin/change-password");
-
-    // Change to temporary password
-    await page.fill('input[name="current_password"]', TEST_PASSWORD);
-    await page.fill('input[name="new_password"]', TEMP_PASSWORD);
-    await page.fill('input[name="confirm_password"]', TEMP_PASSWORD);
-
-    await page.click('button[type="submit"]');
-    await page.waitForLoadState("networkidle");
-    await expect(page).toHaveURL(/\/admin(\/)?$/, { timeout: 10000 });
-
+    await changePassword(page, TEST_PASSWORD, TEMP_PASSWORD);
     helpers.log("✅ Password changed to temporary password");
 
-    // Verify we're redirected
-    let url = page.url();
-    expect(url).not.toContain("/change-password");
-
-    // Logout
+    // Re-login with the temporary password to prove it took effect.
     await helpers.logout();
-
-    // Login with temporary password
     await helpers.login(TEST_EMAIL, TEMP_PASSWORD);
     helpers.log("✅ Temporary password works");
 
-    // Change back to original password
-    await helpers.navigateTo("/admin/change-password");
-    await page.fill('input[name="current_password"]', TEMP_PASSWORD);
-    await page.fill('input[name="new_password"]', TEST_PASSWORD);
-    await page.fill('input[name="confirm_password"]', TEST_PASSWORD);
-
-    await page.click('button[type="submit"]');
-    await page.waitForLoadState("networkidle");
-    await expect(page).toHaveURL(/\/admin(\/)?$/, { timeout: 10000 });
-
+    // Change back to the original so later specs keep working.
+    await changePassword(page, TEMP_PASSWORD, TEST_PASSWORD);
     helpers.log("✅ Password changed back to original");
-
-    // Verify
-    url = page.url();
-    expect(url).not.toContain("/change-password");
   });
 
   test("2. Verify password is back to original", async ({ page }) => {
     helpers.log("=== Verifying Original Password Works ===");
 
-    // Login with original password
     await helpers.login(TEST_EMAIL, TEST_PASSWORD);
 
-    // Verify we're logged in
     await page.waitForLoadState("networkidle");
     const url = page.url();
     expect(url).toContain("/admin");

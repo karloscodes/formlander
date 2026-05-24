@@ -118,9 +118,11 @@ func AuthMiddleware() fiber.Handler {
 	}
 }
 
-// RequirePasswordChangedMiddleware returns middleware that enforces password change
+// RequirePasswordChangedMiddleware is retained for API compatibility and is a
+// no-op: Formlander no longer forces a first-login password change (the default
+// credentials work until changed in settings).
 func RequirePasswordChangedMiddleware() fiber.Handler {
-	return httphandlers.RequirePasswordChanged()
+	return func(c *fiber.Ctx) error { return c.Next() }
 }
 
 // Form represents a form configuration (public type)

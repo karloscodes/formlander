@@ -109,15 +109,14 @@ const secFetchBlockedBody = "browser requests only"
 //
 // The two groups together describe the intended security boundary:
 //
-//   OPEN (no Sec-Fetch-Site required)
-//     - POST /admin/login              ← unauthenticated entry point
-//     - POST /forms/:slug/submit       ← public form ingestion (token + origin allowlist)
+//	OPEN (no Sec-Fetch-Site required)
+//	  - POST /admin/login              ← unauthenticated entry point
+//	  - POST /forms/:slug/submit       ← public form ingestion (token + origin allowlist)
 //
-//   PROTECTED (Sec-Fetch-Site required for state-changing requests)
-//     - POST /admin/logout
-//     - POST /admin/change-password
-//     - POST /admin/forms
-//     - POST /admin/settings/password
+//	PROTECTED (Sec-Fetch-Site required for state-changing requests)
+//	  - POST /admin/logout
+//	  - POST /admin/forms
+//	  - POST /admin/settings/password
 //
 // If a new state-changing admin route is added, add it to the protected
 // group below to prevent it from being accidentally exposed.
@@ -142,7 +141,6 @@ func TestRoutesSecFetchSiteBoundary(t *testing.T) {
 		body string
 	}{
 		{"POST /admin/logout", "/admin/logout", ""},
-		{"POST /admin/change-password", "/admin/change-password", "current_password=x&new_password=y&confirm_password=y"},
 		{"POST /admin/forms", "/admin/forms", "name=test"},
 		{"POST /admin/settings/password", "/admin/settings/password", ""},
 	}
