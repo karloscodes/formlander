@@ -108,22 +108,12 @@ func MountRoutes(s *cartridge.Server, cfg *config.Config) {
 		CustomMiddleware:   []fiber.Handler{loginRateLimiter},
 	})
 
-	// Auth config without password check (for change-password routes)
-	authConfigBasic := &cartridge.RouteConfig{
+	// Auth config for protected routes: a valid session.
+	authConfig := &cartridge.RouteConfig{
 		CustomMiddleware: []fiber.Handler{s.Session().Middleware()},
 	}
 
-	// Auth config with password change enforcement (for protected routes)
-	authConfig := &cartridge.RouteConfig{
-		CustomMiddleware: []fiber.Handler{s.Session().Middleware(), httphandlers.RequirePasswordChanged()},
-	}
-
-	// Password change routes (accessible to authenticated users)
-	// Note: First login password change is enforced at login time via LastLoginAt check
-	s.Get("/admin/change-password", httphandlers.AdminChangePasswordPage, authConfigBasic)
-	s.Post("/admin/change-password", httphandlers.AdminChangePasswordSubmit, authConfigBasic)
-
-	// Protected routes that require password to be changed
+	// Protected routes (require a logged-in session).
 	s.Get("/admin", httphandlers.AdminDashboard, authConfig)
 	s.Post("/admin/logout", httphandlers.AdminLogout, authConfig)
 	s.Get("/admin/forms", httphandlers.AdminFormsIndex, authConfig)

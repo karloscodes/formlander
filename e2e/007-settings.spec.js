@@ -101,44 +101,7 @@ test.describe("Settings Management", () => {
     helpers.log("✅ Captcha profile created");
   });
 
-  test("4. Change password again", async ({ page }) => {
-    helpers.log("=== Changing Password Again ===");
-
-    await helpers.navigateTo("/admin/change-password");
-
-    await helpers.fillForm({
-      current_password: TEST_PASSWORD,
-      new_password: "newpassword456",
-      confirm_password: "newpassword456",
-    });
-
-    // Wait for redirect to admin dashboard (successful password change redirects to /admin)
-    await page.waitForURL("**/admin");
-    await page.waitForLoadState("networkidle");
-    helpers.log("✅ Password changed");
-
-    // Logout and login with new password
-    await helpers.logout();
-    await helpers.login(TEST_EMAIL, "newpassword456");
-
-    helpers.log("✅ Login with new password successful");
-
-    // Change back to original password for other tests
-    await helpers.navigateTo("/admin/change-password");
-    await helpers.fillForm({
-      current_password: "newpassword456",
-      new_password: TEST_PASSWORD,
-      confirm_password: TEST_PASSWORD,
-    });
-
-    // Wait for redirect to admin dashboard (successful password change)
-    await page.waitForURL("**/admin");
-    await page.waitForLoadState("networkidle");
-
-    helpers.log("✅ Password changed back to original");
-  });
-
-  test("5. Change password via settings page", async ({ page }) => {
+  test("4. Change password via settings page", async ({ page }) => {
     helpers.log("=== Changing Password From Settings Page ===");
 
     const tempPassword = `TempPwd!${Date.now()}`;
