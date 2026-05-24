@@ -25,7 +25,7 @@ GOTESTSUM ?= $(shell command -v gotestsum 2>/dev/null)
 	@echo "  tidy         - add/remove go.mod entries"
 	@echo "  fmt          - gofmt Go source files"
 	@echo "  clean        - remove build artifacts"
-	@echo "  release      - build & push multi-arch Docker images"
+	@echo "  release      - tag & push to trigger the GoReleaser pipeline (make release v=X.Y.Z)"
 
 deps:
 	@mkdir -p $(GOCACHE) $(BIN_DIR)
@@ -101,4 +101,15 @@ clean:
 	rm -rf $(BIN_DIR)/$(APP)
 
 release:
-	@scripts/release.sh
+	@if [ -z "$(v)" ]; then \
+		echo "Usage: make release v=3.0.5"; \
+		exit 1; \
+	fi
+	@echo "Creating release v$(v)..."
+	@git diff --quiet || (echo "Error: Uncommitted changes. Commit first." && exit 1)
+	git tag -a "v$(v)" -m "Release v$(v)"
+	git push origin "v$(v)"
+	@echo ""
+	@echo "Release v$(v) triggered!"
+	@echo "GoReleaser will build: binaries + multi-arch Docker images + GitHub release"
+	@echo "Watch: https://github.com/$$(gh repo view --json nameWithOwner -q .nameWithOwner)/actions"
