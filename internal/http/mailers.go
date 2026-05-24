@@ -12,6 +12,16 @@ import (
 	"formlander/internal/integrations"
 )
 
+// parseSMTPPort converts the submitted port to an int, defaulting to 587
+// (submission/STARTTLS) when the field is left blank.
+func parseSMTPPort(s string) int {
+	if s == "" {
+		return 587
+	}
+	n, _ := strconv.Atoi(s)
+	return n
+}
+
 // MailerProfileList shows all mailer profiles.
 func MailerProfileList(ctx *cartridge.Context) error {
 	db := ctx.DB()
@@ -49,6 +59,11 @@ func MailerProfileCreate(ctx *cartridge.Context) error {
 		DefaultFromName:  ctx.FormValue("default_from_name"),
 		DefaultFromEmail: ctx.FormValue("default_from_email"),
 		DefaultsJSON:     ctx.FormValue("defaults_json"),
+		SMTPHost:         ctx.FormValue("smtp_host"),
+		SMTPPort:         parseSMTPPort(ctx.FormValue("smtp_port")),
+		SMTPUsername:     ctx.FormValue("smtp_username"),
+		SMTPPassword:     ctx.FormValue("smtp_password"),
+		SMTPEncryption:   ctx.FormValue("smtp_encryption"),
 	}
 
 	_, err := integrations.CreateMailerProfile(logger, db, params)
@@ -128,6 +143,11 @@ func MailerProfileUpdate(ctx *cartridge.Context) error {
 		DefaultFromName:  ctx.FormValue("default_from_name"),
 		DefaultFromEmail: ctx.FormValue("default_from_email"),
 		DefaultsJSON:     ctx.FormValue("defaults_json"),
+		SMTPHost:         ctx.FormValue("smtp_host"),
+		SMTPPort:         parseSMTPPort(ctx.FormValue("smtp_port")),
+		SMTPUsername:     ctx.FormValue("smtp_username"),
+		SMTPPassword:     ctx.FormValue("smtp_password"),
+		SMTPEncryption:   ctx.FormValue("smtp_encryption"),
 	}
 
 	profile, err := integrations.UpdateMailerProfile(logger, db, uint(profileID), params)

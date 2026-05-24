@@ -144,6 +144,54 @@ func TestUpdateMailerProfile(t *testing.T) {
 	})
 }
 
+func TestMailerProfileSMTPFields(t *testing.T) {
+	db := testsupport.SetupTestDB(t)
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+
+	t.Run("persists SMTP fields on create", func(t *testing.T) {
+		params := integrations.MailerProfileParams{
+			Name:             "Test SMTP",
+			Provider:         "smtp",
+			DefaultFromName:  "Forms",
+			DefaultFromEmail: "forms@example.com",
+			SMTPHost:         "smtp.example.com",
+			SMTPPort:         587,
+			SMTPUsername:     "apikey",
+			SMTPPassword:     "s3cret",
+			SMTPEncryption:   "starttls",
+		}
+
+		profile, err := integrations.CreateMailerProfile(logger, db, params)
+		require.NoError(t, err)
+
+		reloaded, err := integrations.GetMailerProfileByID(db, profile.ID)
+		require.NoError(t, err)
+		assert.Equal(t, "smtp", reloaded.Provider)
+		assert.Equal(t, "smtp.example.com", reloaded.SMTPHost)
+		assert.Equal(t, 587, reloaded.SMTPPort)
+		assert.Equal(t, "apikey", reloaded.SMTPUsername)
+		assert.Equal(t, "s3cret", reloaded.SMTPPassword)
+		assert.Equal(t, "starttls", reloaded.SMTPEncryption)
+	})
+
+	t.Run("updates SMTP fields", func(t *testing.T) {
+		profile, err := integrations.CreateMailerProfile(logger, db, integrations.MailerProfileParams{Name: "Update SMTP"})
+		require.NoError(t, err)
+
+		updated, err := integrations.UpdateMailerProfile(logger, db, profile.ID, integrations.MailerProfileParams{
+			Name:           "Update SMTP",
+			Provider:       "smtp",
+			SMTPHost:       "mail.example.org",
+			SMTPPort:       465,
+			SMTPEncryption: "tls",
+		})
+		require.NoError(t, err)
+		assert.Equal(t, "mail.example.org", updated.SMTPHost)
+		assert.Equal(t, 465, updated.SMTPPort)
+		assert.Equal(t, "tls", updated.SMTPEncryption)
+	})
+}
+
 func TestCreateCaptchaProfile(t *testing.T) {
 	db := testsupport.SetupTestDB(t)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))

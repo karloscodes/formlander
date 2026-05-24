@@ -18,28 +18,37 @@ test.describe("Mailer Profiles", () => {
     }
   });
 
-  test("1. Create mailer profile", async ({ page }) => {
-    helpers.log("=== Creating Mailer Profile ===");
+  test("1. Create SMTP mailer profile", async ({ page }) => {
+    helpers.log("=== Creating SMTP Mailer Profile ===");
 
     await helpers.navigateTo("/admin/settings/mailers");
-    await page.click('text=New Profile');
+    await page.click("text=New Profile");
     await page.waitForLoadState("networkidle");
 
-    // Fill mailer profile details
-    await page.fill('input[name="name"]', "Test Mailgun");
-    await page.fill('input[name="api_key"]', "key-test-mailgun-key-12345");
-    await page.fill('input[name="domain"]', "mg.example.com");
-    await page.fill('input[name="default_from_name"]', "Formlander");
+    // SMTP is the default provider, so its fields are the visible ones.
+    await page.fill('input[name="name"]', "Test SMTP");
+    await page.fill('input[name="smtp_host"]', "smtp.example.com");
+    await page.fill('input[name="smtp_username"]', "smtp-user");
+    await page.fill('input[name="smtp_password"]', "smtp-pass");
     await page.fill('input[name="default_from_email"]', "noreply@example.com");
 
     await page.click('button[type="submit"]');
     await page.waitForLoadState("networkidle");
 
-    // Verify we're on a mailer-related page
     const url = page.url();
     expect(url).toContain("/admin/settings/mailers");
 
-    helpers.log("✅ Mailer profile created");
+    helpers.log("✅ SMTP mailer profile created");
+  });
+
+  test("1b. Selecting Mailgun reveals its fields", async ({ page }) => {
+    await helpers.navigateTo("/admin/settings/mailers/new");
+    await page.waitForLoadState("networkidle");
+
+    // SMTP default -> the Mailgun API key field is hidden until selected.
+    await expect(page.locator('input[name="api_key"]')).toBeHidden();
+    await page.selectOption('select[name="provider"]', "mailgun");
+    await expect(page.locator('input[name="api_key"]')).toBeVisible();
   });
 
   test("2. View mailer profiles list", async ({ page }) => {
