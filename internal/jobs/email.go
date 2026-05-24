@@ -87,19 +87,19 @@ func (d *EmailDispatcher) handleEvent(ctx *JobContext, db *gorm.DB, event *forms
 
 	var sendErr error
 	switch profile.Provider {
-	case "smtp":
+	case "mailgun":
+		if profile.APIKey == "" || profile.Domain == "" {
+			MarkEmailAsFinal(ctx, db, event, forms.WebhookStatusFailed, "mailgun configuration missing")
+			return
+		}
+		sendErr = d.sendMailgun(ctx, profile, from, to, subject, body)
+	default: // smtp is the default provider
 		cfg := smtpConfigFromProfile(profile, from, to)
 		if cfg == nil {
 			MarkEmailAsFinal(ctx, db, event, forms.WebhookStatusFailed, "smtp configuration missing")
 			return
 		}
 		sendErr = sendSMTP(cfg, buildSMTPMessage(from, to, subject, body))
-	default: // mailgun
-		if profile.APIKey == "" || profile.Domain == "" {
-			MarkEmailAsFinal(ctx, db, event, forms.WebhookStatusFailed, "mailgun configuration missing")
-			return
-		}
-		sendErr = d.sendMailgun(ctx, profile, from, to, subject, body)
 	}
 
 	if sendErr != nil {

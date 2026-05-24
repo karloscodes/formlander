@@ -10,7 +10,7 @@ import (
 type MailerProfile struct {
 	ID               uint   `gorm:"primaryKey"`
 	Name             string `gorm:"size:255;not null;uniqueIndex"`
-	Provider         string `gorm:"size:50;not null;default:'mailgun'"` // mailgun, smtp, etc.
+	Provider         string `gorm:"size:50;not null;default:'smtp'"` // smtp (default), mailgun
 	APIKey           string `gorm:"type:text"`                          // Mailgun: secret credential
 	Domain           string `gorm:"size:255"`                           // Mailgun: sending domain
 	DefaultFromName  string `gorm:"size:255"`

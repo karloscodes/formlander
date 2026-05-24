@@ -30,8 +30,8 @@
                     <label for="provider" class="block text-sm font-medium text-gray-700">Provider</label>
                     <select id="provider" name="provider" required
                         class="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 shadow-sm transition-colors focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20">
+                        <option value="smtp" {{ if or (not .Profile) (eq .Profile.Provider "smtp") }}selected{{ end }}>SMTP</option>
                         <option value="mailgun" {{ if and .Profile (eq .Profile.Provider "mailgun") }}selected{{ end }}>Mailgun</option>
-                        <option value="smtp" {{ if and .Profile (eq .Profile.Provider "smtp") }}selected{{ end }}>SMTP</option>
                     </select>
                 </div>
             </div>
