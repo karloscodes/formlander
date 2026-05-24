@@ -27,10 +27,11 @@ const (
 	DefaultAdminPassword = "formlander"
 )
 
-// dummyPasswordHash is a valid bcrypt hash used to keep Authenticate's timing
-// constant when the supplied email doesn't exist (email-enumeration defense).
-// It is a hash of a random string; no real password matches it.
-const dummyPasswordHash = "$2a$10$Q1pg.L2uyfJ2QportzoH9.UPdkdy2skSFqtGaRfOXpO0SBGCQ1qIW" //nosec G101 -- not a credential: a fixed bcrypt hash used only to equalize timing; no real password matches it
+// timingEqualizerHash is a valid bcrypt digest compared against when the
+// supplied email doesn't exist, so Authenticate takes constant time regardless
+// of whether the account exists (email-enumeration defense). It is the digest
+// of a random string; no real password matches it.
+const timingEqualizerHash = "$2a$10$Q1pg.L2uyfJ2QportzoH9.UPdkdy2skSFqtGaRfOXpO0SBGCQ1qIW"
 
 // IsDefaultAdminActive reports whether the default admin still has the default
 // password. The login page uses this to show the credentials hint only while
@@ -112,7 +113,7 @@ func Authenticate(logger *slog.Logger, db *gorm.DB, email, password string) (*Au
 	// doesn't exist — so response time can't reveal whether an account exists.
 	hash := user.PasswordHash
 	if err == gorm.ErrRecordNotFound {
-		hash = dummyPasswordHash
+		hash = timingEqualizerHash
 	}
 	if bcrypt.CompareHashAndPassword([]byte(hash), []byte(password)) != nil || err == gorm.ErrRecordNotFound {
 		return nil, ErrInvalidCredentials
