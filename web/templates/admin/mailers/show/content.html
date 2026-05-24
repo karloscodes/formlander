@@ -53,6 +53,20 @@
         <dt class="text-sm font-medium text-gray-500">Provider</dt>
         <dd class="mt-1 text-base font-medium text-gray-900">{{ .Profile.Provider }}</dd>
       </div>
+      {{ if eq .Profile.Provider "smtp" }}
+      <div>
+        <dt class="text-sm font-medium text-gray-500">Host</dt>
+        <dd class="mt-1 text-base font-mono text-gray-900">{{ .Profile.SMTPHost }}:{{ .Profile.SMTPPort }}</dd>
+      </div>
+      <div>
+        <dt class="text-sm font-medium text-gray-500">Encryption</dt>
+        <dd class="mt-1 text-base text-gray-900">{{ .Profile.SMTPEncryption }}</dd>
+      </div>
+      <div class="sm:col-span-2">
+        <dt class="text-sm font-medium text-gray-500">Username</dt>
+        <dd class="mt-1 text-base font-mono text-gray-900">{{ if .Profile.SMTPUsername }}{{ .Profile.SMTPUsername }}{{ else }}<span class="text-gray-400">None (unauthenticated)</span>{{ end }}</dd>
+      </div>
+      {{ else }}
       <div>
         <dt class="text-sm font-medium text-gray-500">Domain</dt>
         <dd class="mt-1 text-base font-mono text-gray-900">{{ .Profile.Domain }}</dd>
@@ -68,6 +82,7 @@
         </dd>
         <input type="hidden" id="apiKeyValue" value="{{ .Profile.APIKey }}">
       </div>
+      {{ end }}
     </div>
   </div>
 
