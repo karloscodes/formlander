@@ -347,7 +347,6 @@ class TestHelpers {
       expectSuccess = true,
       redirectPath = null,
       timeout = 30000,
-      changePassword = null,
     } = options;
 
     this.log(`Attempting login: ${email}`);
@@ -393,18 +392,6 @@ class TestHelpers {
 
       const currentUrl = this.page.url();
       this.log(`Post-login URL: ${currentUrl}`);
-
-      // Handle password change if required
-      if (changePassword && currentUrl.includes("/admin/change-password")) {
-        this.log("Password change required - updating password");
-        await this.fillForm({
-          current_password: password,
-          new_password: changePassword,
-          confirm_password: changePassword,
-        });
-        await this.page.waitForLoadState("networkidle");
-        this.log("Password changed successfully");
-      }
 
       if (expectSuccess) {
         // Should not be on login page
