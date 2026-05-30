@@ -2,6 +2,7 @@ package accounts
 
 import (
 	"errors"
+	"net/mail"
 	"strings"
 	"time"
 
@@ -18,6 +19,8 @@ var (
 	ErrWeakPassword       = errors.New("password must be at least 8 characters")
 	ErrPasswordMismatch   = errors.New("current password is incorrect")
 	ErrMissingFields      = errors.New("required fields are missing")
+	ErrDuplicateEmail     = errors.New("email is already in use")
+	ErrInvalidEmail       = errors.New("email is not valid")
 )
 
 // Default admin credentials created on first boot of an empty install. They
@@ -137,6 +140,59 @@ func Authenticate(logger *slog.Logger, db *gorm.DB, email, password string) (*Au
 		User:         &user,
 		IsFirstLogin: isFirstLogin,
 	}, nil
+}
+
+// ChangeEmail updates a user's email after verifying the current password.
+// The new email is lowercased and trimmed. A request to "change" to the same
+// email (after normalization) is a no-op and returns nil.
+func ChangeEmail(logger *slog.Logger, db *gorm.DB, currentEmail, newEmail, currentPassword string) error {
+	currentEmail = strings.ToLower(strings.TrimSpace(currentEmail))
+	newEmail = strings.ToLower(strings.TrimSpace(newEmail))
+
+	if newEmail == "" {
+		return ErrInvalidEmail
+	}
+	if _, err := mail.ParseAddress(newEmail); err != nil {
+		return ErrInvalidEmail
+	}
+
+	var user User
+	if err := db.Where("email = ?", currentEmail).First(&user).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return ErrUserNotFound
+		}
+		logger.Error("database query failed during email change", slog.Any("error", err), slog.String("email", currentEmail))
+		return err
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(currentPassword)); err != nil {
+		return ErrPasswordMismatch
+	}
+
+	if newEmail == currentEmail {
+		return nil
+	}
+
+	var conflict User
+	err := db.Where("email = ?", newEmail).First(&conflict).Error
+	if err == nil {
+		return ErrDuplicateEmail
+	}
+	if err != gorm.ErrRecordNotFound {
+		logger.Error("database query failed during email uniqueness check", slog.Any("error", err), slog.String("email", newEmail))
+		return err
+	}
+
+	user.Email = newEmail
+
+	if err := dbtxn.WithRetry(logger, db, func(tx *gorm.DB) error {
+		return tx.Save(&user).Error
+	}); err != nil {
+		logger.Error("failed to update email", slog.Any("error", err), slog.String("email", currentEmail))
+		return err
+	}
+
+	return nil
 }
 
 // ChangePassword validates and updates user password

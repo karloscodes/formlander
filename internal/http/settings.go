@@ -84,6 +84,44 @@ func AdminSettingsUpdatePassword(ctx *cartridge.Context) error {
 	return renderSettingsSuccess(ctx, "Password updated successfully")
 }
 
+// AdminSettingsUpdateEmail handles email updates from the settings page.
+func AdminSettingsUpdateEmail(ctx *cartridge.Context) error {
+	newEmail := ctx.FormValue("new_email")
+	currentPassword := ctx.FormValue("current_password_email")
+
+	if newEmail == "" || currentPassword == "" {
+		return renderSettingsError(ctx, "Email and current password are required")
+	}
+
+	userID, ok := GetSession(ctx).GetUserID(ctx.Ctx)
+	if !ok {
+		return fiber.ErrUnauthorized
+	}
+
+	db := ctx.DB()
+
+	user, err := accounts.FindByID(db, userID)
+	if err != nil {
+		return fiber.ErrInternalServerError
+	}
+
+	if err := accounts.ChangeEmail(ctx.Logger, db, user.Email, newEmail, currentPassword); err != nil {
+		if errors.Is(err, accounts.ErrInvalidEmail) {
+			return renderSettingsError(ctx, "Please enter a valid email address")
+		}
+		if errors.Is(err, accounts.ErrPasswordMismatch) {
+			return renderSettingsError(ctx, "Current password is incorrect")
+		}
+		if errors.Is(err, accounts.ErrDuplicateEmail) {
+			return renderSettingsError(ctx, "That email is already in use")
+		}
+		ctx.Logger.Error("email change failed in settings", slog.Any("error", err))
+		return fiber.ErrInternalServerError
+	}
+
+	return renderSettingsSuccess(ctx, "Email updated successfully")
+}
+
 // AdminSettingsUpdateMailgun is deprecated - redirect to mailers.
 func AdminSettingsUpdateMailgun(ctx *cartridge.Context) error {
 	return ctx.Redirect("/admin/settings/mailers")

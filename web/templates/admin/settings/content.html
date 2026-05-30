@@ -4,7 +4,6 @@
     <div class="flex items-center justify-between">
         <div>
             <h1 class="text-3xl font-bold text-gray-900">Settings</h1>
-            <p class="mt-1 text-sm text-gray-600">Manage your account</p>
         </div>
     </div>
 
@@ -24,40 +23,56 @@
     <div class="rounded-xl border border-gray-200 bg-white shadow-sm">
         <div class="border-b border-gray-200 px-6 py-4">
             <h2 class="text-lg font-semibold text-gray-900">Account</h2>
-            <p class="mt-1 text-sm text-gray-600">Update your password and account details</p>
         </div>
 
-        <div class="p-6">
-            <form action="/admin/settings/password" method="post" class="space-y-6">
+        <div class="divide-y divide-gray-200">
+            <form action="/admin/settings/email" method="post" class="p-6 space-y-6">
+                <div>
+                    <label for="new_email" class="block text-sm font-medium text-gray-700">
+                        Email
+                    </label>
+                    <input type="email" name="new_email" id="new_email" required value="{{ .User.Email }}"
+                        class="mt-1 block w-full rounded-lg border-gray-300 px-4 py-2.5 shadow-sm transition-colors focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20">
+                </div>
+
+                <div>
+                    <label for="current_password_email" class="block text-sm font-medium text-gray-700">
+                        Current password
+                    </label>
+                    <input type="password" name="current_password_email" id="current_password_email" required
+                        class="mt-1 block w-full rounded-lg border-gray-300 px-4 py-2.5 shadow-sm transition-colors focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20">
+                </div>
+
+                <div class="flex justify-end">
+                    <button type="submit"
+                        class="inline-flex items-center rounded-lg border border-transparent bg-blue-600 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition-all hover:bg-blue-700 hover:shadow focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                        Update email
+                    </button>
+                </div>
+            </form>
+
+            <form action="/admin/settings/password" method="post" class="p-6 space-y-6">
+                <div>
+                    <label for="current_password" class="block text-sm font-medium text-gray-700">
+                        Current password
+                    </label>
+                    <input type="password" name="current_password" id="current_password" required
+                        class="mt-1 block w-full rounded-lg border-gray-300 px-4 py-2.5 shadow-sm transition-colors focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20">
+                </div>
+
                 <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                    <div class="sm:col-span-2">
-                        <label for="email" class="block text-sm font-medium text-gray-700">
-                            Email <span class="text-xs text-gray-500">(read-only)</span>
-                        </label>
-                        <input type="email" id="email" value="{{ .User.Email }}" disabled
-                            class="mt-1 block w-full rounded-lg border-gray-300 bg-gray-50 px-4 py-2.5 text-gray-600 shadow-sm cursor-not-allowed">
-                    </div>
-
-                    <div class="sm:col-span-2">
-                        <label for="current_password" class="block text-sm font-medium text-gray-700">
-                            Current Password
-                        </label>
-                        <input type="password" name="current_password" id="current_password" required
-                            class="mt-1 block w-full rounded-lg border-gray-300 px-4 py-2.5 shadow-sm transition-colors focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20">
-                    </div>
-
                     <div>
                         <label for="new_password" class="block text-sm font-medium text-gray-700">
-                            New Password
+                            New password
                         </label>
                         <input type="password" name="new_password" id="new_password" required minlength="8"
                             class="mt-1 block w-full rounded-lg border-gray-300 px-4 py-2.5 shadow-sm transition-colors focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20">
-                        <p class="mt-1 text-xs text-gray-500">Min. 8 characters</p>
+                        <p class="mt-1 text-xs text-gray-500">At least 8 characters.</p>
                     </div>
 
                     <div>
                         <label for="confirm_password" class="block text-sm font-medium text-gray-700">
-                            Confirm New Password
+                            Confirm new password
                         </label>
                         <input type="password" name="confirm_password" id="confirm_password" required minlength="8"
                             class="mt-1 block w-full rounded-lg border-gray-300 px-4 py-2.5 shadow-sm transition-colors focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20">
@@ -67,10 +82,7 @@
                 <div class="flex justify-end">
                     <button type="submit"
                         class="inline-flex items-center rounded-lg border border-transparent bg-blue-600 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition-all hover:bg-blue-700 hover:shadow focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
-                        <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                        </svg>
-                        Update Password
+                        Update password
                     </button>
                 </div>
             </form>
