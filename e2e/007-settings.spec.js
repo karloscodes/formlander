@@ -101,7 +101,38 @@ test.describe("Settings Management", () => {
     helpers.log("✅ Captcha profile created");
   });
 
-  test("4. Change password via settings page", async ({ page }) => {
+  test("4. Change admin email via settings page", async ({ page }) => {
+    helpers.log("=== Changing Admin Email From Settings Page ===");
+
+    const tempEmail = `temp-admin-${Date.now()}@example.com`;
+
+    await helpers.navigateTo("/admin/settings");
+    await helpers.fillForm(
+      {
+        new_email: tempEmail,
+        current_password_email: TEST_PASSWORD,
+      },
+      { submitButton: 'form[action="/admin/settings/email"] button[type="submit"]' }
+    );
+    await expect(page.locator("body")).toContainText("Email updated successfully");
+
+    await helpers.logout();
+    await helpers.login(tempEmail, TEST_PASSWORD);
+
+    await helpers.navigateTo("/admin/settings");
+    await helpers.fillForm(
+      {
+        new_email: TEST_EMAIL,
+        current_password_email: TEST_PASSWORD,
+      },
+      { submitButton: 'form[action="/admin/settings/email"] button[type="submit"]' }
+    );
+    await expect(page.locator("body")).toContainText("Email updated successfully");
+
+    helpers.log("✅ Settings email change verified");
+  });
+
+  test("5. Change password via settings page", async ({ page }) => {
     helpers.log("=== Changing Password From Settings Page ===");
 
     const tempPassword = `TempPwd!${Date.now()}`;

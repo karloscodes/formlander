@@ -130,6 +130,7 @@ func MountRoutes(s *cartridge.Server, cfg *config.Config) {
 	// Settings routes
 	s.Get("/admin/settings", httphandlers.AdminSettingsPage, authConfig)
 	s.Post("/admin/settings/password", httphandlers.AdminSettingsUpdatePassword, authConfig)
+	s.Post("/admin/settings/email", httphandlers.AdminSettingsUpdateEmail, authConfig)
 	s.Post("/admin/settings/mailgun", httphandlers.AdminSettingsUpdateMailgun, authConfig)
 	s.Post("/admin/settings/turnstile", httphandlers.AdminSettingsUpdateTurnstile, authConfig)
 

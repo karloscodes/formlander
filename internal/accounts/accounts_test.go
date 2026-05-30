@@ -178,6 +178,96 @@ func TestChangePassword(t *testing.T) {
 	})
 }
 
+func TestChangeEmail(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+
+	t.Run("changes email successfully", func(t *testing.T) {
+		db := testsupport.SetupTestDB(t)
+		createTestUser(t, db, "old@example.com", "password123", false)
+
+		err := accounts.ChangeEmail(logger, db, "old@example.com", "new@example.com", "password123")
+		require.NoError(t, err)
+
+		_, err = accounts.FindByEmail(db, "old@example.com")
+		assert.ErrorIs(t, err, accounts.ErrUserNotFound)
+
+		user, err := accounts.FindByEmail(db, "new@example.com")
+		require.NoError(t, err)
+		assert.Equal(t, "new@example.com", user.Email)
+
+		result, err := accounts.Authenticate(logger, db, "new@example.com", "password123")
+		require.NoError(t, err)
+		assert.Equal(t, "new@example.com", result.User.Email)
+	})
+
+	t.Run("normalizes new email to lowercase and trims whitespace", func(t *testing.T) {
+		db := testsupport.SetupTestDB(t)
+		createTestUser(t, db, "old@example.com", "password123", false)
+
+		err := accounts.ChangeEmail(logger, db, "old@example.com", "  NEW@Example.COM  ", "password123")
+		require.NoError(t, err)
+
+		user, err := accounts.FindByEmail(db, "new@example.com")
+		require.NoError(t, err)
+		assert.Equal(t, "new@example.com", user.Email)
+	})
+
+	t.Run("rejects wrong current password", func(t *testing.T) {
+		db := testsupport.SetupTestDB(t)
+		createTestUser(t, db, "old@example.com", "password123", false)
+
+		err := accounts.ChangeEmail(logger, db, "old@example.com", "new@example.com", "wrongpassword")
+		assert.ErrorIs(t, err, accounts.ErrPasswordMismatch)
+
+		_, err = accounts.FindByEmail(db, "old@example.com")
+		assert.NoError(t, err, "old email should remain after a failed change")
+	})
+
+	t.Run("rejects non-existent user", func(t *testing.T) {
+		db := testsupport.SetupTestDB(t)
+
+		err := accounts.ChangeEmail(logger, db, "nope@example.com", "new@example.com", "password123")
+		assert.ErrorIs(t, err, accounts.ErrUserNotFound)
+	})
+
+	t.Run("rejects duplicate email", func(t *testing.T) {
+		db := testsupport.SetupTestDB(t)
+		createTestUser(t, db, "a@example.com", "password123", false)
+		createTestUser(t, db, "b@example.com", "password123", false)
+
+		err := accounts.ChangeEmail(logger, db, "a@example.com", "b@example.com", "password123")
+		assert.ErrorIs(t, err, accounts.ErrDuplicateEmail)
+	})
+
+	t.Run("rejects empty new email", func(t *testing.T) {
+		db := testsupport.SetupTestDB(t)
+		createTestUser(t, db, "old@example.com", "password123", false)
+
+		err := accounts.ChangeEmail(logger, db, "old@example.com", "   ", "password123")
+		assert.ErrorIs(t, err, accounts.ErrInvalidEmail)
+	})
+
+	t.Run("rejects malformed email", func(t *testing.T) {
+		db := testsupport.SetupTestDB(t)
+		createTestUser(t, db, "old@example.com", "password123", false)
+
+		err := accounts.ChangeEmail(logger, db, "old@example.com", "not-an-email", "password123")
+		assert.ErrorIs(t, err, accounts.ErrInvalidEmail)
+	})
+
+	t.Run("no-op when new email equals current email after normalization", func(t *testing.T) {
+		db := testsupport.SetupTestDB(t)
+		createTestUser(t, db, "user@example.com", "password123", false)
+
+		err := accounts.ChangeEmail(logger, db, "user@example.com", "USER@example.com", "password123")
+		require.NoError(t, err)
+
+		user, err := accounts.FindByEmail(db, "user@example.com")
+		require.NoError(t, err)
+		assert.Equal(t, "user@example.com", user.Email)
+	})
+}
+
 func TestFindByEmail(t *testing.T) {
 	db := testsupport.SetupTestDB(t)
 
