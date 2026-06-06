@@ -17,7 +17,7 @@ Formlander enables developers running static or serverless sites to handle form 
 - **Single-binary deployment** — One executable with SQLite storage, no external dependencies
 - **Admin dashboard** — View and manage forms, submissions, and delivery status
 - **Asynchronous delivery** — Queue webhook and email notifications with retry logic
-- **Spam protection** — Configurable honeypot fields and rate limiting
+- **Spam protection** — Built-in honeypot field and rate limiting
 - **API-first design** — Dashboard consumes the same REST endpoints available for integrations
 - **Your server, your data** — We don't run servers. We can't see your submissions. That's the point.
 
