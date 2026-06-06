@@ -3,6 +3,7 @@ package forms
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"log/slog"
@@ -12,12 +13,35 @@ import (
 	"formlander/internal/pkg/dbtxn"
 )
 
+// HoneypotField is the form field name reserved for bot-trap detection.
+// Real users leave it empty; bots that fill out every field expose themselves.
+// Submissions where this field has a non-empty value are stored as spam and
+// not forwarded to webhooks or email.
+const HoneypotField = "__fl_hp"
+
 // SubmissionParams holds parameters for creating a submission
 type SubmissionParams struct {
 	FormID    uint
 	DataJSON  string
 	UserAgent string
 	IsSpam    bool
+}
+
+// checkHoneypot returns true when the payload's honeypot field is filled in,
+// and removes the field from the payload so it never reaches storage.
+func checkHoneypot(payload map[string]any) bool {
+	v, ok := payload[HoneypotField]
+	if !ok {
+		return false
+	}
+	delete(payload, HoneypotField)
+	if s, isStr := v.(string); isStr {
+		return strings.TrimSpace(s) != ""
+	}
+	// Any non-string value still counts as "filled" (bots sometimes
+	// submit arrays or other shapes for fields they were never meant
+	// to touch).
+	return v != nil
 }
 
 // CreateSubmission creates a new submission and associated delivery events
@@ -27,6 +51,8 @@ func CreateSubmission(logger *slog.Logger, db *gorm.DB, form *Form, payload map[
 
 // CreateSubmissionWithFiles creates a submission with optional file uploads
 func CreateSubmissionWithFiles(logger *slog.Logger, db *gorm.DB, form *Form, payload map[string]any, userAgent string, dataDir string, files []*UploadedFile) (*Submission, error) {
+	isSpam := checkHoneypot(payload)
+
 	encoded, err := json.Marshal(payload)
 	if err != nil {
 		logger.Error("encode submission payload", slog.Any("error", err))
@@ -38,7 +64,7 @@ func CreateSubmissionWithFiles(logger *slog.Logger, db *gorm.DB, form *Form, pay
 		DataJSON:  string(encoded),
 		IPHash:    "", // Not stored for privacy - only used for rate limiting
 		UserAgent: userAgent,
-		IsSpam:    false,
+		IsSpam:    isSpam,
 	}
 
 	if err := dbtxn.WithRetry(logger, db, func(tx *gorm.DB) error {
@@ -61,23 +87,27 @@ func CreateSubmissionWithFiles(logger *slog.Logger, db *gorm.DB, form *Form, pay
 			submission.Files = fileRecords
 		}
 
-		// Check webhook delivery
-		webhookDelivery := form.WebhookDelivery
-		if webhookDelivery != nil && webhookDelivery.Enabled && webhookDelivery.URL != "" {
-			event := NewWebhookEvent(submission.ID, time.Now().UTC())
-			if err := tx.Create(event).Error; err != nil {
-				return err
-			}
-		}
-
-		// Check email delivery
-		emailDelivery := form.EmailDelivery
-		if emailDelivery != nil && emailDelivery.Enabled {
-			recipient := extractEmailRecipient(emailDelivery)
-			if recipient != "" {
-				event := NewEmailEvent(submission.ID, time.Now().UTC())
+		// Spam submissions are stored but never forwarded — the bot sees a
+		// success response while the honeypot quietly contains it.
+		if !isSpam {
+			// Check webhook delivery
+			webhookDelivery := form.WebhookDelivery
+			if webhookDelivery != nil && webhookDelivery.Enabled && webhookDelivery.URL != "" {
+				event := NewWebhookEvent(submission.ID, time.Now().UTC())
 				if err := tx.Create(event).Error; err != nil {
 					return err
+				}
+			}
+
+			// Check email delivery
+			emailDelivery := form.EmailDelivery
+			if emailDelivery != nil && emailDelivery.Enabled {
+				recipient := extractEmailRecipient(emailDelivery)
+				if recipient != "" {
+					event := NewEmailEvent(submission.ID, time.Now().UTC())
+					if err := tx.Create(event).Error; err != nil {
+						return err
+					}
 				}
 			}
 		}

@@ -245,6 +245,67 @@ func TestCreateSubmission(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, "{}", submission.DataJSON)
 	})
+
+	t.Run("honeypot field marks submission as spam and skips deliveries", func(t *testing.T) {
+		db9 := testsupport.SetupTestDB(t)
+
+		form := &forms.Form{Name: "Honeypot Form", Slug: "honeypot"}
+		require.NoError(t, db9.Create(form).Error)
+		require.NoError(t, db9.Create(&forms.WebhookDelivery{
+			FormID:  form.ID,
+			Enabled: true,
+			URL:     "https://example.com/hook",
+		}).Error)
+		require.NoError(t, db9.Create(&forms.EmailDelivery{
+			FormID:        form.ID,
+			Enabled:       true,
+			OverridesJSON: `{"to": "owner@example.com"}`,
+		}).Error)
+		require.NoError(t, db9.
+			Preload("WebhookDelivery").Preload("EmailDelivery").
+			First(form, form.ID).Error)
+
+		payload := map[string]any{
+			"name":    "Botty",
+			"email":   "bot@spam.example",
+			"__fl_hp": "i-am-a-bot",
+		}
+
+		submission, err := forms.CreateSubmission(logger, db9, form, payload, "BotAgent")
+		require.NoError(t, err)
+		assert.True(t, submission.IsSpam, "filled honeypot should mark IsSpam=true")
+
+		// Stored payload should not include the honeypot field.
+		var stored map[string]any
+		require.NoError(t, json.Unmarshal([]byte(submission.DataJSON), &stored))
+		assert.NotContains(t, stored, "__fl_hp", "honeypot field must be scrubbed from stored data")
+
+		// No delivery events should be enqueued for spam.
+		var webhookEvents []forms.WebhookEvent
+		require.NoError(t, db9.Where("submission_id = ?", submission.ID).Find(&webhookEvents).Error)
+		assert.Len(t, webhookEvents, 0, "no webhook event for spam")
+
+		var emailEvents []forms.EmailEvent
+		require.NoError(t, db9.Where("submission_id = ?", submission.ID).Find(&emailEvents).Error)
+		assert.Len(t, emailEvents, 0, "no email event for spam")
+	})
+
+	t.Run("empty honeypot field does not mark spam", func(t *testing.T) {
+		db10 := testsupport.SetupTestDB(t)
+
+		form := &forms.Form{Name: "Real User Form", Slug: "real-user"}
+		require.NoError(t, db10.Create(form).Error)
+
+		// Real users leave the honeypot blank — must not trigger spam.
+		payload := map[string]any{
+			"name":    "Alice",
+			"__fl_hp": "",
+		}
+
+		submission, err := forms.CreateSubmission(logger, db10, form, payload, "RealUser")
+		require.NoError(t, err)
+		assert.False(t, submission.IsSpam, "empty honeypot must not flag spam")
+	})
 }
 
 func TestSlugify(t *testing.T) {
