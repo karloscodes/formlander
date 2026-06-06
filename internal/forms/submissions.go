@@ -52,6 +52,14 @@ func CreateSubmission(logger *slog.Logger, db *gorm.DB, form *Form, payload map[
 // CreateSubmissionWithFiles creates a submission with optional file uploads
 func CreateSubmissionWithFiles(logger *slog.Logger, db *gorm.DB, form *Form, payload map[string]any, userAgent string, dataDir string, files []*UploadedFile) (*Submission, error) {
 	isSpam := checkHoneypot(payload)
+	if isSpam {
+		// Operator visibility into honeypot activity. Info-level so it
+		// can be filtered out at scale but is on by default.
+		logger.Info("honeypot triggered",
+			slog.Uint64("form_id", uint64(form.ID)),
+			slog.String("form_slug", form.Slug),
+		)
+	}
 
 	encoded, err := json.Marshal(payload)
 	if err != nil {
@@ -72,8 +80,11 @@ func CreateSubmissionWithFiles(logger *slog.Logger, db *gorm.DB, form *Form, pay
 			return err
 		}
 
-		// Save files to disk and create records
-		if len(files) > 0 && dataDir != "" {
+		// Save files to disk and create records.
+		// Spam submissions don't save files: the bot got its 2xx, but we
+		// don't want to give it a free disk-fill vector for forms that
+		// accept uploads.
+		if !isSpam && len(files) > 0 && dataDir != "" {
 			fileRecords, err := SaveFiles(dataDir, form.ID, submission.ID, files)
 			if err != nil {
 				return fmt.Errorf("failed to save files: %w", err)
