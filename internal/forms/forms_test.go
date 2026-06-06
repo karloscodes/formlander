@@ -1,7 +1,10 @@
 package forms_test
 
 import (
+	"bytes"
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"formlander/internal/forms"
@@ -288,6 +291,42 @@ func TestCreateSubmission(t *testing.T) {
 		var emailEvents []forms.EmailEvent
 		require.NoError(t, db9.Where("submission_id = ?", submission.ID).Find(&emailEvents).Error)
 		assert.Len(t, emailEvents, 0, "no email event for spam")
+	})
+
+	t.Run("honeypot-trapped submission does not save uploaded files", func(t *testing.T) {
+		db11 := testsupport.SetupTestDB(t)
+		dataDir := t.TempDir()
+
+		form := &forms.Form{Name: "File Form", Slug: "file-form"}
+		require.NoError(t, db11.Create(form).Error)
+
+		payload := map[string]any{
+			"name":    "Botty",
+			"__fl_hp": "i-am-a-bot",
+		}
+		files := []*forms.UploadedFile{{
+			FieldName:   "attachment",
+			Filename:    "payload.bin",
+			ContentType: "application/octet-stream",
+			Size:        4,
+			Data:        bytes.NewReader([]byte("junk")),
+		}}
+
+		submission, err := forms.CreateSubmissionWithFiles(logger, db11, form, payload, "BotAgent", dataDir, files)
+		require.NoError(t, err)
+		assert.True(t, submission.IsSpam, "filled honeypot must mark spam")
+		assert.Empty(t, submission.Files, "spam submission must not attach files")
+
+		// No file rows persisted.
+		var fileRows []forms.SubmissionFile
+		require.NoError(t, db11.Where("submission_id = ?", submission.ID).Find(&fileRows).Error)
+		assert.Len(t, fileRows, 0, "no SubmissionFile rows for spam")
+
+		// And no bytes were written to disk for this form/submission.
+		formDir := filepath.Join(dataDir, "forms")
+		if entries, err := os.ReadDir(formDir); err == nil {
+			assert.Len(t, entries, 0, "spam must not write to dataDir")
+		}
 	})
 
 	t.Run("empty honeypot field does not mark spam", func(t *testing.T) {

@@ -30,6 +30,7 @@ func SetupTestDB(t *testing.T) *gorm.DB {
 		&forms.WebhookDelivery{},
 		&forms.WebhookEvent{},
 		&forms.EmailEvent{},
+		&forms.SubmissionFile{},
 		// Integrations
 		&integrations.MailerProfile{},
 		&integrations.CaptchaProfile{},
