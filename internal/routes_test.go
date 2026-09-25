@@ -238,7 +238,7 @@ func TestPublicFormSubmissionGuards(t *testing.T) {
 			map[string]string{"Origin": "https://attacker.com"})
 
 		assert.Equal(t, 403, status)
-		assert.Contains(t, body, "origin not allowed")
+		assert.Contains(t, body, "origin not allowed: add attacker.com to this form's Allowed Origins")
 	})
 
 	t.Run("rejects request with no Origin or Referer when allowlist is set", func(t *testing.T) {

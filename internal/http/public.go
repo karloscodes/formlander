@@ -3,6 +3,7 @@ package http
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"strings"
 	"time"
@@ -40,8 +41,13 @@ func PublicFormSubmission(ctx *cartridge.Context) error {
 	}
 
 	// Check allowed origins (domain allowlisting)
-	if !form.IsOriginAllowed(getRequestOrigin(ctx)) {
-		return jsonError(ctx, fiber.StatusForbidden, "origin not allowed")
+	// Name the origin, so the owner knows what to add. A localhost test
+	// fails here until localhost is in the list.
+	if origin := getRequestOrigin(ctx); !form.IsOriginAllowed(origin) {
+		if origin == "" {
+			return jsonError(ctx, fiber.StatusForbidden, "origin not allowed: the request has no Origin or Referer header")
+		}
+		return jsonError(ctx, fiber.StatusForbidden, fmt.Sprintf("origin not allowed: add %s to this form's Allowed Origins", origin))
 	}
 
 	payload, err := extractSubmissionPayload(ctx, cfg)
