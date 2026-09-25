@@ -143,6 +143,31 @@ func TestSendSMTP(t *testing.T) {
 		assert.False(t, captured.authReceived, "expected no AUTH when username empty")
 		assert.Contains(t, captured.from, "a@x.com")
 	})
+
+	t.Run("gives up when the server never sends a greeting", func(t *testing.T) {
+		ln, err := net.Listen("tcp", "127.0.0.1:0")
+		require.NoError(t, err)
+		t.Cleanup(func() { _ = ln.Close() })
+		go func() {
+			conn, err := ln.Accept()
+			if err != nil {
+				return
+			}
+			defer conn.Close()
+			time.Sleep(2 * time.Second)
+		}()
+		previous := smtpTimeout
+		smtpTimeout = 200 * time.Millisecond
+		t.Cleanup(func() { smtpTimeout = previous })
+		port := ln.Addr().(*net.TCPAddr).Port
+		cfg := &smtpConfig{Host: "127.0.0.1", Port: port, Encryption: "none", From: "a@x.com", To: "b@x.com"}
+
+		start := time.Now()
+		err = sendSMTP(cfg, buildSMTPMessage(cfg.From, cfg.To, "S", "B"))
+
+		require.Error(t, err)
+		assert.Less(t, time.Since(start), time.Second)
+	})
 }
 
 func TestEmailDispatcherDeliversViaSMTP(t *testing.T) {

@@ -10,6 +10,9 @@ import (
 	"time"
 )
 
+// smtpTimeout bounds one SMTP send, from dial to QUIT.
+var smtpTimeout = 30 * time.Second
+
 // smtpConfig holds the resolved settings for one SMTP send.
 type smtpConfig struct {
 	Host       string
@@ -30,22 +33,28 @@ type smtpConfig struct {
 func sendSMTP(cfg *smtpConfig, msg []byte) error {
 	addr := net.JoinHostPort(cfg.Host, strconv.Itoa(cfg.Port))
 
-	var client *smtp.Client
+	// One deadline covers the whole session, so a server that stalls cannot
+	// block the jobs loop.
+	dialer := &net.Dialer{Timeout: smtpTimeout}
+	var conn net.Conn
+	var err error
 	if cfg.Encryption == "tls" {
-		conn, err := tls.Dial("tcp", addr, tlsConfigFor(cfg.Host))
-		if err != nil {
-			return err
-		}
-		client, err = smtp.NewClient(conn, cfg.Host)
-		if err != nil {
-			return err
-		}
+		conn, err = tls.DialWithDialer(dialer, "tcp", addr, tlsConfigFor(cfg.Host))
 	} else {
-		var err error
-		client, err = smtp.Dial(addr)
-		if err != nil {
-			return err
-		}
+		conn, err = dialer.Dial("tcp", addr)
+	}
+	if err != nil {
+		return err
+	}
+	if err := conn.SetDeadline(time.Now().Add(smtpTimeout)); err != nil {
+		conn.Close()
+		return err
+	}
+
+	client, err := smtp.NewClient(conn, cfg.Host)
+	if err != nil {
+		conn.Close()
+		return err
 	}
 	defer client.Close()
 
