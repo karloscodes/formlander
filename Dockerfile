@@ -36,7 +36,6 @@ RUN tailwindcss -i web/static/app.css -o web/static/app.built.css --minify
 # Copy remaining application source
 COPY cmd ./cmd
 COPY internal ./internal
-COPY pkg ./pkg
 
 # Build binary with commit SHA for cache busting
 RUN CGO_ENABLED=1 GOOS=linux go build \

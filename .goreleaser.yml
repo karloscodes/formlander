@@ -68,7 +68,6 @@ dockers:
       - go.sum
       - cmd
       - internal
-      - pkg
       - web
       - tailwind.config.js
 
@@ -89,7 +88,6 @@ dockers:
       - go.sum
       - cmd
       - internal
-      - pkg
       - web
       - tailwind.config.js
 
