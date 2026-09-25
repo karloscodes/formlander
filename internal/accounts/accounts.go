@@ -187,7 +187,8 @@ func ChangeEmail(logger *slog.Logger, db *gorm.DB, currentEmail, newEmail, curre
 	if newEmail == "" {
 		return ErrInvalidEmail
 	}
-	if _, err := mail.ParseAddress(newEmail); err != nil {
+	// ParseAddress also accepts "Name <addr>"; only a bare address can log in.
+	if addr, err := mail.ParseAddress(newEmail); err != nil || addr.Address != newEmail {
 		return ErrInvalidEmail
 	}
 

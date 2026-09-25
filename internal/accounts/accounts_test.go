@@ -255,6 +255,17 @@ func TestChangeEmail(t *testing.T) {
 		assert.ErrorIs(t, err, accounts.ErrInvalidEmail)
 	})
 
+	t.Run("rejects an address with a display name", func(t *testing.T) {
+		db := testsupport.SetupTestDB(t)
+		createTestUser(t, db, "old@example.com", "password123", false)
+
+		err := accounts.ChangeEmail(logger, db, "old@example.com", "Admin <new@example.com>", "password123")
+
+		assert.ErrorIs(t, err, accounts.ErrInvalidEmail)
+		_, findErr := accounts.FindByEmail(db, "old@example.com")
+		assert.NoError(t, findErr, "the admin keeps the old login")
+	})
+
 	t.Run("no-op when new email equals current email after normalization", func(t *testing.T) {
 		db := testsupport.SetupTestDB(t)
 		createTestUser(t, db, "user@example.com", "password123", false)
