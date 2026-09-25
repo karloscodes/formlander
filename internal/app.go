@@ -14,6 +14,7 @@ import (
 	"formlander/internal/accounts"
 	"formlander/internal/config"
 	"formlander/internal/database"
+	httphandlers "formlander/internal/http"
 	"formlander/internal/jobs"
 	"formlander/internal/pkg/dbtxn"
 	"formlander/internal/server"
@@ -64,6 +65,10 @@ func RunMigrations(app *App) error {
 
 	if err := ensureAdminUser(db, app.Config, app.Logger); err != nil {
 		return fmt.Errorf("ensure admin user: %w", err)
+	}
+
+	if err := httphandlers.UpgradeOldStarterHTML(app.Logger, db); err != nil {
+		app.Logger.Warn("failed to upgrade old starter templates", slog.Any("error", err))
 	}
 
 	if err := app.DBManager.CheckpointWAL("FULL"); err != nil {
