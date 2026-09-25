@@ -35,31 +35,18 @@
                             class="rounded-lg px-3 py-2 text-sm font-medium text-gray-300 transition-colors hover:bg-white/10 hover:text-white">
                             Submissions
                         </a>
-                        <div class="relative dropdown">
-                            <button
-                                class="rounded-lg px-3 py-2 text-sm font-medium text-gray-300 transition-colors hover:bg-white/10 hover:text-white flex items-center gap-1">
-                                Settings
-                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M19 9l-7 7-7-7" />
-                                </svg>
-                            </button>
-                            <div
-                                class="dropdown-menu hidden absolute right-0 mt-0 w-48 rounded-lg border border-gray-700 bg-gray-800 shadow-xl z-50 py-1">
-                                <a href="/admin/settings"
-                                    class="block px-4 py-2.5 text-sm text-gray-300 hover:bg-white/10 hover:text-white">
-                                    Account
-                                </a>
-                                <a href="/admin/settings/mailers"
-                                    class="block px-4 py-2.5 text-sm text-gray-300 hover:bg-white/10 hover:text-white">
-                                    Mailers
-                                </a>
-                                <a href="/admin/settings/captcha"
-                                    class="block px-4 py-2.5 text-sm text-gray-300 hover:bg-white/10 hover:text-white">
-                                    Captcha
-                                </a>
-                            </div>
-                        </div>
+                        <a href="/admin/settings/mailers"
+                            class="rounded-lg px-3 py-2 text-sm font-medium text-gray-300 transition-colors hover:bg-white/10 hover:text-white">
+                            Mailers
+                        </a>
+                        <a href="/admin/settings/captcha"
+                            class="rounded-lg px-3 py-2 text-sm font-medium text-gray-300 transition-colors hover:bg-white/10 hover:text-white">
+                            Captcha
+                        </a>
+                        <a href="/admin/settings"
+                            class="rounded-lg px-3 py-2 text-sm font-medium text-gray-300 transition-colors hover:bg-white/10 hover:text-white">
+                            Settings
+                        </a>
                     </nav>
                     <div class="h-6 w-px bg-gray-700"></div>
                     <form action="/admin/logout" method="post">
