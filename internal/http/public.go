@@ -25,29 +25,34 @@ func PublicFormSubmission(ctx *cartridge.Context) error {
 
 	slug := ctx.Params("slug")
 	if slug == "" {
-		return jsonError(ctx, fiber.StatusNotFound, "form not found")
+		return submitError(ctx, fiber.StatusNotFound, "form not found")
 	}
 
 	form, err := forms.GetBySlug(db, slug)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return jsonError(ctx, fiber.StatusNotFound, "form not found")
+			return submitError(ctx, fiber.StatusNotFound, "form not found")
 		}
-		return jsonError(ctx, fiber.StatusInternalServerError, "form lookup failed")
+		return submitError(ctx, fiber.StatusInternalServerError, "form lookup failed")
 	}
 
 	if token := ctx.Query("token"); token == "" || token != form.Token {
-		return jsonError(ctx, fiber.StatusUnauthorized, "invalid token")
+		return submitError(ctx, fiber.StatusUnauthorized, "invalid token")
 	}
 
 	// Check allowed origins (domain allowlisting)
 	// Name the origin, so the owner knows what to add. A localhost test
 	// fails here until localhost is in the list.
 	if origin := getRequestOrigin(ctx); !form.IsOriginAllowed(origin) {
+		ctx.Logger.Warn("submission origin not allowed",
+			slog.String("form", form.Slug),
+			slog.String("origin_header", ctx.Get("Origin")),
+			slog.String("referer_header", ctx.Get(fiber.HeaderReferer)),
+		)
 		if origin == "" {
-			return jsonError(ctx, fiber.StatusForbidden, "origin not allowed: the request has no Origin or Referer header")
+			return submitError(ctx, fiber.StatusForbidden, "origin not allowed: the request has no Origin or Referer header")
 		}
-		return jsonError(ctx, fiber.StatusForbidden, fmt.Sprintf("origin not allowed: add %s to this form's Allowed Origins", origin))
+		return submitError(ctx, fiber.StatusForbidden, fmt.Sprintf("origin not allowed: add %s to this form's Allowed Origins", origin))
 	}
 
 	payload, err := extractSubmissionPayload(ctx, cfg)
@@ -58,7 +63,7 @@ func PublicFormSubmission(ctx *cartridge.Context) error {
 				return ctx.Redirect(errorURL)
 			}
 		}
-		return jsonError(ctx, fiber.StatusBadRequest, err.Error())
+		return submitError(ctx, fiber.StatusBadRequest, err.Error())
 	}
 
 	// Extract custom redirect URLs before saving (don't store them)
@@ -68,12 +73,12 @@ func PublicFormSubmission(ctx *cartridge.Context) error {
 	// Validate redirect URLs
 	if successURL != "" {
 		if err := form.ValidateRedirectURL(successURL); err != nil {
-			return jsonError(ctx, fiber.StatusBadRequest, "invalid success redirect URL")
+			return submitError(ctx, fiber.StatusBadRequest, "invalid success redirect URL")
 		}
 	}
 	if errorURL != "" {
 		if err := form.ValidateRedirectURL(errorURL); err != nil {
-			return jsonError(ctx, fiber.StatusBadRequest, "invalid error redirect URL")
+			return submitError(ctx, fiber.StatusBadRequest, "invalid error redirect URL")
 		}
 	}
 
@@ -81,7 +86,7 @@ func PublicFormSubmission(ctx *cartridge.Context) error {
 		if errorURL != "" {
 			return ctx.Redirect(errorURL)
 		}
-		return jsonError(ctx, fiber.StatusBadRequest, err.Error())
+		return submitError(ctx, fiber.StatusBadRequest, err.Error())
 	}
 
 	// Remove special fields from payload
@@ -96,7 +101,7 @@ func PublicFormSubmission(ctx *cartridge.Context) error {
 			if errorURL != "" {
 				return ctx.Redirect(errorURL)
 			}
-			return jsonError(ctx, fiber.StatusBadRequest, err.Error())
+			return submitError(ctx, fiber.StatusBadRequest, err.Error())
 		}
 	}
 
@@ -110,12 +115,16 @@ func PublicFormSubmission(ctx *cartridge.Context) error {
 		if errorURL != "" {
 			return ctx.Redirect(errorURL)
 		}
-		return jsonError(ctx, fiber.StatusInternalServerError, err.Error())
+		return submitError(ctx, fiber.StatusInternalServerError, err.Error())
 	}
 
 	// Check for custom success redirect
 	if successURL != "" {
 		return ctx.Redirect(successURL)
+	}
+
+	if wantsHTML(ctx) {
+		return submitSuccess(ctx)
 	}
 
 	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
@@ -309,7 +318,8 @@ func jsonError(ctx *cartridge.Context, status int, message string) error {
 // Returns an extracted domain (e.g., "example.com"), not the full URL.
 func getRequestOrigin(ctx *cartridge.Context) string {
 	origin := ctx.Get("Origin")
-	if origin == "" {
+	// Browsers send the literal "null" in privacy-sensitive cases.
+	if origin == "" || origin == "null" {
 		origin = ctx.Get("Referer")
 	}
 	if origin == "" {

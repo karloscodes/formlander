@@ -260,4 +260,38 @@ func TestPublicFormSubmissionGuards(t *testing.T) {
 
 		assert.Equal(t, 200, status)
 	})
+
+	t.Run("falls back to Referer when the browser sends Origin: null", func(t *testing.T) {
+		ts := mountTestServer(t)
+		seedForm(t, ts)
+
+		status, _ := formPost(t, ts, "/forms/contact/submit?token=secret-token", "field=value",
+			map[string]string{"Origin": "null", "Referer": "https://example.com/contact"})
+
+		assert.Equal(t, 200, status)
+	})
+
+	t.Run("shows a thank-you page to a browser posting the form", func(t *testing.T) {
+		ts := mountTestServer(t)
+		seedForm(t, ts)
+
+		status, body := formPost(t, ts, "/forms/contact/submit?token=secret-token", "field=value",
+			map[string]string{"Origin": "https://example.com", "Referer": "https://example.com/contact", "Sec-Fetch-Mode": "navigate"})
+
+		assert.Equal(t, 200, status)
+		assert.Contains(t, body, "Thanks, we got it.")
+		assert.Contains(t, body, `href="https://example.com/contact"`)
+	})
+
+	t.Run("shows an error page to a browser posting from a site not allowed", func(t *testing.T) {
+		ts := mountTestServer(t)
+		seedForm(t, ts)
+
+		status, body := formPost(t, ts, "/forms/contact/submit?token=secret-token", "field=value",
+			map[string]string{"Origin": "https://attacker.com", "Sec-Fetch-Mode": "navigate"})
+
+		assert.Equal(t, 403, status)
+		assert.Contains(t, body, "This form can&#39;t be sent from this site.")
+		assert.Contains(t, body, "add attacker.com to this form&#39;s Allowed Origins")
+	})
 }
