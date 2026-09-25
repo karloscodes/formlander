@@ -223,7 +223,8 @@ func AdminFormShow(ctx *cartridge.Context) error {
 	}
 
 	endpoint := fmt.Sprintf("/forms/%s/submit", form.Slug)
-	actionURL := liveFormAction(form.Slug, form.Token)
+	// The code is pasted on other sites, so the action must be absolute.
+	actionURL := ctx.BaseURL() + liveFormAction(form.Slug, form.Token)
 	captchaEmbed := buildCaptchaEmbed(form)
 	formCode := ""
 	hasGeneratedHTML := strings.TrimSpace(form.GeneratedHTML) != ""
