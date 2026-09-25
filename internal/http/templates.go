@@ -26,7 +26,7 @@ func GetFormTemplates() []FormTemplate {
 		{
 			ID:          "contact",
 			Name:        "Contact Form",
-			Description: "Simple contact form with name, email, and message fields",
+			Description: "Name, email, and a message.",
 			Slug:        "contact",
 			Icon:        "💬",
 			Color:       "blue",
@@ -38,7 +38,7 @@ func GetFormTemplates() []FormTemplate {
 		{
 			ID:          "feedback",
 			Name:        "Feedback Form",
-			Description: "Collect user feedback and feature requests",
+			Description: "A quick rating and a comment.",
 			Slug:        "feedback",
 			Icon:        "💡",
 			Color:       "purple",
@@ -50,7 +50,7 @@ func GetFormTemplates() []FormTemplate {
 		{
 			ID:          "bug-report",
 			Name:        "Bug Report",
-			Description: "Help users report bugs and technical issues",
+			Description: "Severity, steps to reproduce, and what went wrong.",
 			Slug:        "bug-report",
 			Icon:        "🐛",
 			Color:       "red",
@@ -62,7 +62,7 @@ func GetFormTemplates() []FormTemplate {
 		{
 			ID:          "newsletter",
 			Name:        "Newsletter Signup",
-			Description: "Collect email addresses for your newsletter",
+			Description: "An email address and consent to send.",
 			Slug:        "newsletter",
 			Icon:        "📧",
 			Color:       "green",
@@ -74,7 +74,7 @@ func GetFormTemplates() []FormTemplate {
 		{
 			ID:          "waitlist",
 			Name:        "Waitlist",
-			Description: "Build a waitlist for your product launch",
+			Description: "An email, plus a few optional details.",
 			Slug:        "waitlist",
 			Icon:        "⏳",
 			Color:       "yellow",
@@ -100,7 +100,7 @@ func GetFormTemplates() []FormTemplate {
 		{
 			ID:              "blank",
 			Name:            "Blank Form",
-			Description:     "Start from scratch with an empty form",
+			Description:     "Two fields. Build the rest yourself.",
 			Slug:            "",
 			Icon:            "📝",
 			Color:           "gray",
@@ -136,335 +136,357 @@ func (t *FormTemplate) RenderHTML(action string) string {
 	return strings.ReplaceAll(t.HTML, "{{FORM_ACTION}}", action)
 }
 
-const sharedTemplateStyles = `
-<style>
+// sharedTemplateStyles is scoped to .formlander-shell so it cannot restyle
+// the page that embeds the form. --fl-accent colors the button and the
+// focus ring; change that one value to match your brand.
+const sharedTemplateStyles = `<style>
 	.formlander-shell {
-		max-width: 520px;
+		--fl-accent: #1c1917;
+		box-sizing: border-box;
+		max-width: 480px;
 		margin: 24px auto;
-		background: #ffffff;
-		border-radius: 20px;
 		padding: 32px;
-		border: 1px solid #e2e8f0;
-		box-shadow: 0 25px 45px rgba(15, 23, 42, 0.08);
-		font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-		color: #0f172a;
+		background: #ffffff;
+		border-radius: 16px;
+		box-shadow: 0 1px 2px rgba(28, 25, 23, 0.04), 0 0 0 1px rgba(28, 25, 23, 0.08);
+		font-family: Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+		line-height: 1.5;
+		color: #1c1917;
+		color-scheme: light;
 	}
 
-	.formlander-eyebrow {
-		display: inline-flex;
-		align-items: center;
-		gap: 6px;
-		padding: 4px 12px;
-		border-radius: 9999px;
-		font-size: 12px;
+	.formlander-shell *,
+	.formlander-shell *::before,
+	.formlander-shell *::after {
+		box-sizing: inherit;
+	}
+
+	.formlander-shell .formlander-eyebrow {
+		margin: 0;
+		font-size: 0.75rem;
 		font-weight: 600;
-		text-transform: uppercase;
 		letter-spacing: 0.08em;
-		background: rgba(59, 130, 246, 0.12);
-		color: #2563eb;
+		text-transform: uppercase;
+		color: #78716c;
 	}
 
 	.formlander-shell h2 {
-		font-size: 1.6rem;
-		margin: 0.85rem 0 0.4rem;
+		margin: 6px 0 6px;
+		font-size: 1.5rem;
+		line-height: 1.25;
+		font-weight: 600;
+		letter-spacing: -0.02em;
 	}
 
 	.formlander-shell p {
 		margin: 0;
-		color: #64748b;
 		font-size: 0.95rem;
+		color: #44403c;
 	}
 
 	.formlander-stack {
-		display: flex;
-		flex-direction: column;
-		gap: 18px;
-		margin-top: 1.5rem;
+		display: grid;
+		gap: 16px;
+		margin-top: 24px;
 	}
 
 	.formlander-row {
-		display: flex;
-		flex-wrap: wrap;
+		display: grid;
 		gap: 16px;
+		grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
 	}
 
 	.formlander-field {
-		flex: 1;
-		min-width: 160px;
+		display: block;
+		min-width: 0;
 	}
 
-	.formlander-field span {
+	.formlander-label {
 		display: block;
-		font-size: 0.85rem;
-		font-weight: 600;
-		color: #475569;
 		margin-bottom: 6px;
+		font-size: 0.875rem;
+		font-weight: 500;
+		color: #1c1917;
+	}
+
+	.formlander-optional {
+		font-weight: 400;
+		color: #78716c;
 	}
 
 	.formlander-field input,
 	.formlander-field select,
 	.formlander-field textarea {
+		display: block;
 		width: 100%;
-		border: 1px solid #d0d7e3;
-		border-radius: 14px;
-		padding: 12px 14px;
-		font-size: 0.95rem;
-		transition: border 0.2s ease, box-shadow 0.2s ease;
-		background: #f8fafc;
+		margin: 0;
+		padding: 10px 12px;
+		font: inherit;
+		font-size: 1rem;
+		color: #1c1917;
+		background: #ffffff;
+		border: 1px solid #d6d3d1;
+		border-radius: 8px;
+		transition: border-color 0.15s ease, box-shadow 0.15s ease;
+	}
+
+	.formlander-field select {
+		appearance: none;
+		padding-right: 36px;
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%2378716c'%3E%3Cpath d='M5.3 7.3a1 1 0 0 1 1.4 0L10 10.6l3.3-3.3a1 1 0 1 1 1.4 1.4l-4 4a1 1 0 0 1-1.4 0l-4-4a1 1 0 0 1 0-1.4z'/%3E%3C/svg%3E");
+		background-repeat: no-repeat;
+		background-position: right 12px center;
+		background-size: 16px;
 	}
 
 	.formlander-field textarea {
-		min-height: 120px;
+		min-height: 112px;
 		resize: vertical;
 	}
 
+	.formlander-field ::placeholder {
+		color: #a8a29e;
+	}
+
 	.formlander-field input:focus,
-	.formlander-field textarea:focus,
-	.formlander-field select:focus {
+	.formlander-field select:focus,
+	.formlander-field textarea:focus {
 		outline: none;
-		border-color: #2563eb;
-		box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
-		background: #ffffff;
+		border-color: var(--fl-accent);
+		box-shadow: 0 0 0 3px color-mix(in srgb, var(--fl-accent) 20%, transparent);
 	}
 
 	.formlander-helper {
+		margin-top: 6px;
 		font-size: 0.8rem;
-		color: #94a3b8;
-		margin-top: 4px;
-	}
-
-	.formlander-button {
-		width: 100%;
-		border: none;
-		border-radius: 16px;
-		padding: 14px 18px;
-		font-size: 1rem;
-		font-weight: 600;
-		color: #ffffff;
-		background: linear-gradient(135deg, #2563eb, #4338ca);
-		cursor: pointer;
-		transition: transform 0.2s ease, box-shadow 0.2s ease;
-	}
-
-	.formlander-button:hover {
-		transform: translateY(-1px);
-		box-shadow: 0 15px 30px rgba(37, 99, 235, 0.25);
+		color: #78716c;
 	}
 
 	.formlander-checkbox {
 		display: flex;
 		align-items: flex-start;
-		gap: 12px;
-		font-size: 0.9rem;
-		color: #475569;
+		gap: 10px;
+		font-size: 0.875rem;
+		color: #44403c;
 	}
 
 	.formlander-checkbox input {
-		width: 18px;
-		height: 18px;
-		margin-top: 3px;
+		flex: none;
+		width: 16px;
+		height: 16px;
+		margin: 3px 0 0;
+		accent-color: var(--fl-accent);
+	}
+
+	.formlander-button {
+		width: 100%;
+		padding: 12px 20px;
+		font: inherit;
+		font-weight: 500;
+		color: #ffffff;
+		background: var(--fl-accent);
+		border: 0;
+		border-radius: 8px;
+		cursor: pointer;
+		transition: opacity 0.15s ease;
+	}
+
+	.formlander-button:hover {
+		opacity: 0.88;
+	}
+
+	.formlander-button:focus-visible {
+		outline: 2px solid var(--fl-accent);
+		outline-offset: 2px;
+	}
+
+	.formlander-hp {
+		display: none !important;
+	}
+
+	@media (max-width: 520px) {
+		.formlander-shell {
+			margin: 16px;
+			padding: 24px;
+		}
 	}
 </style>
 `
 
-const contactTemplateHTML = `
+// honeypotField is left empty by people and filled by bots. Formlander
+// flags any submission where it has a value.
+const honeypotField = `<input type="text" name="__fl_hp" class="formlander-hp" tabindex="-1" autocomplete="off" aria-hidden="true">`
+
+const contactTemplateHTML = sharedTemplateStyles + `
 <div class="formlander-shell">
-	<div class="formlander-eyebrow">Contact</div>
-	<h2>Contact our team</h2>
-	<p>Tell us how we can help and someone will reply within one business day.</p>
+	<p class="formlander-eyebrow">Contact</p>
+	<h2>Get in touch</h2>
+	<p>Send us a message and we'll reply by email.</p>
 
 	<form action="{{FORM_ACTION}}" method="POST" class="formlander-stack">
+		<!-- Add, rename, or remove fields freely. Formlander saves whatever this form sends. -->
 		<div class="formlander-row">
 			<label class="formlander-field">
-				<span>Full name</span>
-				<input type="text" name="name" placeholder="Alex Rivers" required>
+				<span class="formlander-label">Name</span>
+				<input type="text" name="name" autocomplete="name" required>
 			</label>
 			<label class="formlander-field">
-				<span>Company</span>
-				<input type="text" name="company" placeholder="Acme Inc.">
-			</label>
-		</div>
-
-		<div class="formlander-row">
-			<label class="formlander-field">
-				<span>Email address</span>
-				<input type="email" name="email" placeholder="you@example.com" required>
-			</label>
-			<label class="formlander-field">
-				<span>Topic</span>
-				<select name="topic" required>
-					<option value="">Choose a topic</option>
-					<option>Product question</option>
-					<option>Billing</option>
-					<option>Partnership</option>
-					<option>Something else</option>
-				</select>
+				<span class="formlander-label">Email</span>
+				<input type="email" name="email" autocomplete="email" placeholder="you@example.com" required>
 			</label>
 		</div>
 
 		<label class="formlander-field">
-			<span>How can we help?</span>
-			<textarea name="message" placeholder="Share details about your request" required></textarea>
+			<span class="formlander-label">Topic <span class="formlander-optional">(optional)</span></span>
+			<select name="topic">
+				<option value="">Choose a topic</option>
+				<option>Question</option>
+				<option>Billing</option>
+				<option>Partnership</option>
+				<option>Something else</option>
+			</select>
 		</label>
 
-		<label class="formlander-checkbox">
-			<input type="checkbox" name="consent" required>
-			<span>I agree to be contacted about this request.</span>
+		<label class="formlander-field">
+			<span class="formlander-label">Message</span>
+			<textarea name="message" required></textarea>
 		</label>
 
+		` + honeypotField + `
 		<button type="submit" class="formlander-button">Send message</button>
 	</form>
 </div>
-` + sharedTemplateStyles
+`
 
-const newsletterTemplateHTML = `
+const newsletterTemplateHTML = sharedTemplateStyles + `
 <div class="formlander-shell">
-	<div class="formlander-eyebrow" style="background: rgba(16, 185, 129, 0.18); color: #059669;">Newsletter</div>
-	<h2>Join the newsletter</h2>
-	<p>Receive product updates, launch notes, and best practices twice a month.</p>
+	<p class="formlander-eyebrow">Newsletter</p>
+	<h2>Get the newsletter</h2>
+	<p>Product news and useful notes. Unsubscribe any time.</p>
 
 	<form action="{{FORM_ACTION}}" method="POST" class="formlander-stack">
+		<!-- Add, rename, or remove fields freely. Formlander saves whatever this form sends. -->
 		<label class="formlander-field">
-			<span>Email address</span>
-			<input type="email" name="email" placeholder="you@company.com" required>
+			<span class="formlander-label">Email</span>
+			<input type="email" name="email" autocomplete="email" placeholder="you@example.com" required>
 		</label>
 
 		<label class="formlander-field">
-			<span>First name</span>
-			<input type="text" name="first_name" placeholder="Jamie" required>
-		</label>
-
-		<label class="formlander-field">
-			<span>What would you like to hear about?</span>
-			<select name="interest">
-				<option>Product updates</option>
-				<option>Growth stories</option>
-				<option>Weekly tips</option>
-			</select>
+			<span class="formlander-label">First name <span class="formlander-optional">(optional)</span></span>
+			<input type="text" name="first_name" autocomplete="given-name">
 		</label>
 
 		<label class="formlander-checkbox">
-			<input type="checkbox" name="consent" required>
-			<span>I agree to receive occasional product emails.</span>
+			<input type="checkbox" name="consent" value="yes" required>
+			<span>Send me the newsletter. I can unsubscribe at any time.</span>
 		</label>
 
-		<button type="submit" class="formlander-button" style="background: linear-gradient(135deg, #059669, #047857);">Subscribe</button>
+		` + honeypotField + `
+		<button type="submit" class="formlander-button">Subscribe</button>
 	</form>
 </div>
-` + sharedTemplateStyles
+`
 
-const waitlistTemplateHTML = `
+const waitlistTemplateHTML = sharedTemplateStyles + `
 <div class="formlander-shell">
-	<div class="formlander-eyebrow" style="background: rgba(245, 158, 11, 0.16); color: #d97706;">Waitlist</div>
-	<h2>Join the early access list</h2>
-	<p>We’re releasing limited invites. Tell us a bit about your team and we’ll keep you posted.</p>
+	<p class="formlander-eyebrow">Waitlist</p>
+	<h2>Join the waitlist</h2>
+	<p>Leave your email and we'll let you know when it's ready.</p>
 
 	<form action="{{FORM_ACTION}}" method="POST" class="formlander-stack">
-		<div class="formlander-row">
-			<label class="formlander-field">
-				<span>Full name</span>
-				<input type="text" name="name" placeholder="Morgan Lee" required>
-			</label>
-			<label class="formlander-field">
-				<span>Company</span>
-				<input type="text" name="company" placeholder="Northwind">
-			</label>
-		</div>
+		<!-- Add, rename, or remove fields freely. Formlander saves whatever this form sends. -->
+		<label class="formlander-field">
+			<span class="formlander-label">Email</span>
+			<input type="email" name="email" autocomplete="email" placeholder="you@example.com" required>
+		</label>
 
 		<div class="formlander-row">
 			<label class="formlander-field">
-				<span>Work email</span>
-				<input type="email" name="email" placeholder="you@company.com" required>
+				<span class="formlander-label">Name <span class="formlander-optional">(optional)</span></span>
+				<input type="text" name="name" autocomplete="name">
 			</label>
 			<label class="formlander-field">
-				<span>Team size</span>
-				<select name="team_size">
-					<option value="">Select</option>
-					<option>1-5 people</option>
-					<option>6-25 people</option>
-					<option>26-100 people</option>
-					<option>100+ people</option>
-				</select>
+				<span class="formlander-label">Company <span class="formlander-optional">(optional)</span></span>
+				<input type="text" name="company" autocomplete="organization">
 			</label>
 		</div>
 
 		<label class="formlander-field">
-			<span>What will you use us for?</span>
-			<textarea name="use_case" placeholder="Share how your team would use the product" required></textarea>
+			<span class="formlander-label">What would you use it for? <span class="formlander-optional">(optional)</span></span>
+			<textarea name="use_case"></textarea>
 		</label>
 
-		<button type="submit" class="formlander-button" style="background: linear-gradient(135deg, #f59e0b, #d97706);">Request invite</button>
+		` + honeypotField + `
+		<button type="submit" class="formlander-button">Join the waitlist</button>
 	</form>
 </div>
-` + sharedTemplateStyles
+`
 
-const feedbackTemplateHTML = `
+const feedbackTemplateHTML = sharedTemplateStyles + `
 <div class="formlander-shell">
-	<div class="formlander-eyebrow" style="background: rgba(147, 51, 234, 0.15); color: #9333ea;">Feedback</div>
-	<h2>Share your feedback</h2>
-	<p>Help us build the roadmap. Tell us what’s working and what could be better.</p>
+	<p class="formlander-eyebrow">Feedback</p>
+	<h2>Tell us what you think</h2>
+	<p>What works, what doesn't, what's missing. We read every message.</p>
 
 	<form action="{{FORM_ACTION}}" method="POST" class="formlander-stack">
-		<div class="formlander-row">
-			<label class="formlander-field">
-				<span>Name</span>
-				<input type="text" name="name" placeholder="Taylor" required>
-			</label>
-			<label class="formlander-field">
-				<span>Email</span>
-				<input type="email" name="email" placeholder="you@example.com">
-			</label>
-		</div>
-
+		<!-- Add, rename, or remove fields freely. Formlander saves whatever this form sends. -->
 		<label class="formlander-field">
-			<span>How satisfied are you?</span>
+			<span class="formlander-label">How is it going?</span>
 			<select name="satisfaction" required>
-				<option value="">Choose a score</option>
-				<option>Very satisfied</option>
-				<option>Satisfied</option>
-				<option>Neutral</option>
-				<option>Unsatisfied</option>
+				<option value="">Choose one</option>
+				<option>Great</option>
+				<option>Good</option>
+				<option>Okay</option>
+				<option>Not good</option>
 			</select>
 		</label>
 
 		<label class="formlander-field">
-			<span>Feature or area</span>
-			<input type="text" name="feature" placeholder="Dashboard, Automations, ...">
+			<span class="formlander-label">Your feedback</span>
+			<textarea name="comments" required></textarea>
 		</label>
 
-		<label class="formlander-field">
-			<span>Comments</span>
-			<textarea name="comments" placeholder="What should we improve?" required></textarea>
-		</label>
-
-		<button type="submit" class="formlander-button" style="background: linear-gradient(135deg, #a855f7, #7c3aed);">Send feedback</button>
-	</form>
-</div>
-` + sharedTemplateStyles
-
-const bugTemplateHTML = `
-<div class="formlander-shell">
-	<div class="formlander-eyebrow" style="background: rgba(248, 113, 113, 0.18); color: #dc2626;">Bug report</div>
-	<h2>Report an issue</h2>
-	<p>Found something off? Share the details and we’ll investigate within a few hours.</p>
-
-	<form action="{{FORM_ACTION}}" method="POST" class="formlander-stack">
 		<div class="formlander-row">
 			<label class="formlander-field">
-				<span>Name</span>
-				<input type="text" name="reporter" placeholder="Jordan" required>
+				<span class="formlander-label">Name <span class="formlander-optional">(optional)</span></span>
+				<input type="text" name="name" autocomplete="name">
 			</label>
 			<label class="formlander-field">
-				<span>Email</span>
-				<input type="email" name="email" placeholder="you@example.com" required>
+				<span class="formlander-label">Email <span class="formlander-optional">(optional)</span></span>
+				<input type="email" name="email" autocomplete="email" placeholder="you@example.com">
+			</label>
+		</div>
+
+		` + honeypotField + `
+		<button type="submit" class="formlander-button">Send feedback</button>
+	</form>
+</div>
+`
+
+const bugTemplateHTML = sharedTemplateStyles + `
+<div class="formlander-shell">
+	<p class="formlander-eyebrow">Bug report</p>
+	<h2>Report a bug</h2>
+	<p>Tell us what happened and how to make it happen again.</p>
+
+	<form action="{{FORM_ACTION}}" method="POST" class="formlander-stack">
+		<!-- Add, rename, or remove fields freely. Formlander saves whatever this form sends. -->
+		<div class="formlander-row">
+			<label class="formlander-field">
+				<span class="formlander-label">Name</span>
+				<input type="text" name="reporter" autocomplete="name" required>
+			</label>
+			<label class="formlander-field">
+				<span class="formlander-label">Email</span>
+				<input type="email" name="email" autocomplete="email" placeholder="you@example.com" required>
 			</label>
 		</div>
 
 		<div class="formlander-row">
 			<label class="formlander-field">
-				<span>Severity</span>
+				<span class="formlander-label">Severity</span>
 				<select name="severity" required>
-					<option value="">Select severity</option>
+					<option value="">Choose one</option>
 					<option>Low</option>
 					<option>Medium</option>
 					<option>High</option>
@@ -472,45 +494,47 @@ const bugTemplateHTML = `
 				</select>
 			</label>
 			<label class="formlander-field">
-				<span>Area of the product</span>
-				<input type="text" name="area" placeholder="Forms dashboard">
+				<span class="formlander-label">Where <span class="formlander-optional">(optional)</span></span>
+				<input type="text" name="area" placeholder="Page or feature">
 			</label>
 		</div>
 
 		<label class="formlander-field">
-			<span>Steps to reproduce</span>
-			<textarea name="steps" placeholder="1. Go to..., 2. Click..." required></textarea>
-			<div class="formlander-helper">Include as much detail as possible.</div>
+			<span class="formlander-label">Steps to reproduce</span>
+			<textarea name="steps" placeholder="1. Go to&#10;2. Click&#10;3. See the error" required></textarea>
 		</label>
 
 		<label class="formlander-field">
-			<span>Expected vs. actual behavior</span>
-			<textarea name="expected" placeholder="Expected X but saw Y"></textarea>
+			<span class="formlander-label">Expected vs. actual <span class="formlander-optional">(optional)</span></span>
+			<textarea name="expected" placeholder="I expected X, but saw Y"></textarea>
 		</label>
 
-		<button type="submit" class="formlander-button" style="background: linear-gradient(135deg, #ef4444, #b91c1c);">Submit bug</button>
+		` + honeypotField + `
+		<button type="submit" class="formlander-button">Send bug report</button>
 	</form>
 </div>
-` + sharedTemplateStyles
+`
 
-const blankTemplateHTML = `
+const blankTemplateHTML = sharedTemplateStyles + `
 <div class="formlander-shell">
-	<div class="formlander-eyebrow">Simple form</div>
-	<h2>Let’s collect data</h2>
-	<p>Use this lightweight template as a starting point.</p>
+	<p class="formlander-eyebrow">Form</p>
+	<h2>Your form title</h2>
+	<p>One line about what this form is for.</p>
 
 	<form action="{{FORM_ACTION}}" method="POST" class="formlander-stack">
+		<!-- Add, rename, or remove fields freely. Formlander saves whatever this form sends. -->
 		<label class="formlander-field">
-			<span>Field label</span>
-			<input type="text" name="field_one" placeholder="Text input">
+			<span class="formlander-label">Field label</span>
+			<input type="text" name="field_one">
 		</label>
 
 		<label class="formlander-field">
-			<span>Message</span>
-			<textarea name="field_two" placeholder="Textarea input"></textarea>
+			<span class="formlander-label">Message</span>
+			<textarea name="field_two"></textarea>
 		</label>
 
+		` + honeypotField + `
 		<button type="submit" class="formlander-button">Submit</button>
 	</form>
 </div>
-` + sharedTemplateStyles
+`
