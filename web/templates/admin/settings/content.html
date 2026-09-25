@@ -97,30 +97,6 @@
         </div>
 
         <div class="divide-y divide-gray-200">
-            <!-- Pro Settings Extension Point -->
-            {{ if .ProSettingsItems }}
-            {{ range .ProSettingsItems }}
-            <a href="{{ .URL }}" class="block px-6 py-4 hover:bg-gray-50 transition-colors group">
-                <div class="flex items-center justify-between">
-                    <div class="flex items-center">
-                        <div class="flex-shrink-0">
-                            {{ .Icon | safeHTML }}
-                        </div>
-                        <div class="ml-4">
-                            <p class="text-sm font-medium text-gray-900 group-hover:text-{{ .Color }}-600 transition-colors">
-                                {{ .Title }}</p>
-                            <p class="text-sm text-gray-500">{{ .Description }}</p>
-                        </div>
-                    </div>
-                    <svg class="h-5 w-5 text-gray-400 group-hover:text-gray-600 transition-colors" fill="none"
-                        stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                    </svg>
-                </div>
-            </a>
-            {{ end }}
-            {{ end }}
-
             <!-- Mailers Link -->
             <a href="/admin/settings/mailers" class="block px-6 py-4 hover:bg-gray-50 transition-colors group">
                 <div class="flex items-center justify-between">

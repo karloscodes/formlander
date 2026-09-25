@@ -84,20 +84,6 @@ func GetFormTemplates() []FormTemplate {
 			},
 		},
 		{
-			ID:          "ai-powered",
-			Name:        "AI-Powered Custom Form",
-			Description: "Let AI build a custom form based on your requirements",
-			Slug:        "ai-powered",
-			Icon:        "🤖",
-			Color:       "indigo",
-			ComingSoon:  false,
-			WIP:         false,
-			HTML:        "", // Pro feature - handled by redirect
-			EmailDelivery: forms.EmailDelivery{
-				Enabled: true,
-			},
-		},
-		{
 			ID:              "blank",
 			Name:            "Blank Form",
 			Description:     "Two fields. Build the rest yourself.",

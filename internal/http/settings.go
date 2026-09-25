@@ -8,7 +8,6 @@ import (
 	"github.com/karloscodes/cartridge"
 
 	"formlander/internal/accounts"
-	"formlander/pkg/extension"
 )
 
 // AdminSettingsPage renders the settings page.
@@ -31,14 +30,6 @@ func AdminSettingsPage(ctx *cartridge.Context) error {
 		"Title":       "Settings",
 		"ContentView": "admin/settings/content",
 		"User":        user,
-	}
-
-	// Allow pro to extend settings data
-	proData := extension.GetSettingsData()
-	if proData != nil {
-		for k, v := range proData {
-			data[k] = v
-		}
 	}
 
 	return ctx.Render("layouts/base", data, "")
