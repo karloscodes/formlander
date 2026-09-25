@@ -1,8 +1,10 @@
 package config
 
 import (
+	"crypto/rand"
 	"log"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -67,12 +69,60 @@ func Get() *Config {
 		v.SetDefault("webhook.retrylimit", 3)
 		v.SetDefault("webhook.backoffschedule", "1,5,15,60")
 
+		// Cartridge does not bind this variable, so the Dockerfile value
+		// was ignored and sessions lasted cartridge's 7-day default.
+		if raw := os.Getenv("FORMLANDER_SESSION_TIMEOUT_SECONDS"); raw != "" {
+			if seconds, err := strconv.Atoi(raw); err == nil && seconds > 0 {
+				base.SessionTimeout = seconds
+			}
+		}
+
+		ensureSessionSecret(base)
+
 		cfgInst = &Config{Config: base}
 		if err := v.Unmarshal(cfgInst); err != nil {
 			log.Fatalf("config: failed to unmarshal: %v", err)
 		}
 	})
 	return cfgInst
+}
+
+// publicSecrets are session secrets anyone can read in the source code.
+// A session signed with one of them can be forged.
+var publicSecrets = map[string]bool{
+	"dev-secret-do-not-use-in-production-f8e3a9c2d1b7e6a4": true,
+	"replace-me-with-random-secret":                        true,
+}
+
+// SessionSecretFile holds the generated secret in the data directory, so
+// sessions survive a restart.
+const SessionSecretFile = "session-secret"
+
+// ensureSessionSecret replaces a missing or public session secret with a
+// random one stored in the data directory. The test environment keeps the
+// fixed secret. If the file cannot be written, the secret lives in memory
+// and sessions end at the next restart.
+func ensureSessionSecret(c *config.Config) {
+	if c.IsTest() || (c.SessionSecret != "" && !publicSecrets[c.SessionSecret]) {
+		return
+	}
+
+	path := filepath.Join(c.DataDirectory, SessionSecretFile)
+	if data, err := os.ReadFile(path); err == nil {
+		if stored := strings.TrimSpace(string(data)); len(stored) >= 32 {
+			c.SessionSecret = stored
+			return
+		}
+	}
+
+	c.SessionSecret = rand.Text() + rand.Text()
+	if err := os.MkdirAll(c.DataDirectory, 0o755); err != nil {
+		log.Printf("warn: cannot store the session secret, sessions end at restart: %v", err)
+		return
+	}
+	if err := os.WriteFile(path, []byte(c.SessionSecret+"\n"), 0o600); err != nil {
+		log.Printf("warn: cannot store the session secret, sessions end at restart: %v", err)
+	}
 }
 
 // WebhookBackoff returns the parsed retry schedule for webhook delivery.

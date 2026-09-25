@@ -169,17 +169,49 @@ func TestSessionSecret(t *testing.T) {
 		}
 	})
 
-	t.Run("development uses fixed dev secret", func(t *testing.T) {
+	t.Run("development gets a random secret that survives a restart", func(t *testing.T) {
+		dataDir := t.TempDir()
 		Reset()
 		os.Clearenv()
 		os.Setenv("FORMLANDER_ENV", "development")
+		os.Setenv("FORMLANDER_DATA_DIR", dataDir)
+
+		first := Get().SessionSecret
+		Reset()
+		second := Get().SessionSecret
+
+		if first == "" || first == "dev-secret-do-not-use-in-production-f8e3a9c2d1b7e6a4" {
+			t.Errorf("Expected a random secret, got %q", first)
+		}
+		if first != second {
+			t.Errorf("Expected the same secret after a restart, got %q then %q", first, second)
+		}
+	})
+
+	t.Run("replaces the placeholder from .env.example", func(t *testing.T) {
+		Reset()
+		os.Clearenv()
+		os.Setenv("FORMLANDER_ENV", "production")
+		os.Setenv("FORMLANDER_DATA_DIR", t.TempDir())
+		os.Setenv("FORMLANDER_SESSION_SECRET", "replace-me-with-random-secret")
 
 		cfg := Get()
-		if cfg.SessionSecret == "" {
-			t.Error("Expected SessionSecret to be auto-generated in development")
+
+		if cfg.SessionSecret == "replace-me-with-random-secret" {
+			t.Error("Expected the public placeholder to be replaced")
 		}
-		if cfg.SessionSecret != "dev-secret-do-not-use-in-production-f8e3a9c2d1b7e6a4" {
-			t.Errorf("Expected fixed dev secret, got %s", cfg.SessionSecret)
+	})
+
+	t.Run("reads the session timeout from the environment", func(t *testing.T) {
+		Reset()
+		os.Clearenv()
+		os.Setenv("FORMLANDER_ENV", "test")
+		os.Setenv("FORMLANDER_SESSION_TIMEOUT_SECONDS", "86400")
+
+		cfg := Get()
+
+		if cfg.SessionTimeout != 86400 {
+			t.Errorf("Expected SessionTimeout=86400, got %d", cfg.SessionTimeout)
 		}
 	})
 
@@ -259,9 +291,9 @@ func TestDatabasePath(t *testing.T) {
 
 func TestConnectionPooling(t *testing.T) {
 	tests := []struct {
-		env          string
-		wantMaxOpen  int
-		wantMaxIdle  int
+		env         string
+		wantMaxOpen int
+		wantMaxIdle int
 	}{
 		{"production", 10, 5},
 		{"development", 1, 1},
