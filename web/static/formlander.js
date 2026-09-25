@@ -102,6 +102,11 @@
 
       var successUrl = formData.get('_success_url');
       var errorUrl = formData.get('_error_url');
+      // The SDK redirects itself. If the server got these fields, it would
+      // answer with a 302 that fetch follows cross-origin and fails on, and
+      // the retries would store the submission again.
+      formData.delete('_success_url');
+      formData.delete('_error_url');
 
       submitWithRetry(form.action, formData)
         .then(function (response) {
