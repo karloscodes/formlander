@@ -10,6 +10,7 @@ import (
 
 	"formlander/internal/config"
 	httphandlers "formlander/internal/http"
+	"formlander/internal/middleware"
 )
 
 // MountRoutes registers all application routes.
@@ -43,7 +44,7 @@ func MountRoutes(s *cartridge.Server, cfg *config.Config) {
 			Max:        30,
 			Expiration: 60 * time.Second,
 			KeyGenerator: func(c *fiber.Ctx) string {
-				return c.IP()
+				return middleware.ClientIP(c)
 			},
 			LimitReached: func(c *fiber.Ctx) error {
 				return c.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{
@@ -81,7 +82,7 @@ func MountRoutes(s *cartridge.Server, cfg *config.Config) {
 		Max:        5,
 		Expiration: 60 * time.Second,
 		KeyGenerator: func(c *fiber.Ctx) string {
-			return c.IP()
+			return middleware.ClientIP(c)
 		},
 		LimitReached: func(c *fiber.Ctx) error {
 			return c.Status(fiber.StatusTooManyRequests).Render("layouts/base", fiber.Map{

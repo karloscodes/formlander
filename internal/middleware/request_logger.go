@@ -19,7 +19,7 @@ func RequestLogger(logger *slog.Logger) fiber.Handler {
 			slog.String("path", c.Path()),
 			slog.Int("status", c.Response().StatusCode()),
 			slog.Duration("duration", stop),
-			slog.String("ip", c.IP()),
+			slog.String("ip", ClientIP(c)),
 		)
 
 		return err

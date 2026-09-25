@@ -226,7 +226,7 @@ func enforceCaptchaIfNeeded(ctx *cartridge.Context, form *forms.Form, payload ma
 		return errors.New("captcha verification failed")
 	}
 
-	result, err := middleware.VerifyTurnstileToken(secret, token, ctx.IP())
+	result, err := middleware.VerifyTurnstileToken(secret, token, middleware.ClientIP(ctx.Ctx))
 	if err != nil {
 		if logger != nil {
 			logger.Warn("turnstile verification failed",

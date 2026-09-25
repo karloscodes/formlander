@@ -57,7 +57,7 @@ func WriteConcurrencyLimitMiddleware(limiter *ConcurrencyLimiter) fiber.Handler 
 			waitTime := time.Since(start)
 			limiter.logger.Warn("Write concurrency limit reached",
 				slog.String("path", c.Path()),
-				slog.String("ip", c.IP()),
+				slog.String("ip", ClientIP(c)),
 				slog.String("method", c.Method()),
 				slog.Duration("wait_time", waitTime),
 				slog.Any("error", err),
@@ -83,7 +83,7 @@ func WriteConcurrencyLimitMiddleware(limiter *ConcurrencyLimiter) fiber.Handler 
 		if acquireTime > 100*time.Millisecond {
 			limiter.logger.Info("Write operation queued (high load detected)",
 				slog.String("path", c.Path()),
-				slog.String("ip", c.IP()),
+				slog.String("ip", ClientIP(c)),
 				slog.Duration("queue_time", acquireTime),
 			)
 		}
