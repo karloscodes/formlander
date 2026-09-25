@@ -110,6 +110,7 @@ var submitPageTemplate = template.Must(template.New("submit").Parse(`<!DOCTYPE h
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
+<link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
 <title>{{ .Title }}</title>
 <style>
 	*, *::before, *::after { box-sizing: border-box; }

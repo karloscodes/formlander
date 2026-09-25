@@ -6,6 +6,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{ if .Title }}{{ .Title }} · Formlander{{ else }}Formlander{{ end }}</title>
+    <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
     <link rel="stylesheet" href="/assets/app.built.css?v={{ assetVersion }}">
 </head>
 
@@ -17,7 +18,10 @@
         <div class="mx-auto w-full max-w-5xl px-6">
             <div class="flex items-center justify-between py-6">
                 <div>
-                    <a href="/admin" class="text-2xl font-bold tracking-tight">Formlander</a>
+                    <a href="/admin" class="flex items-center gap-2.5 text-2xl font-bold tracking-tight">
+                        <img src="/assets/favicon.svg" alt="" width="28" height="28" class="h-7 w-7">
+                        Formlander
+                    </a>
                     <p class="mt-1 text-xs text-gray-400">Self-hosted form backend</p>
                 </div>
                 {{ if not .HideHeaderActions }}
