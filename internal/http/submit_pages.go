@@ -39,8 +39,15 @@ func submitError(ctx *cartridge.Context, status int, message string) error {
 	})
 }
 
-// submitSuccess shows a thank-you page when the form has no _success_url.
+// submitSuccess sends the browser to the thank-you page when the form has
+// no _success_url. The redirect (Post/Redirect/Get) keeps a page refresh
+// from posting the form a second time.
 func submitSuccess(ctx *cartridge.Context) error {
+	return ctx.Redirect("/forms/sent", fiber.StatusSeeOther)
+}
+
+// SubmissionSent renders the thank-you page after a browser submission.
+func SubmissionSent(ctx *cartridge.Context) error {
 	return renderSubmitPage(ctx, fiber.StatusOK, submitPage{
 		Title:   "Thanks, we got it.",
 		Body:    "Your message is on its way. You can close this page or go back.",
@@ -69,7 +76,9 @@ func visitorMessage(status int, message string) (string, string) {
 	}
 }
 
-// backURL is the page the visitor came from, if it is a normal web page.
+// backURL is the fallback for the Go back button. Browsers often send only
+// the site's origin as Referer on cross-site posts, so the button uses the
+// browser history first.
 func backURL(ctx *cartridge.Context) string {
 	ref, err := url.Parse(ctx.Get(fiber.HeaderReferer))
 	if err != nil || (ref.Scheme != "http" && ref.Scheme != "https") || ref.Host == "" {
@@ -179,7 +188,7 @@ var submitPageTemplate = template.Must(template.New("submit").Parse(`<!DOCTYPE h
 		<h1>{{ .Title }}</h1>
 		<p>{{ .Body }}</p>
 		{{ if .Details }}<div class="details">{{ .Details }}</div>{{ end }}
-		{{ if .BackURL }}<a class="button" href="{{ .BackURL }}">Go back</a>{{ end }}
+		<a class="button" href="{{ if .BackURL }}{{ .BackURL }}{{ else }}#{{ end }}" onclick="if (history.length > 1) { history.back(); return false; }">Go back</a>
 	</main>
 	<p class="promo">Form by <a href="https://formlander.com/?ref=form">Formlander</a>, the free form backend for static sites.</p>
 </body>

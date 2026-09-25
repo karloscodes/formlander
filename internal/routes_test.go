@@ -332,16 +332,33 @@ func TestPublicFormSubmissionGuards(t *testing.T) {
 		assert.Equal(t, 200, status)
 	})
 
-	t.Run("shows a thank-you page to a browser posting the form", func(t *testing.T) {
+	t.Run("redirects a browser to the thank-you page, so a refresh does not post again", func(t *testing.T) {
 		ts := mountTestServer(t)
 		seedForm(t, ts)
+		req := httptest.NewRequest("POST", "/forms/contact/submit?token=secret-token", strings.NewReader("field=value"))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		req.Header.Set("Origin", "https://example.com")
+		req.Header.Set("Sec-Fetch-Mode", "navigate")
 
-		status, body := formPost(t, ts, "/forms/contact/submit?token=secret-token", "field=value",
-			map[string]string{"Origin": "https://example.com", "Referer": "https://example.com/contact", "Sec-Fetch-Mode": "navigate"})
+		resp, err := ts.App.Test(req, -1)
 
-		assert.Equal(t, 200, status)
-		assert.Contains(t, body, "Thanks, we got it.")
-		assert.Contains(t, body, `href="https://example.com/contact"`)
+		require.NoError(t, err)
+		assert.Equal(t, 303, resp.StatusCode)
+		assert.Equal(t, "/forms/sent", resp.Header.Get("Location"))
+	})
+
+	t.Run("the thank-you page goes back through the browser history", func(t *testing.T) {
+		ts := mountTestServer(t)
+		req := httptest.NewRequest("GET", "/forms/sent", nil)
+		req.Header.Set("Referer", "https://example.com/")
+
+		resp, err := ts.App.Test(req, -1)
+
+		require.NoError(t, err)
+		body, _ := io.ReadAll(resp.Body)
+		assert.Equal(t, 200, resp.StatusCode)
+		assert.Contains(t, string(body), "Thanks, we got it.")
+		assert.Contains(t, string(body), "history.back()")
 	})
 
 	t.Run("shows an error page to a browser posting from a site not allowed", func(t *testing.T) {
@@ -354,6 +371,7 @@ func TestPublicFormSubmissionGuards(t *testing.T) {
 		assert.Equal(t, 403, status)
 		assert.Contains(t, body, "This form can&#39;t be sent from this site.")
 		assert.Contains(t, body, "add attacker.com to this form&#39;s Allowed Origins")
+		assert.Contains(t, body, "history.back()", "Go back returns to the form, not the site's home page")
 	})
 }
 

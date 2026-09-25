@@ -72,6 +72,7 @@ func MountRoutes(s *cartridge.Server, cfg *config.Config) {
 	}
 
 	s.Post("/forms/:slug/submit", httphandlers.PublicFormSubmission, publicConfig)
+	s.Get("/forms/sent", httphandlers.SubmissionSent)
 	s.Options("/forms/:slug/submit", func(ctx *cartridge.Context) error {
 		return ctx.SendStatus(fiber.StatusNoContent)
 	}, publicConfig)
