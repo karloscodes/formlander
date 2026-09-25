@@ -42,12 +42,22 @@
                 <h2 class="text-lg font-semibold text-gray-900">Provider Configuration</h2>
             </div>
             <div class="space-y-6 p-6">
+                <div class="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                    <p class="text-sm font-medium text-gray-900">How to get your keys</p>
+                    <ol class="mt-2 list-decimal space-y-1 pl-5 text-sm text-gray-600">
+                        <li>Sign in to the <a href="https://dash.cloudflare.com/?to=/:account/turnstile" target="_blank" rel="noopener noreferrer" class="font-medium text-blue-600 hover:text-blue-700">Cloudflare dashboard</a> and open <strong>Turnstile</strong>. A free account works.</li>
+                        <li>Click <strong>Add widget</strong>. Add every domain that shows your forms, for example <code class="rounded bg-gray-200 px-1 py-0.5 text-xs">example.com</code>. Keep the widget mode on <strong>Managed</strong>.</li>
+                        <li>Create the widget. Cloudflare shows a <strong>Site Key</strong> and a <strong>Secret Key</strong>.</li>
+                        <li>Paste the Secret Key below. Put the Site Key in <strong>Site Keys</strong>, with the same domain.</li>
+                    </ol>
+                </div>
+
                 <div>
                     <label for="secret_key" class="block text-sm font-medium text-gray-700">Secret Key</label>
                     <input type="password" id="secret_key" name="secret_key" value="{{ if .Profile }}{{ .Profile.SecretKey }}{{ end }}"
                         class="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 font-mono text-sm shadow-sm transition-colors focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                         placeholder="0x4A...">
-                    <p class="mt-1 text-xs text-gray-500">Turnstile secret key for server-side verification</p>
+                    <p class="mt-1 text-xs text-gray-500">Formlander uses it to check each captcha with Cloudflare. It never appears in your form code.</p>
                 </div>
             </div>
         </div>
