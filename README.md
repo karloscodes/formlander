@@ -58,7 +58,7 @@ This interactive installer will:
 - Configure automatic daily backups
 - Start the Formlander container
 
-After installation, access your dashboard at `https://your-domain.com`
+After installation, access your dashboard at `https://your-domain.com`. The installer prints the admin email and a random first password. The password is also in `/var/matcha/formlander/storage/initial-admin-password` until you change it in Settings.
 
 **Management commands:**
 ```bash
@@ -96,9 +96,9 @@ docker run -d \
 
 **HTTPS is required.** The Docker image runs in production mode, which marks the session cookie `Secure`. Without TLS in front (Caddy, Nginx, Traefik, etc.) browsers silently drop the cookie and login appears to fail. The bundled `install.sh` sets up Caddy with automatic certificates; if you roll your own with docker-compose, put a TLS terminator in front of `:8080`.
 
-Access the admin dashboard at `http://localhost:8080` with default credentials:
+Access the admin dashboard at `http://localhost:8080`:
 - Email: `admin@formlander.local`
-- Password: `formlander` (you'll be prompted to change this on first login)
+- Password: random, generated on first start. Find it with `docker logs <container>`, or in `storage/initial-admin-password`. Change it in Settings after you sign in.
 
 ### Running the Binary
 

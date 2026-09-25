@@ -143,9 +143,8 @@ release:
       karloscodes/formlander:{{ .Version }}
     ```
 
-    Then visit `http://localhost:8080` with default credentials:
-    - Email: `admin@formlander.local`
-    - Password: `formlander`
+    Then visit `http://localhost:8080` and sign in as `admin@formlander.local`.
+    The first password is random: find it with `docker logs <container>` or in `storage/initial-admin-password`.
   footer: |
     ---
     

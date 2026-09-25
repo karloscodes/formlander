@@ -6,11 +6,13 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
 
 	"formlander/internal"
+	"formlander/internal/accounts"
 	"formlander/internal/database"
 	"formlander/internal/license"
 
@@ -41,6 +43,7 @@ func main() {
 			fmt.Printf("Error: %v\n", err)
 			os.Exit(1)
 		}
+		printInitialPassword(m)
 	case "update":
 		if err := m.Update(); err != nil {
 			fmt.Printf("Error: %v\n", err)
@@ -134,6 +137,20 @@ func runServer() {
 	if err := app.RunWithTimeout(shutdownTimeout); err != nil {
 		log.Fatal(err)
 	}
+}
+
+// printInitialPassword shows the first admin password that the app wrote to
+// its storage volume on first boot. A reinstall over existing data has none.
+func printInitialPassword(m *matcha.Matcha) {
+	path := filepath.Join(m.DataDir(), "storage", accounts.InitialPasswordFile)
+	password, err := os.ReadFile(path)
+	if err != nil {
+		return
+	}
+	fmt.Println("Sign in with:")
+	fmt.Printf("  Email:    %s\n", accounts.DefaultAdminEmail)
+	fmt.Printf("  Password: %s\n", strings.TrimSpace(string(password)))
+	fmt.Println("Change the password in Settings after you sign in.")
 }
 
 func runAdminPasswordChange(m *matcha.Matcha) error {

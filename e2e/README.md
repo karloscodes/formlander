@@ -45,7 +45,7 @@ Tests run **sequentially** in numeric order due to dependencies.
 
 ## Default Admin Credentials
 
-The app automatically creates a default admin on first run:
+With `FORMLANDER_ENV=test`, the app creates the admin with a fixed password on first run. Every other environment gets a random password.
 
 - Email: `admin@formlander.local`
 - Password: `formlander`

@@ -1,8 +1,11 @@
 package accounts
 
 import (
+	"crypto/rand"
 	"errors"
 	"net/mail"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -23,12 +26,45 @@ var (
 	ErrInvalidEmail       = errors.New("email is not valid")
 )
 
-// Default admin credentials created on first boot of an empty install. They
-// work in every environment and remain valid until the operator changes them.
+// DefaultAdminEmail is the login of the admin created on first boot.
+// DefaultAdminPassword is used only in the test environment. Every other
+// environment gets a random first password, because a known password lets
+// the first visitor of a new instance take it over.
 const (
 	DefaultAdminEmail    = "admin@formlander.local"
 	DefaultAdminPassword = "formlander"
 )
+
+// InitialPasswordFile holds the random first password in the data directory,
+// so the operator can read it on the server. It is removed when the admin
+// sets a new password.
+const InitialPasswordFile = "initial-admin-password"
+
+// GenerateInitialPassword returns a random first password for the admin.
+func GenerateInitialPassword() string {
+	return rand.Text()
+}
+
+// WriteInitialPassword stores the first password where only the server
+// operator can read it.
+func WriteInitialPassword(dataDir, password string) error {
+	return os.WriteFile(filepath.Join(dataDir, InitialPasswordFile), []byte(password+"\n"), 0o600)
+}
+
+// HasInitialPassword reports whether the first password is still unchanged.
+func HasInitialPassword(dataDir string) bool {
+	_, err := os.Stat(filepath.Join(dataDir, InitialPasswordFile))
+	return err == nil
+}
+
+// RemoveInitialPassword deletes the first password once it no longer works.
+func RemoveInitialPassword(dataDir string) error {
+	err := os.Remove(filepath.Join(dataDir, InitialPasswordFile))
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	return err
+}
 
 // timingEqualizerHash is a valid bcrypt digest compared against when the
 // supplied email doesn't exist, so Authenticate takes constant time regardless
@@ -36,9 +72,8 @@ const (
 // of a random string; no real password matches it.
 const timingEqualizerHash = "$2a$10$Q1pg.L2uyfJ2QportzoH9.UPdkdy2skSFqtGaRfOXpO0SBGCQ1qIW"
 
-// IsDefaultAdminActive reports whether the default admin still has the default
-// password. The login page uses this to show the credentials hint only while
-// it's accurate, so it can never go stale.
+// IsDefaultAdminActive reports whether the default admin still has the old
+// public default password. Boot replaces that password on existing installs.
 func IsDefaultAdminActive(db *gorm.DB) bool {
 	user, err := FindByEmail(db, DefaultAdminEmail)
 	if err != nil {

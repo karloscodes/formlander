@@ -3,6 +3,7 @@ package internal
 import (
 	"fmt"
 	"log/slog"
+	"path/filepath"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
@@ -72,30 +73,44 @@ func RunMigrations(app *App) error {
 	return nil
 }
 
+// ensureAdminUser creates the admin on an empty install. Outside the test
+// environment, the admin gets a random password, and an install that still
+// uses the old public default password gets a new random one.
 func ensureAdminUser(db *gorm.DB, cfg *config.Config, logger *slog.Logger) error {
 	var count int64
 	if err := db.Model(&accounts.User{}).Count(&count).Error; err != nil {
 		return err
 	}
 
-	if count > 0 {
-		return nil
+	if count == 0 {
+		return createAdminUser(db, cfg, logger)
+	}
+	if !cfg.IsTest() && accounts.IsDefaultAdminActive(db) {
+		return replaceDefaultPassword(db, cfg, logger)
+	}
+	return nil
+}
+
+func createAdminUser(db *gorm.DB, cfg *config.Config, logger *slog.Logger) error {
+	password := accounts.DefaultAdminPassword
+	if !cfg.IsTest() {
+		password = accounts.GenerateInitialPassword()
+		// Write the file before the database, so the operator never has a
+		// password that is stored nowhere.
+		if err := accounts.WriteInitialPassword(cfg.DataDirectory, password); err != nil {
+			return fmt.Errorf("write initial admin password: %w", err)
+		}
 	}
 
-	defaultEmail := accounts.DefaultAdminEmail
-	defaultPassword := accounts.DefaultAdminPassword
-
-	hash, err := bcrypt.GenerateFromPassword([]byte(defaultPassword), bcrypt.DefaultCost)
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		return fmt.Errorf("hash password: %w", err)
 	}
 
 	admin := &accounts.User{
-		Email:        defaultEmail,
+		Email:        accounts.DefaultAdminEmail,
 		PasswordHash: string(hash),
-		LastLoginAt:  nil,
 	}
-
 	if cfg.IsTest() {
 		now := time.Now()
 		admin.LastLoginAt = &now
@@ -108,12 +123,49 @@ func ensureAdminUser(db *gorm.DB, cfg *config.Config, logger *slog.Logger) error
 		return err
 	}
 
-	fmt.Printf("\n🔐 Default admin user created:\n")
-	fmt.Printf("   Email: %s\n", defaultEmail)
-	fmt.Printf("   Temporary credentials: %s\n", defaultPassword)
-	fmt.Printf("   ⚠️  You will be required to change this on first login\n\n")
-
+	if !cfg.IsTest() {
+		printInitialPassword(cfg, "Admin user created", password)
+	}
 	return nil
+}
+
+func replaceDefaultPassword(db *gorm.DB, cfg *config.Config, logger *slog.Logger) error {
+	admin, err := accounts.FindByEmail(db, accounts.DefaultAdminEmail)
+	if err != nil {
+		return err
+	}
+
+	password := accounts.GenerateInitialPassword()
+	if err := accounts.WriteInitialPassword(cfg.DataDirectory, password); err != nil {
+		return fmt.Errorf("write initial admin password: %w", err)
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return fmt.Errorf("hash password: %w", err)
+	}
+	admin.PasswordHash = string(hash)
+
+	if err := dbtxn.WithRetry(logger, db, func(tx *gorm.DB) error {
+		return tx.Save(admin).Error
+	}); err != nil {
+		logger.Error("failed to replace default admin password", slog.Any("error", err))
+		return err
+	}
+
+	logger.Warn("replaced the public default admin password with a random one")
+	printInitialPassword(cfg, "Default admin password replaced (the old one is public)", password)
+	return nil
+}
+
+// printInitialPassword writes to stdout only, so the password reaches the
+// container logs but not the log file.
+func printInitialPassword(cfg *config.Config, title, password string) {
+	fmt.Printf("\n🔐 %s:\n", title)
+	fmt.Printf("   Email:    %s\n", accounts.DefaultAdminEmail)
+	fmt.Printf("   Password: %s\n", password)
+	fmt.Printf("   Also in:  %s\n", filepath.Join(cfg.DataDirectory, accounts.InitialPasswordFile))
+	fmt.Printf("   Change it in Settings after you sign in.\n\n")
 }
 
 // GetDB returns the database instance.

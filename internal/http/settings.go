@@ -81,6 +81,10 @@ func AdminSettingsUpdatePassword(ctx *cartridge.Context) error {
 		return fiber.ErrInternalServerError
 	}
 
+	if err := accounts.RemoveInitialPassword(GetAppConfig(ctx).DataDirectory); err != nil {
+		ctx.Logger.Warn("failed to remove initial admin password file", slog.Any("error", err))
+	}
+
 	return renderSettingsSuccess(ctx, "Password updated successfully")
 }
 
