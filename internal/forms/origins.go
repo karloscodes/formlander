@@ -63,9 +63,16 @@ func (f *Form) ValidateRedirectURL(redirectURL string) error {
 		return errors.New("invalid redirect URL")
 	}
 
-	// Allow relative URLs (no host)
-	if parsed.Host == "" {
+	// A relative URL must be a plain path. Browsers read "/\\evil.com" and
+	// "https:evil.com" as other hosts, although Go parses them with no host.
+	if parsed.Scheme == "" && parsed.Host == "" {
+		if !strings.HasPrefix(redirectURL, "/") || strings.HasPrefix(redirectURL, "//") || strings.Contains(redirectURL, "\\") {
+			return errors.New("invalid redirect URL")
+		}
 		return nil
+	}
+	if parsed.Scheme != "http" && parsed.Scheme != "https" || parsed.Host == "" {
+		return errors.New("invalid redirect URL")
 	}
 
 	// Check against allowed origins for this form

@@ -203,6 +203,36 @@ func TestForm_ValidateRedirectURL(t *testing.T) {
 			expectError:    false,
 		},
 		{
+			name:           "backslash path that browsers treat as another host is rejected",
+			url:            "/\\evil.com",
+			allowedOrigins: "example.com",
+			expectError:    true,
+		},
+		{
+			name:           "scheme without slashes is rejected",
+			url:            "https:evil.com",
+			allowedOrigins: "example.com",
+			expectError:    true,
+		},
+		{
+			name:           "protocol-relative URL to another host is rejected",
+			url:            "//evil.com/thanks",
+			allowedOrigins: "example.com",
+			expectError:    true,
+		},
+		{
+			name:           "non-http scheme is rejected",
+			url:            "javascript:alert(1)",
+			allowedOrigins: "example.com",
+			expectError:    true,
+		},
+		{
+			name:           "relative path without a leading slash is rejected",
+			url:            "thank-you",
+			allowedOrigins: "",
+			expectError:    true,
+		},
+		{
 			name:           "invalid URL returns error",
 			url:            "://invalid",
 			allowedOrigins: "example.com",
