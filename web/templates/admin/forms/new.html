@@ -91,12 +91,47 @@
                             }}</option>
                         {{ end }}
                     </select>
-                    <p class="mt-1 text-xs text-gray-500">Configure captcha profiles in <a
-                            href="/admin/settings/captcha" class="text-blue-600 hover:text-blue-700 font-medium">Captcha
-                            Settings</a></p>
+                    <p class="mt-1 text-xs text-gray-500">Captcha profiles are shared between forms. Manage them in <a
+                            href="/admin/settings/captcha" class="text-blue-600 hover:text-blue-700 font-medium">Captcha</a>.</p>
                 </div>
             </div>
         </div>
+
+        <!-- Special fields reference -->
+        <details class="group rounded-xl border border-gray-200 bg-white shadow-sm">
+            <summary class="flex cursor-pointer list-none items-center justify-between px-6 py-4">
+                <div>
+                    <h2 class="text-lg font-semibold text-gray-900">Special fields</h2>
+                    <p class="mt-1 text-sm text-gray-600">Redirects, spam protection, and what Formlander saves.</p>
+                </div>
+                <svg class="h-5 w-5 text-gray-400 transition group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+            </summary>
+            <div class="space-y-5 border-t border-gray-200 p-6 text-sm text-gray-700">
+                <p>Formlander saves every field your form sends, with any name. There is no schema. These names are special: Formlander reads them and does not save them.</p>
+                <dl class="space-y-4">
+                    <div>
+                        <dt><code class="rounded bg-gray-100 px-1.5 py-0.5 font-mono text-xs text-gray-900">_success_url</code></dt>
+                        <dd class="mt-1 text-gray-600">Where the visitor goes after a successful submit. Use a full URL on one of the Allowed Origins, for example <code class="font-mono text-xs">https://example.com/thanks</code>. Without it, the visitor sees a Formlander thank-you page.</dd>
+                    </div>
+                    <div>
+                        <dt><code class="rounded bg-gray-100 px-1.5 py-0.5 font-mono text-xs text-gray-900">_error_url</code></dt>
+                        <dd class="mt-1 text-gray-600">Where the visitor goes when the submit fails, for example a failed captcha. Same rules as <code class="font-mono text-xs">_success_url</code>. Without it, the visitor sees a Formlander error page that explains the problem.</dd>
+                    </div>
+                    <div>
+                        <dt><code class="rounded bg-gray-100 px-1.5 py-0.5 font-mono text-xs text-gray-900">__fl_hp</code></dt>
+                        <dd class="mt-1 text-gray-600">Honeypot. A hidden, empty text input. People leave it empty, bots fill it, and Formlander marks those submissions as spam. The starter templates include it.</dd>
+                    </div>
+                    <div>
+                        <dt><code class="rounded bg-gray-100 px-1.5 py-0.5 font-mono text-xs text-gray-900">cf-turnstile-response</code></dt>
+                        <dd class="mt-1 text-gray-600">Added by the Turnstile widget when the form has a captcha profile. You don't write it yourself.</dd>
+                    </div>
+                </dl>
+                <pre class="overflow-x-auto rounded-lg bg-gray-900 p-4 font-mono text-xs leading-relaxed text-gray-100">&lt;input type="hidden" name="_success_url" value="https://example.com/thanks"&gt;
+&lt;input type="hidden" name="_error_url" value="https://example.com/oops"&gt;
+&lt;input type="text" name="__fl_hp" style="display:none" tabindex="-1" autocomplete="off"&gt;</pre>
+                <p class="text-gray-600">With the JavaScript SDK, the page doesn't reload: the SDK shows the result in place, or follows <code class="font-mono text-xs">_success_url</code> and <code class="font-mono text-xs">_error_url</code> itself. <a href="https://formlander.com/docs/integration/" target="_blank" rel="noopener" class="font-medium text-blue-600 hover:text-blue-700">Read the integration docs →</a></p>
+            </div>
+        </details>
 
         {{ if $previewHTML }}
         <!-- Starter Template -->
