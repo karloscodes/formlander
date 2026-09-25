@@ -59,6 +59,12 @@ func main() {
 			fmt.Printf("Error: %v\n", err)
 			os.Exit(1)
 		}
+	case "reset-admin-password":
+		// Runs inside the container; change-admin-password calls it there.
+		if err := runResetAdminPassword(os.Args[2:]); err != nil {
+			fmt.Printf("Error: %v\n", err)
+			os.Exit(1)
+		}
 	case "change-admin-password":
 		if err := runAdminPasswordChange(m); err != nil {
 			fmt.Printf("Error: %v\n", err)
@@ -153,6 +159,23 @@ func printInitialPassword(m *matcha.Matcha) {
 	fmt.Println("Change the password in Settings after you sign in.")
 }
 
+// runResetAdminPassword sets the admin password directly in the database.
+func runResetAdminPassword(args []string) error {
+	if len(args) != 2 {
+		return fmt.Errorf("usage: formlander reset-admin-password <email> <new-password>")
+	}
+
+	app, err := internal.NewApp()
+	if err != nil {
+		return err
+	}
+	if err := accounts.ResetPassword(app.Logger, app.GetDB(), args[0], args[1]); err != nil {
+		return err
+	}
+	// The first password no longer works, so its file must go too.
+	return accounts.RemoveInitialPassword(app.Config.DataDirectory)
+}
+
 func runAdminPasswordChange(m *matcha.Matcha) error {
 	reader := bufio.NewReader(os.Stdin)
 
@@ -196,7 +219,7 @@ func runAdminPasswordChange(m *matcha.Matcha) error {
 	}
 
 	fmt.Println("Changing password...")
-	if err := m.Exec("/app/fnctl", "change-admin-password", email, password); err != nil {
+	if err := m.Exec("/usr/local/bin/formlander", "reset-admin-password", email, password); err != nil {
 		return fmt.Errorf("failed to change password: %w", err)
 	}
 

@@ -367,3 +367,35 @@ func TestFirstLoginDetection(t *testing.T) {
 		assert.False(t, result2.IsFirstLogin)
 	})
 }
+
+func TestResetPassword(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+
+	t.Run("sets a new password without the current one", func(t *testing.T) {
+		db := testsupport.SetupTestDB(t)
+		createTestUser(t, db, "admin@example.com", "forgotten-password", false)
+
+		err := accounts.ResetPassword(logger, db, "admin@example.com", "new-password-123")
+
+		require.NoError(t, err)
+		_, err = accounts.Authenticate(logger, db, "admin@example.com", "new-password-123")
+		assert.NoError(t, err)
+	})
+
+	t.Run("rejects a short password", func(t *testing.T) {
+		db := testsupport.SetupTestDB(t)
+		createTestUser(t, db, "admin@example.com", "forgotten-password", false)
+
+		err := accounts.ResetPassword(logger, db, "admin@example.com", "short")
+
+		assert.ErrorIs(t, err, accounts.ErrWeakPassword)
+	})
+
+	t.Run("fails for an unknown email", func(t *testing.T) {
+		db := testsupport.SetupTestDB(t)
+
+		err := accounts.ResetPassword(logger, db, "nobody@example.com", "new-password-123")
+
+		assert.ErrorIs(t, err, accounts.ErrUserNotFound)
+	})
+}

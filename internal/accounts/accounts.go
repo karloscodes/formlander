@@ -231,42 +231,42 @@ func ChangeEmail(logger *slog.Logger, db *gorm.DB, currentEmail, newEmail, curre
 	return nil
 }
 
-// ChangePassword validates and updates user password
+// ChangePassword sets a new password after checking the current one.
 func ChangePassword(logger *slog.Logger, db *gorm.DB, email, currentPassword, newPassword string) error {
+	user, err := FindByEmail(db, email)
+	if err != nil {
+		return err
+	}
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(currentPassword)); err != nil {
+		return ErrPasswordMismatch
+	}
+	return ResetPassword(logger, db, email, newPassword)
+}
+
+// ResetPassword sets a new password without the current one. Only the
+// server operator can call it, through `formlander change-admin-password`.
+func ResetPassword(logger *slog.Logger, db *gorm.DB, email, newPassword string) error {
 	if len(newPassword) < 8 {
 		return ErrWeakPassword
 	}
 
-	var user User
-	if err := db.Where("email = ?", email).First(&user).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return ErrUserNotFound
-		}
-		logger.Error("database query failed during password change", slog.Any("error", err), slog.String("email", email))
+	user, err := FindByEmail(db, email)
+	if err != nil {
 		return err
 	}
 
-	// Verify current password
-	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(currentPassword)); err != nil {
-		return ErrPasswordMismatch
-	}
-
-	// Generate new password hash
 	hash, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
 	if err != nil {
 		logger.Error("failed to generate password hash", slog.Any("error", err))
 		return err
 	}
-
-	// Update user password
 	user.PasswordHash = string(hash)
 
 	if err := dbtxn.WithRetry(logger, db, func(tx *gorm.DB) error {
-		return tx.Save(&user).Error
+		return tx.Save(user).Error
 	}); err != nil {
 		logger.Error("failed to update password", slog.Any("error", err), slog.String("email", email))
 		return err
 	}
-
 	return nil
 }
