@@ -1,6 +1,6 @@
 module formlander
 
-go 1.26
+go 1.26.0
 
 require (
 	github.com/gofiber/fiber/v2 v2.52.14
@@ -10,7 +10,7 @@ require (
 	github.com/stretchr/testify v1.11.1
 	golang.org/x/crypto v0.52.0
 	golang.org/x/net v0.55.0
-	golang.org/x/sync v0.22.0
+	golang.org/x/sync v0.23.0
 	golang.org/x/term v0.43.0
 	gorm.io/driver/sqlite v1.6.0
 	gorm.io/gorm v1.31.1
