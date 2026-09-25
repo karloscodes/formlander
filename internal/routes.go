@@ -8,6 +8,7 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/limiter"
 	"github.com/karloscodes/cartridge"
 
+	"formlander/internal/accounts"
 	"formlander/internal/config"
 	httphandlers "formlander/internal/http"
 	"formlander/internal/middleware"
@@ -111,7 +112,7 @@ func MountRoutes(s *cartridge.Server, cfg *config.Config) {
 
 	// Auth config for protected routes: a valid session.
 	authConfig := &cartridge.RouteConfig{
-		CustomMiddleware: []fiber.Handler{s.Session().Middleware()},
+		CustomMiddleware: []fiber.Handler{s.Session().Middleware(), endStaleSessions(s)},
 	}
 
 	// Protected routes (require a logged-in session).
@@ -155,4 +156,22 @@ func MountRoutes(s *cartridge.Server, cfg *config.Config) {
 
 	// Submissions routes
 	s.Get("/admin/submissions", httphandlers.SubmissionList, authConfig)
+}
+
+// endStaleSessions signs out sessions issued before the last password
+// change, and sessions of users that no longer exist.
+func endStaleSessions(s *cartridge.Server) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		session := s.Session()
+		userID, ok := session.GetUserID(c)
+		issuedAt, _ := session.IssuedAt(c)
+		if ok {
+			user, err := accounts.FindByID(s.GetDBManager().GetConnection(), userID)
+			if err == nil && user.SessionIsCurrent(issuedAt) {
+				return c.Next()
+			}
+		}
+		session.ClearSession(c)
+		return c.Redirect("/admin/login")
+	}
 }

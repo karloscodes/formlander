@@ -6,6 +6,7 @@ import (
 	"io"
 	"log/slog"
 	"mime/multipart"
+	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -353,5 +354,55 @@ func TestPublicFormSubmissionGuards(t *testing.T) {
 		assert.Equal(t, 403, status)
 		assert.Contains(t, body, "This form can&#39;t be sent from this site.")
 		assert.Contains(t, body, "add attacker.com to this form&#39;s Allowed Origins")
+	})
+}
+
+func TestSessionsEndAfterPasswordChange(t *testing.T) {
+	prev := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
+	t.Cleanup(func() { slog.SetDefault(prev) })
+
+	login := func(t *testing.T, ts *cartridgetestsupport.TestServer, password string) []*http.Cookie {
+		t.Helper()
+		req := httptest.NewRequest("POST", "/admin/login", strings.NewReader("email=admin@example.com&password="+password))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		resp, err := ts.App.Test(req, -1)
+		require.NoError(t, err)
+		require.Equal(t, 302, resp.StatusCode)
+		return resp.Cookies()
+	}
+	// The test server has no templates, so a signed-in request fails to
+	// render. Only the redirect to the login page shows a signed-out session.
+	signedIn := func(t *testing.T, ts *cartridgetestsupport.TestServer, cookies []*http.Cookie) bool {
+		t.Helper()
+		req := httptest.NewRequest("GET", "/admin", nil)
+		for _, c := range cookies {
+			req.AddCookie(c)
+		}
+		resp, err := ts.App.Test(req, -1)
+		require.NoError(t, err)
+		return resp.Header.Get("Location") != "/admin/login"
+	}
+
+	t.Run("an operator reset signs out existing sessions", func(t *testing.T) {
+		ts := mountTestServer(t)
+		seedAdmin(t, ts, "admin@example.com", "old-password-1")
+		cookies := login(t, ts, "old-password-1")
+		require.True(t, signedIn(t, ts, cookies))
+
+		err := accounts.ResetPassword(slog.Default(), ts.DB.GetConnection(), "admin@example.com", "new-password-1")
+		require.NoError(t, err)
+
+		assert.False(t, signedIn(t, ts, cookies))
+	})
+
+	t.Run("a new login after the change works", func(t *testing.T) {
+		ts := mountTestServer(t)
+		seedAdmin(t, ts, "admin@example.com", "old-password-1")
+		require.NoError(t, accounts.ResetPassword(slog.Default(), ts.DB.GetConnection(), "admin@example.com", "new-password-1"))
+
+		cookies := login(t, ts, "new-password-1")
+
+		assert.True(t, signedIn(t, ts, cookies))
 	})
 }

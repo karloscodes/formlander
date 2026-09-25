@@ -88,8 +88,17 @@ type User struct {
 	Email        string     `gorm:"size:255;uniqueIndex;not null"`
 	PasswordHash string     `gorm:"size:255;not null"`
 	LastLoginAt  *time.Time `gorm:"index"` // nil = first login required, force password change
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
+	// PasswordChangedAt ends every session issued before it. Nil means the
+	// password was never changed, so no session is cut off.
+	PasswordChangedAt *time.Time
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
+}
+
+// SessionIsCurrent reports whether a session issued at issuedAt is still
+// valid for this user.
+func (u *User) SessionIsCurrent(issuedAt time.Time) bool {
+	return u.PasswordChangedAt == nil || !issuedAt.Before(*u.PasswordChangedAt)
 }
 
 // Settings stores global application configuration as key-value pairs.
@@ -261,6 +270,8 @@ func ResetPassword(logger *slog.Logger, db *gorm.DB, email, newPassword string) 
 		return err
 	}
 	user.PasswordHash = string(hash)
+	changedAt := time.Now()
+	user.PasswordChangedAt = &changedAt
 
 	if err := dbtxn.WithRetry(logger, db, func(tx *gorm.DB) error {
 		return tx.Save(user).Error

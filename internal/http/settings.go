@@ -81,6 +81,12 @@ func AdminSettingsUpdatePassword(ctx *cartridge.Context) error {
 		return fiber.ErrInternalServerError
 	}
 
+	// The change ends every session, including this one. Start a new one so
+	// the person who changed the password stays signed in.
+	if err := GetSession(ctx).SetSession(ctx.Ctx, user.ID); err != nil {
+		ctx.Logger.Error("failed to renew session after password change", slog.Any("error", err))
+	}
+
 	if err := accounts.RemoveInitialPassword(GetAppConfig(ctx).DataDirectory); err != nil {
 		ctx.Logger.Warn("failed to remove initial admin password file", slog.Any("error", err))
 	}
