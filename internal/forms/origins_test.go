@@ -259,3 +259,26 @@ func TestForm_ValidateRedirectURL(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateAllowedOrigins(t *testing.T) {
+	t.Run("rejects a list that only names this Formlander server", func(t *testing.T) {
+		err := forms.ValidateAllowedOrigins("app.formlander.com", "app.formlander.com")
+
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "is this Formlander server")
+	})
+
+	t.Run("rejects the server written as a URL or wildcard", func(t *testing.T) {
+		assert.Error(t, forms.ValidateAllowedOrigins("https://app.formlander.com/", "app.formlander.com"))
+		assert.Error(t, forms.ValidateAllowedOrigins("*.app.formlander.com", "app.formlander.com:443"))
+	})
+
+	t.Run("accepts the site where the form lives", func(t *testing.T) {
+		assert.NoError(t, forms.ValidateAllowedOrigins("*.formlander.com", "app.formlander.com"))
+		assert.NoError(t, forms.ValidateAllowedOrigins("formlander.com", "app.formlander.com"))
+	})
+
+	t.Run("accepts the server next to a real site", func(t *testing.T) {
+		assert.NoError(t, forms.ValidateAllowedOrigins("app.formlander.com, example.com", "app.formlander.com"))
+	})
+}

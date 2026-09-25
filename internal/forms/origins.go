@@ -147,3 +147,33 @@ func normalizeToDomain(s string) string {
 
 	return strings.ToLower(s)
 }
+
+// ValidateAllowedOrigins rejects a list whose only entries are this
+// Formlander server. Browsers send the address of the page that holds the
+// form, so such a list blocks every real site.
+func ValidateAllowedOrigins(allowedOrigins, serverHost string) error {
+	serverHost = normalizeToDomain(strings.TrimSpace(serverHost))
+	if serverHost == "" {
+		return nil
+	}
+
+	onlyServer := false
+	for _, entry := range strings.Split(allowedOrigins, ",") {
+		entry = strings.TrimSpace(entry)
+		if entry == "" {
+			continue
+		}
+		if strings.TrimPrefix(normalizeToDomain(entry), "*.") != serverHost {
+			return nil
+		}
+		onlyServer = true
+	}
+	if !onlyServer {
+		return nil
+	}
+
+	return &ValidationError{
+		Field:   "allowed_origins",
+		Message: serverHost + " is this Formlander server. Allowed Origins needs the site where your form lives, for example example.com.",
+	}
+}

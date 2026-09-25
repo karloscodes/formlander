@@ -5,17 +5,20 @@ import (
 	"fmt"
 	"strings"
 
-	"log/slog"
 	"gorm.io/gorm"
+	"log/slog"
 
 	"formlander/internal/pkg/dbtxn"
 )
 
 // CreateParams holds parameters for creating a new form
 type CreateParams struct {
-	Name               string
-	Slug               string
-	AllowedOrigins     string
+	Name           string
+	Slug           string
+	AllowedOrigins string
+	// ServerHost is this Formlander server's hostname, so a list that only
+	// names the server can be rejected.
+	ServerHost         string
 	UseSDK             bool
 	GeneratedHTML      string
 	MailerProfileID    *uint
@@ -31,10 +34,13 @@ type CreateParams struct {
 
 // UpdateParams holds parameters for updating a form
 type UpdateParams struct {
-	ID                 uint
-	Name               string
-	Slug               string
-	AllowedOrigins     string
+	ID             uint
+	Name           string
+	Slug           string
+	AllowedOrigins string
+	// ServerHost is this Formlander server's hostname, so a list that only
+	// names the server can be rejected.
+	ServerHost         string
 	UseSDK             bool
 	GeneratedHTML      string
 	MailerProfileID    *uint
@@ -74,6 +80,9 @@ func Create(logger *slog.Logger, db *gorm.DB, params CreateParams) (*Form, error
 	// Validate allowed origins
 	if strings.TrimSpace(params.AllowedOrigins) == "" {
 		return nil, &ValidationError{Field: "allowed_origins", Message: "Allowed origins is required"}
+	}
+	if err := ValidateAllowedOrigins(params.AllowedOrigins, params.ServerHost); err != nil {
+		return nil, err
 	}
 
 	// Build email overrides JSON
@@ -266,6 +275,9 @@ func Update(logger *slog.Logger, db *gorm.DB, params UpdateParams) (*Form, error
 	// Validate required fields
 	if strings.TrimSpace(params.Name) == "" {
 		return nil, &ValidationError{Field: "name", Message: "Name is required"}
+	}
+	if err := ValidateAllowedOrigins(params.AllowedOrigins, params.ServerHost); err != nil {
+		return nil, err
 	}
 
 	// Get existing form
