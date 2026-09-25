@@ -47,3 +47,5 @@ test-results/
 
 # Generated CSS (built by make css)
 web/static/app.built.css
+
+.env
