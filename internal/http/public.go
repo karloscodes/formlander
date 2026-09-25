@@ -57,8 +57,12 @@ func PublicFormSubmission(ctx *cartridge.Context) error {
 
 	payload, err := extractSubmissionPayload(ctx, cfg)
 	if err != nil {
-		// Check for custom error redirect
-		if errorURL := extractRedirectURL(payload, "_error_url"); errorURL != "" {
+		// The payload is rejected, so read _error_url from the raw form.
+		errorURL := extractRedirectURL(payload, "_error_url")
+		if errorURL == "" {
+			errorURL = strings.TrimSpace(ctx.FormValue("_error_url"))
+		}
+		if errorURL != "" {
 			if err := form.ValidateRedirectURL(errorURL); err == nil {
 				return ctx.Redirect(errorURL)
 			}
@@ -137,6 +141,7 @@ func PublicFormSubmission(ctx *cartridge.Context) error {
 func extractSubmissionPayload(ctx *cartridge.Context, cfg *config.Config) (map[string]any, error) {
 	result := make(map[string]any)
 	fieldCount := 0
+	hasFiles := false
 
 	contentType := ctx.Get(fiber.HeaderContentType)
 	if strings.Contains(contentType, fiber.MIMEApplicationJSON) {
@@ -145,6 +150,7 @@ func extractSubmissionPayload(ctx *cartridge.Context, cfg *config.Config) (map[s
 		}
 	} else {
 		if form, err := ctx.MultipartForm(); err == nil && form != nil {
+			hasFiles = len(form.File) > 0
 			for key, values := range form.Value {
 				fieldCount += len(values)
 				if fieldCount > cfg.MaxInputFields {
@@ -183,7 +189,8 @@ func extractSubmissionPayload(ctx *cartridge.Context, cfg *config.Config) (map[s
 		}
 	}
 
-	if len(result) == 0 {
+	// A form with only file inputs is still a submission.
+	if len(result) == 0 && !hasFiles {
 		return nil, errors.New("submission payload empty")
 	}
 

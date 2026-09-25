@@ -1,8 +1,11 @@
 package internal_test
 
 import (
+	"bytes"
+	"fmt"
 	"io"
 	"log/slog"
+	"mime/multipart"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -40,6 +43,7 @@ func mountTestServer(t *testing.T) *cartridgetestsupport.TestServer {
 		&forms.WebhookDelivery{},
 		&forms.WebhookEvent{},
 		&forms.EmailEvent{},
+		&forms.SubmissionFile{},
 		&integrations.MailerProfile{},
 		&integrations.CaptchaProfile{},
 	}
@@ -50,6 +54,7 @@ func mountTestServer(t *testing.T) *cartridgetestsupport.TestServer {
 			Environment:    cartridgeconfig.Test,
 			SessionSecret:  "test-secret",
 			SessionTimeout: 3600,
+			DataDirectory:  t.TempDir(),
 		},
 		MaxInputFields: 200,
 	}
@@ -74,6 +79,32 @@ func formPost(t *testing.T, ts *cartridgetestsupport.TestServer, path, body stri
 	t.Helper()
 	req := httptest.NewRequest("POST", path, strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	for k, v := range headers {
+		req.Header.Set(k, v)
+	}
+	resp, err := ts.App.Test(req, -1)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+	b, _ := io.ReadAll(resp.Body)
+	return resp.StatusCode, string(b)
+}
+
+func multipartPost(t *testing.T, ts *cartridgetestsupport.TestServer, path string, fields map[string]string, fileName string, headers map[string]string) (status int, respBody string) {
+	t.Helper()
+	var buf bytes.Buffer
+	w := multipart.NewWriter(&buf)
+	for k, v := range fields {
+		require.NoError(t, w.WriteField(k, v))
+	}
+	if fileName != "" {
+		fw, err := w.CreateFormFile("attachment", fileName)
+		require.NoError(t, err)
+		_, err = fw.Write([]byte("hello"))
+		require.NoError(t, err)
+	}
+	require.NoError(t, w.Close())
+	req := httptest.NewRequest("POST", path, &buf)
+	req.Header.Set("Content-Type", w.FormDataContentType())
 	for k, v := range headers {
 		req.Header.Set(k, v)
 	}
@@ -259,6 +290,35 @@ func TestPublicFormSubmissionGuards(t *testing.T) {
 			map[string]string{"Origin": "https://example.com"})
 
 		assert.Equal(t, 200, status)
+	})
+
+	t.Run("accepts a multipart post that holds only a file", func(t *testing.T) {
+		ts := mountTestServer(t)
+		seedForm(t, ts)
+
+		status, body := multipartPost(t, ts, "/forms/contact/submit?token=secret-token", nil, "notes.txt",
+			map[string]string{"Origin": "https://example.com"})
+
+		assert.Equal(t, 200, status, body)
+	})
+
+	t.Run("redirects to _error_url when the payload is rejected", func(t *testing.T) {
+		ts := mountTestServer(t)
+		seedForm(t, ts)
+		fields := "_error_url=https%3A%2F%2Fexample.com%2Foops"
+		for i := 0; i < 250; i++ {
+			fields += fmt.Sprintf("&f%d=x", i)
+		}
+
+		req := httptest.NewRequest("POST", "/forms/contact/submit?token=secret-token", strings.NewReader(fields))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		req.Header.Set("Origin", "https://example.com")
+		resp, err := ts.App.Test(req, -1)
+		require.NoError(t, err)
+		defer resp.Body.Close()
+
+		assert.Equal(t, 302, resp.StatusCode)
+		assert.Equal(t, "https://example.com/oops", resp.Header.Get("Location"))
 	})
 
 	t.Run("falls back to Referer when the browser sends Origin: null", func(t *testing.T) {
