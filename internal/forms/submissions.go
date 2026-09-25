@@ -35,13 +35,21 @@ func checkHoneypot(payload map[string]any) bool {
 		return false
 	}
 	delete(payload, HoneypotField)
-	if s, isStr := v.(string); isStr {
-		return strings.TrimSpace(s) != ""
+	switch value := v.(type) {
+	case nil:
+		return false
+	case string:
+		return strings.TrimSpace(value) != ""
+	case bool:
+		// A JS client may send the untouched field as false.
+		return value
+	case float64:
+		return value != 0
+	default:
+		// Arrays and objects count as filled: bots send odd shapes for
+		// fields they were never meant to touch.
+		return true
 	}
-	// Any non-string value still counts as "filled" (bots sometimes
-	// submit arrays or other shapes for fields they were never meant
-	// to touch).
-	return v != nil
 }
 
 // CreateSubmission creates a new submission and associated delivery events

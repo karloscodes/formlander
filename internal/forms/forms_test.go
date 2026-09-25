@@ -249,6 +249,19 @@ func TestCreateSubmission(t *testing.T) {
 		assert.Equal(t, "{}", submission.DataJSON)
 	})
 
+	t.Run("an empty JSON honeypot value is not spam", func(t *testing.T) {
+		db := testsupport.SetupTestDB(t)
+		form := &forms.Form{Name: "JSON Form", Slug: "json-honeypot"}
+		require.NoError(t, db.Create(form).Error)
+
+		for _, empty := range []any{false, float64(0), nil, ""} {
+			submission, err := forms.CreateSubmission(logger, db, form, map[string]any{"email": "a@example.com", "__fl_hp": empty}, "test")
+
+			require.NoError(t, err)
+			assert.False(t, submission.IsSpam, "honeypot value %v should not count as filled", empty)
+		}
+	})
+
 	t.Run("honeypot field marks submission as spam and skips deliveries", func(t *testing.T) {
 		db9 := testsupport.SetupTestDB(t)
 
