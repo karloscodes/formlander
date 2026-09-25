@@ -304,6 +304,22 @@ const sharedTemplateStyles = `<style>
 		display: none !important;
 	}
 
+	.formlander-shell .formlander-powered {
+		margin-top: 16px;
+		font-size: 0.75rem;
+		text-align: center;
+		color: #a8a29e;
+	}
+
+	.formlander-powered a {
+		color: #78716c;
+		text-decoration: none;
+	}
+
+	.formlander-powered a:hover {
+		text-decoration: underline;
+	}
+
 	@media (max-width: 520px) {
 		.formlander-shell {
 			margin: 16px;
@@ -355,6 +371,7 @@ const contactTemplateHTML = sharedTemplateStyles + `
 		` + honeypotField + `
 		<button type="submit" class="formlander-button">Send message</button>
 	</form>
+	<p class="formlander-powered">Form by <a href="https://formlander.com/?ref=form">Formlander</a></p>
 </div>
 `
 
@@ -384,6 +401,7 @@ const newsletterTemplateHTML = sharedTemplateStyles + `
 		` + honeypotField + `
 		<button type="submit" class="formlander-button">Subscribe</button>
 	</form>
+	<p class="formlander-powered">Form by <a href="https://formlander.com/?ref=form">Formlander</a></p>
 </div>
 `
 
@@ -419,6 +437,7 @@ const waitlistTemplateHTML = sharedTemplateStyles + `
 		` + honeypotField + `
 		<button type="submit" class="formlander-button">Join the waitlist</button>
 	</form>
+	<p class="formlander-powered">Form by <a href="https://formlander.com/?ref=form">Formlander</a></p>
 </div>
 `
 
@@ -460,6 +479,7 @@ const feedbackTemplateHTML = sharedTemplateStyles + `
 		` + honeypotField + `
 		<button type="submit" class="formlander-button">Send feedback</button>
 	</form>
+	<p class="formlander-powered">Form by <a href="https://formlander.com/?ref=form">Formlander</a></p>
 </div>
 `
 
@@ -512,6 +532,7 @@ const bugTemplateHTML = sharedTemplateStyles + `
 		` + honeypotField + `
 		<button type="submit" class="formlander-button">Send bug report</button>
 	</form>
+	<p class="formlander-powered">Form by <a href="https://formlander.com/?ref=form">Formlander</a></p>
 </div>
 `
 
@@ -536,5 +557,6 @@ const blankTemplateHTML = sharedTemplateStyles + `
 		` + honeypotField + `
 		<button type="submit" class="formlander-button">Submit</button>
 	</form>
+	<p class="formlander-powered">Form by <a href="https://formlander.com/?ref=form">Formlander</a></p>
 </div>
 `
