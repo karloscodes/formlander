@@ -33,7 +33,7 @@ test.describe("Forms Management", () => {
     helpers.log(`Template selector URL: ${page.url()}`);
 
     // Wait for template selector content
-    await page.waitForSelector('h1:has-text("Choose a Template")');
+    await page.waitForSelector('h1:has-text("Pick a starting point")');
 
     // Click on Contact Form template
     await page.click('text=Contact Form');
