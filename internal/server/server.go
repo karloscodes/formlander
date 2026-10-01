@@ -35,6 +35,8 @@ func TemplateFuncs() template.FuncMap {
 		"who":          who,
 		"gist":         gist,
 		"ago":          ago,
+		"details":      details,
+		"fileSize":     fileSize,
 		"assetVersion": func() string {
 			if buildCommit == "dev" {
 				return time.Now().Format("20060102150405")
@@ -123,6 +125,77 @@ func fields(raw string) ([]string, map[string]string) {
 	}
 	sort.Strings(keys)
 	return keys, values
+}
+
+// Detail is one field of a submission: what the form called it and what the
+// person typed.
+type Detail struct {
+	Label string
+	Value string
+}
+
+// details returns every field of a submission as a label and a value, in a
+// stable order, for the page of one submission. It returns nil when the
+// submission is not a JSON object.
+func details(raw string) []Detail {
+	var payload map[string]any
+	if json.Unmarshal([]byte(raw), &payload) != nil {
+		return nil
+	}
+	keys := make([]string, 0, len(payload))
+	for key := range payload {
+		if key != "cf-turnstile-response" {
+			keys = append(keys, key)
+		}
+	}
+	sort.Strings(keys)
+
+	list := make([]Detail, 0, len(keys))
+	for _, key := range keys {
+		list = append(list, Detail{Label: label(key), Value: plain(payload[key])})
+	}
+	return list
+}
+
+// label turns the name of a form field into words: "use_case" is "Use case".
+func label(key string) string {
+	words := strings.Join(strings.FieldsFunc(key, func(r rune) bool { return r == '_' || r == '-' }), " ")
+	if words == "" {
+		return key
+	}
+	return strings.ToUpper(words[:1]) + words[1:]
+}
+
+// plain writes a value of a submission the way a person reads it: text as
+// it is, a list with commas, and anything deeper as JSON.
+func plain(value any) string {
+	switch v := value.(type) {
+	case nil:
+		return ""
+	case string:
+		return strings.TrimSpace(v)
+	case []any:
+		parts := make([]string, len(v))
+		for i, item := range v {
+			parts[i] = plain(item)
+		}
+		return strings.Join(parts, ", ")
+	case map[string]any:
+		encoded, _ := json.MarshalIndent(v, "", "  ")
+		return string(encoded)
+	}
+	return fmt.Sprint(value)
+}
+
+// fileSize writes a number of bytes the way a person reads it.
+func fileSize(bytes int64) string {
+	switch {
+	case bytes >= 1<<20:
+		return fmt.Sprintf("%.1f MB", float64(bytes)/(1<<20))
+	case bytes >= 1<<10:
+		return fmt.Sprintf("%d KB", bytes>>10)
+	}
+	return fmt.Sprintf("%d bytes", bytes)
 }
 
 // who names the sender of a submission: the email field, or the first value
