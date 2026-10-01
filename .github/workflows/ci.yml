@@ -121,6 +121,11 @@ jobs:
       - name: Install Playwright dependencies
         run: make test-e2e-setup
 
+      # The test server embeds web/static when it compiles, and Playwright
+      # starts it before its own build step. Without this, it has no stylesheet.
+      - name: Build the stylesheet
+        run: make css
+
       - name: Run E2E tests
         run: make test-e2e
 
