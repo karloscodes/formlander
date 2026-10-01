@@ -5,7 +5,7 @@
 {{ $emailOn := and $emailDelivery $emailDelivery.Enabled }}
 <div class="space-y-6">
     <div>
-        <a href="/admin/forms" class="text-sm text-stone-500 hover:text-stone-900">← Forms</a>
+        <a href="/admin/forms" class="back">← Forms</a>
         <div class="mt-2 flex flex-wrap items-center justify-between gap-3">
             <h1 class="text-2xl font-semibold tracking-tight text-stone-900">{{ .Form.Name }}</h1>
             <a href="/admin/forms/{{ .Form.ID }}/edit" class="btn">Edit Form</a>
@@ -30,6 +30,10 @@
                 <code id="endpoint" class="mono min-w-0 flex-1 break-all rounded-lg bg-stone-100 px-3 py-2 text-stone-900">{{ .ActionURL }}</code>
                 <button type="button" class="btn btn-small" onclick="copyText(document.getElementById('endpoint').textContent, this)">Copy</button>
             </div>
+            <p class="flex flex-wrap gap-x-6 gap-y-1 text-sm text-stone-600">
+                <span>Form ID <code class="mono break-all text-stone-900">{{ .Form.PublicID }}</code></span>
+                <span>Token <code class="mono break-all text-stone-900">{{ .Token }}</code></span>
+            </p>
 
             <dl class="grid gap-x-8 gap-y-4 text-sm sm:grid-cols-3">
                 <div>

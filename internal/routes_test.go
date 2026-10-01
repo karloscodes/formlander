@@ -655,7 +655,7 @@ func TestAdminCaptchaProfileFields(t *testing.T) {
 		assert.Empty(t, profile.PolicyJSON)
 	})
 
-	t.Run("rows give one site key for each domain, and the theme is saved", func(t *testing.T) {
+	t.Run("rows give one site key for each domain, and the widget options are saved", func(t *testing.T) {
 		ts := mountTestServer(t)
 		post := signIn(t, ts)
 
@@ -663,27 +663,27 @@ func TestAdminCaptchaProfileFields(t *testing.T) {
 			"&site_key=0xMAIN&host_pattern=example.com"+
 			"&host_pattern=*.example.org&site_key=0xORG"+
 			"&host_pattern=&site_key="+
-			"&theme=dark")
+			"&theme=dark&size=compact&language=es&action=signup")
 
 		require.Equal(t, 302, resp.StatusCode)
 		profile := onlyProfile(t, ts)
 		assert.JSONEq(t, `[{"host_pattern":"example.com","site_key":"0xMAIN"},{"host_pattern":"*.example.org","site_key":"0xORG"}]`, profile.SiteKeysJSON)
-		assert.JSONEq(t, `{"theme":"dark"}`, profile.PolicyJSON)
+		assert.JSONEq(t, `{"theme":"dark","size":"compact","language":"es","action":"signup"}`, profile.PolicyJSON)
 	})
 
 	t.Run("an update keeps the saved secret and the options the form does not show", func(t *testing.T) {
 		ts := mountTestServer(t)
 		db := ts.DB.GetConnection()
-		saved := &integrations.CaptchaProfile{Name: "Site", Provider: "turnstile", SecretKey: "secret", PolicyJSON: `{"action":"signup","theme":"dark"}`}
+		saved := &integrations.CaptchaProfile{Name: "Site", Provider: "turnstile", SecretKey: "secret", PolicyJSON: `{"widget":"invisible","theme":"dark"}`}
 		require.NoError(t, db.Create(saved).Error)
 		post := signIn(t, ts)
 
-		resp := post(fmt.Sprintf("/admin/settings/captcha/%d", saved.ID), "name=Site&provider=turnstile&secret_key=&site_key=0xMAIN&host_pattern=&theme=light")
+		resp := post(fmt.Sprintf("/admin/settings/captcha/%d", saved.ID), "name=Site&provider=turnstile&secret_key=&site_key=0xMAIN&host_pattern=&theme=light&size=&language=&action=")
 
 		require.Equal(t, 302, resp.StatusCode)
 		profile := onlyProfile(t, ts)
 		assert.Equal(t, "secret", profile.SecretKey)
-		assert.JSONEq(t, `{"action":"signup","theme":"light"}`, profile.PolicyJSON)
+		assert.JSONEq(t, `{"widget":"invisible","theme":"light"}`, profile.PolicyJSON)
 	})
 
 	t.Run("still takes the JSON fields of the old form", func(t *testing.T) {

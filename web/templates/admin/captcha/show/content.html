@@ -1,5 +1,5 @@
 {{ define "admin/captcha/show/content" }}
-<div class="mx-auto max-w-2xl space-y-6">
+<div class="max-w-2xl space-y-6">
     <div>
         <a href="/admin/settings/captcha" class="back">← Captchas</a>
         <div class="mt-2 flex flex-wrap items-center justify-between gap-3">
@@ -36,7 +36,19 @@
             </div>
             <div>
                 <dt class="text-stone-500">Theme</dt>
-                <dd class="mt-1 text-stone-900">{{ if eq .Theme "light" }}Light{{ else if eq .Theme "dark" }}Dark{{ else }}Follows the visitor's device{{ end }}</dd>
+                <dd class="mt-1 text-stone-900">{{ if eq .Policy.Theme "light" }}Light{{ else if eq .Policy.Theme "dark" }}Dark{{ else }}Follows the visitor's device{{ end }}</dd>
+            </div>
+            <div>
+                <dt class="text-stone-500">Size</dt>
+                <dd class="mt-1 text-stone-900">{{ if eq .Policy.Size "compact" }}Compact{{ else if eq .Policy.Size "flexible" }}Flexible{{ else if .Policy.Size }}{{ .Policy.Size }}{{ else }}Normal{{ end }}</dd>
+            </div>
+            <div>
+                <dt class="text-stone-500">Language</dt>
+                <dd class="mt-1 text-stone-900">{{ if .Policy.Language }}<span class="mono">{{ .Policy.Language }}</span>{{ else }}The language of the visitor{{ end }}</dd>
+            </div>
+            <div>
+                <dt class="text-stone-500">Action name</dt>
+                <dd class="mono mt-1 text-stone-900">{{ .Policy.Action }}</dd>
             </div>
         </dl>
     </div>

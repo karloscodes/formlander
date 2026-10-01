@@ -17,13 +17,13 @@
             <label class="flex items-center pl-5 pr-3 sm:pl-6">
                 <input type="checkbox" name="ids" value="{{ .ID }}" class="check" aria-label="Select this submission">
             </label>
-            <a href="/admin/submissions/{{ .ID }}" class="flex min-w-0 flex-1 items-baseline gap-4 py-3 pr-5 sm:pr-6">
+            <a href="/admin/submissions/{{ .ID }}" class="flex min-w-0 flex-1 flex-col gap-x-4 gap-y-0.5 py-3 pr-5 sm:flex-row sm:items-baseline sm:pr-6">
                 <span class="min-w-0 flex-1">
                     <span class="block truncate text-sm font-medium text-stone-900">{{ if who .DataJSON }}{{ who .DataJSON }}{{ else }}Someone{{ end }}{{ if .IsSpam }} <span class="pill pill-warn">spam</span>{{ end }}</span>
                     <span class="block truncate text-sm text-stone-500">{{ gist .DataJSON }}</span>
                 </span>
-                <span class="text-right text-xs text-stone-400">
-                    {{ if .Form }}<span class="block max-w-[9rem] truncate text-stone-500">{{ .Form.Name }}</span>{{ end }}
+                <span class="flex min-w-0 gap-2 text-xs text-stone-500 sm:block sm:text-right">
+                    {{ if .Form }}<span class="block truncate sm:max-w-[9rem]">{{ .Form.Name }}</span>{{ end }}
                     <span class="block whitespace-nowrap" title="{{ .CreatedAt.Format "Jan 2, 2006 15:04 MST" }}">{{ ago .CreatedAt }}</span>
                 </span>
             </a>

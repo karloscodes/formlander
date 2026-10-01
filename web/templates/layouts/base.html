@@ -7,6 +7,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{ if .Title }}{{ .Title }} · Formlander{{ else }}Formlander{{ end }}</title>
     <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
+    <link rel="preload" href="/assets/fonts/geist.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="stylesheet" href="/assets/app.built.css?v={{ assetVersion }}">
 </head>
 
@@ -21,12 +22,12 @@
             </a>
             {{ if not .HideHeaderActions }}
             <nav class="order-last flex w-full items-center gap-1 text-sm sm:order-none sm:w-auto" aria-label="Main">
-                <a href="/admin/forms" class="rounded-lg px-3 py-1.5 font-medium text-stone-600 hover:bg-stone-100 hover:text-stone-900">Forms</a>
-                <a href="/admin/submissions" class="rounded-lg px-3 py-1.5 font-medium text-stone-600 hover:bg-stone-100 hover:text-stone-900">Submissions</a>
-                <a href="/admin/settings" class="rounded-lg px-3 py-1.5 font-medium text-stone-600 hover:bg-stone-100 hover:text-stone-900">Settings</a>
+                <a href="/admin/forms" class="nav-link">Forms</a>
+                <a href="/admin/submissions" class="nav-link">Submissions</a>
+                <a href="/admin/settings" class="nav-link">Settings</a>
             </nav>
             <form action="/admin/logout" method="post" class="ml-auto">
-                <button type="submit" class="rounded-lg px-3 py-1.5 text-sm font-medium text-stone-500 hover:bg-stone-100 hover:text-stone-900">Sign out</button>
+                <button type="submit" class="nav-link">Sign out</button>
             </form>
             {{ end }}
         </div>
@@ -36,8 +37,8 @@
         {{ render .ContentView . }}
         {{ end }}
     </main>
-    <footer class="py-6 text-center text-xs text-stone-400">
-        Formlander, by <a href="https://x.com/karloscodes" target="_blank" rel="noopener" class="hover:text-stone-600">@karloscodes</a>
+    <footer class="py-6 text-center text-xs text-stone-500">
+        Formlander, by <a href="https://x.com/karloscodes" target="_blank" rel="noopener" class="hover:text-stone-900">@karloscodes</a>
     </footer>
     <script src="/assets/vendor/htmx.min.js?v={{ assetVersion }}"></script>
     <script>

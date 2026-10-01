@@ -1,5 +1,5 @@
 {{ define "admin/captcha/new/content" }}
-<div class="mx-auto max-w-2xl space-y-6">
+<div class="max-w-2xl space-y-6">
     <div>
         {{ if .IsEdit }}
         <a href="/admin/settings/captcha/{{ .Profile.ID }}" class="back">← {{ if .Profile.Name }}{{ .Profile.Name }}{{ else }}Captcha{{ end }}</a>
@@ -54,17 +54,38 @@
             </div>
         </div>
 
-        <details class="card" {{ if or .Host .MoreKeys (ne .Theme "auto") }}open{{ end }}>
-            <summary class="cursor-pointer px-5 py-4 text-sm font-medium text-stone-900 sm:px-6">More options <span class="font-normal text-stone-500">: the theme, one widget for each domain</span></summary>
+        <details class="card" {{ if or .Host .MoreKeys .Policy.Size .Policy.Language (ne .Policy.Theme "auto") (ne .Policy.Action "submit") }}open{{ end }}>
+            <summary class="cursor-pointer px-5 py-4 text-sm font-medium text-stone-900 sm:px-6">More options <span class="font-normal text-stone-500">: the look, the language, one widget for each domain</span></summary>
             <div class="space-y-6 border-t border-stone-100 p-5 sm:p-6">
                 <div>
                     <label for="theme" class="field-label">Theme</label>
                     <select id="theme" name="theme" class="field-input">
-                        <option value="auto" {{ if eq .Theme "auto" }}selected{{ end }}>Follow the visitor's device</option>
-                        <option value="light" {{ if eq .Theme "light" }}selected{{ end }}>Light</option>
-                        <option value="dark" {{ if eq .Theme "dark" }}selected{{ end }}>Dark</option>
+                        <option value="auto" {{ if eq .Policy.Theme "auto" }}selected{{ end }}>Follow the visitor's device</option>
+                        <option value="light" {{ if eq .Policy.Theme "light" }}selected{{ end }}>Light</option>
+                        <option value="dark" {{ if eq .Policy.Theme "dark" }}selected{{ end }}>Dark</option>
                     </select>
                     <p class="field-help">The colours of the captcha box on your site.</p>
+                </div>
+
+                <div>
+                    <label for="size" class="field-label">Size</label>
+                    <select id="size" name="size" class="field-input">
+                        <option value="" {{ if not .Policy.Size }}selected{{ end }}>Normal</option>
+                        <option value="compact" {{ if eq .Policy.Size "compact" }}selected{{ end }}>Compact, for a narrow column</option>
+                        <option value="flexible" {{ if eq .Policy.Size "flexible" }}selected{{ end }}>Flexible, as wide as the form</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label for="language" class="field-label">Language</label>
+                    <input type="text" id="language" name="language" value="{{ .Policy.Language }}" class="field-input" placeholder="The language of the visitor">
+                    <p class="field-help">Leave it empty and Cloudflare uses the language of the visitor. To set one language, type its code: <code class="mono">es</code>, <code class="mono">de</code>, <code class="mono">pt-BR</code>.</p>
+                </div>
+
+                <div>
+                    <label for="action" class="field-label">Action name</label>
+                    <input type="text" id="action" name="action" value="{{ if ne .Policy.Action "submit" }}{{ .Policy.Action }}{{ end }}" class="field-input mono" placeholder="submit">
+                    <p class="field-help">A label for the Turnstile statistics in Cloudflare. It tells the captchas of this profile apart from others. Most people leave it.</p>
                 </div>
 
                 <div>

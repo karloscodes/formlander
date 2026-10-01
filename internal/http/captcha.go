@@ -53,13 +53,10 @@ func siteKeysFromForm(ctx *cartridge.Context) string {
 	return string(data)
 }
 
-// captchaThemes are the looks of the Turnstile widget. "auto" follows the
-// visitor's system and is what Cloudflare does when nothing is set.
-var captchaThemes = []string{"auto", "light", "dark"}
-
 // policyFromForm returns the widget options of a profile as the JSON the
-// model keeps. The form has one option, the theme. saved is the policy the
-// profile has now: its other options stay.
+// model keeps: the theme, the size, the language, and the action. An option
+// left at its default is not saved. saved is the policy the profile has now:
+// options that the form does not have stay.
 //
 // An older version of the form sent policy_json. It still wins when a
 // request has it.
@@ -69,9 +66,20 @@ func policyFromForm(ctx *cartridge.Context, saved string) string {
 	}
 	policy := map[string]any{}
 	_ = json.Unmarshal([]byte(saved), &policy)
-	delete(policy, "theme")
+	for _, key := range []string{"theme", "size", "language", "action"} {
+		delete(policy, key)
+	}
 	if theme := ctx.FormValue("theme"); theme == "light" || theme == "dark" {
 		policy["theme"] = theme
+	}
+	if size := ctx.FormValue("size"); size == "compact" || size == "flexible" {
+		policy["size"] = size
+	}
+	if language := strings.TrimSpace(ctx.FormValue("language")); language != "" && language != "auto" {
+		policy["language"] = language
+	}
+	if action := strings.TrimSpace(ctx.FormValue("action")); action != "" && action != "submit" {
+		policy["action"] = action
 	}
 	if len(policy) == 0 {
 		return ""
@@ -91,11 +99,6 @@ func siteKeys(raw string) []siteKeyEntry {
 		}
 	}
 	return entries
-}
-
-// captchaTheme returns the theme of a profile, or "auto".
-func captchaTheme(policyJSON string) string {
-	return parseCaptchaPolicy(policyJSON, "").Theme
 }
 
 // renderCaptchaForm shows the new or edit screen with what the owner typed.
@@ -120,8 +123,7 @@ func renderCaptchaForm(ctx *cartridge.Context, id uint, params integrations.Capt
 		"SiteKey":     first.SiteKey,
 		"Host":        first.HostPattern,
 		"MoreKeys":    keys,
-		"Theme":       captchaTheme(params.PolicyJSON),
-		"Themes":      captchaThemes,
+		"Policy":      parseCaptchaPolicy(params.PolicyJSON, ""),
 		"Error":       message,
 		"ContentView": "admin/captcha/new/content",
 	}, "")
@@ -134,7 +136,7 @@ func renderCaptchaProfile(ctx *cartridge.Context, profile *integrations.CaptchaP
 		"Title":        profile.Name,
 		"Profile":      profile,
 		"SiteKeys":     siteKeys(profile.SiteKeysJSON),
-		"Theme":        captchaTheme(profile.PolicyJSON),
+		"Policy":       parseCaptchaPolicy(profile.PolicyJSON, ""),
 		"Forms":        formsUsingCaptcha(ctx.DB(), profile.ID),
 		"DeleteAction": "/admin/settings/captcha/" + fmt.Sprint(profile.ID) + "/delete",
 		"ContentView":  "admin/captcha/show/content",
