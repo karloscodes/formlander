@@ -8,6 +8,8 @@
                 {{ if .Filtered }}· <a href="/admin/submissions" class="link">Clear the filters</a>{{ end }}
             </p>
         </div>
+        <div class="flex flex-wrap items-center gap-2">
+        {{ if .Submissions }}<a href="{{ .ExportURL }}" hx-boost="false" class="btn btn-small">Export CSV</a>{{ end }}
         {{ if gt .SpamCount 0 }}
         <form method="post" action="/admin/submissions/delete" hx-boost="false">
             <input type="hidden" name="spam" value="1">
@@ -17,6 +19,7 @@
                 onclick="return confirm('Delete {{ .SpamCount }} spam {{ if eq .SpamCount 1 }}submission{{ else }}submissions{{ end }}{{ if .FormID }} of this form{{ end }}? You cannot undo it.')">Delete {{ .SpamCount }} spam</button>
         </form>
         {{ end }}
+        </div>
     </div>
 
     <div class="card overflow-hidden">

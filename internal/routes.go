@@ -125,6 +125,7 @@ func MountRoutes(s *cartridge.Server, cfg *config.Config) {
 	s.Get("/admin/forms/:id", httphandlers.AdminFormShow, authConfig)
 	s.Get("/admin/forms/:id/edit", httphandlers.AdminFormsEdit, authConfig)
 	s.Post("/admin/forms/:id", httphandlers.AdminFormsUpdate, authConfig)
+	s.Get("/admin/submissions/export.csv", httphandlers.SubmissionsExport, authConfig)
 	s.Get("/admin/submissions/:id", httphandlers.AdminSubmissionShow, authConfig)
 	s.Get("/admin/submissions/:id/files/:file_id", httphandlers.AdminSubmissionFileDownload, authConfig)
 	s.Post("/admin/submissions/delete", httphandlers.AdminSubmissionsDelete, authConfig)

@@ -1,9 +1,13 @@
 package http
 
 import (
+	"bytes"
+	"encoding/csv"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -27,52 +31,7 @@ func SubmissionList(ctx *cartridge.Context) error {
 	perPage := 20
 	offset := (page - 1) * perPage
 
-	// Parse filters
-	formID := ctx.Query("form_id")
-	rangeFilter := ctx.Query("range")
-	search := strings.TrimSpace(ctx.Query("q"))
-	spam := ctx.Query("spam")
-	if rangeFilter == "all" {
-		rangeFilter = ""
-	}
-
-	// Build query
-	query := db.Model(&forms.Submission{}).Preload("Form")
-
-	if formID != "" {
-		query = query.Where("form_id = ?", formID)
-	}
-
-	switch spam {
-	case "only":
-		query = query.Where("is_spam = ?", true)
-	case "no":
-		query = query.Where("is_spam = ?", false)
-	default:
-		spam = ""
-	}
-
-	// Search in data_json
-	if search != "" {
-		query = query.Where("data_json LIKE ?", "%"+search+"%")
-	}
-
-	// Handle date range filter
-	if rangeFilter != "" {
-		var startTime time.Time
-		now := time.Now()
-		switch rangeFilter {
-		case "7d":
-			startTime = now.AddDate(0, 0, -7)
-		case "30d":
-			startTime = now.AddDate(0, 0, -30)
-		case "90d":
-			startTime = now.AddDate(0, 0, -90)
-		}
-		if !startTime.IsZero() {
-			query = query.Where("created_at >= ?", startTime)
-		}
-	}
+	query, formID, rangeFilter, spam, search := filteredSubmissions(ctx)
 
 	// Get total count for pagination
 	var totalCount int64
@@ -132,6 +91,7 @@ func SubmissionList(ctx *cartridge.Context) error {
 		"ReturnTo":    ctx.OriginalURL(),
 		"Forms":       forms,
 		"Page":        page,
+		"ExportURL":   strings.Replace(link(rangeFilter, spam, 1), "/admin/submissions", "/admin/submissions/export.csv", 1),
 		"NextURL":     link(rangeFilter, spam, nextPage),
 		"PrevURL":     link(rangeFilter, spam, prevPage),
 		"TotalPages":  totalPages,
@@ -147,6 +107,102 @@ func SubmissionList(ctx *cartridge.Context) error {
 		"SpamChoices": spamChoices,
 		"ContentView": "admin/submissions/index/content",
 	}, "")
+}
+
+// filteredSubmissions returns the submissions that the filters of the
+// request ask for, and the filters themselves: the form, the time, the spam
+// choice ("", "no", "only"), and the search text.
+func filteredSubmissions(ctx *cartridge.Context) (query *gorm.DB, formID, rangeFilter, spam, search string) {
+	formID = ctx.Query("form_id")
+	rangeFilter = ctx.Query("range")
+	spam = ctx.Query("spam")
+	search = strings.TrimSpace(ctx.Query("q"))
+
+	query = ctx.DB().Model(&forms.Submission{}).Preload("Form")
+	if formID != "" {
+		query = query.Where("form_id = ?", formID)
+	}
+	switch spam {
+	case "only":
+		query = query.Where("is_spam = ?", true)
+	case "no":
+		query = query.Where("is_spam = ?", false)
+	default:
+		spam = ""
+	}
+	if search != "" {
+		query = query.Where("data_json LIKE ?", "%"+search+"%")
+	}
+	days := map[string]int{"7d": 7, "30d": 30, "90d": 90}[rangeFilter]
+	if days == 0 {
+		rangeFilter = ""
+	} else {
+		query = query.Where("created_at >= ?", time.Now().AddDate(0, 0, -days))
+	}
+	return query, formID, rangeFilter, spam, search
+}
+
+// SubmissionsExport sends the submissions that the filters ask for as a CSV
+// file: one row for each submission, one column for each field that any of
+// them has.
+func SubmissionsExport(ctx *cartridge.Context) error {
+	query, _, _, _, _ := filteredSubmissions(ctx)
+	var submissions []forms.Submission
+	if err := query.Order("created_at DESC").Find(&submissions).Error; err != nil {
+		return fiber.ErrInternalServerError
+	}
+
+	// The columns are the fields of all the rows, by name.
+	rows := make([]map[string]string, len(submissions))
+	seen := map[string]bool{}
+	for i, submission := range submissions {
+		var payload map[string]any
+		_ = json.Unmarshal([]byte(submission.DataJSON), &payload)
+		rows[i] = map[string]string{}
+		for name, value := range payload {
+			text, ok := value.(string)
+			if !ok {
+				encoded, _ := json.Marshal(value)
+				text = string(encoded)
+			}
+			rows[i][name] = text
+			seen[name] = true
+		}
+	}
+	fields := slices.Sorted(maps.Keys(seen))
+
+	var file bytes.Buffer
+	out := csv.NewWriter(&file)
+	_ = out.Write(append([]string{"received", "form", "spam"}, fields...))
+	for i, submission := range submissions {
+		form, spam := "", "no"
+		if submission.Form != nil {
+			form = submission.Form.Name
+		}
+		if submission.IsSpam {
+			spam = "yes"
+		}
+		record := []string{submission.CreatedAt.UTC().Format(time.RFC3339), form, spam}
+		for _, name := range fields {
+			record = append(record, csvCell(rows[i][name]))
+		}
+		_ = out.Write(record)
+	}
+	out.Flush()
+
+	ctx.Set(fiber.HeaderContentType, "text/csv; charset=utf-8")
+	ctx.Set(fiber.HeaderContentDisposition, fmt.Sprintf(`attachment; filename="submissions-%s.csv"`, time.Now().UTC().Format("2006-01-02")))
+	return ctx.Send(file.Bytes())
+}
+
+// csvCell makes a value safe for a spreadsheet. A cell that starts with =, +,
+// -, or @ is a formula there, and a visitor chose the text: a leading quote
+// makes it plain text.
+func csvCell(value string) string {
+	if value != "" && strings.ContainsRune("=+-@\t\r", rune(value[0])) {
+		return "'" + value
+	}
+	return value
 }
 
 // filterLink is one choice of a filter of the submissions list.

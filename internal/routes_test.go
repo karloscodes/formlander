@@ -2,6 +2,7 @@ package internal_test
 
 import (
 	"bytes"
+	"encoding/csv"
 	"fmt"
 	"io"
 	"log/slog"
@@ -726,4 +727,85 @@ func TestAdminMailerProfileKeepsSecrets(t *testing.T) {
 	assert.Equal(t, 465, profile.SMTPPort)
 	assert.Equal(t, "pass", profile.SMTPPassword, "an empty password field keeps the saved password")
 	assert.Equal(t, `{"tags":["a"]}`, profile.DefaultsJSON)
+}
+
+func TestAdminExportsSubmissions(t *testing.T) {
+	ts := mountTestServer(t)
+	db := ts.DB.GetConnection()
+	form := &forms.Form{Name: "Contact", Slug: "contact", AllowedOrigins: "example.com"}
+	require.NoError(t, db.Create(form).Error)
+	other := &forms.Form{Name: "Newsletter", Slug: "newsletter", AllowedOrigins: "example.com"}
+	require.NoError(t, db.Create(other).Error)
+	for _, entry := range []struct {
+		form    *forms.Form
+		payload map[string]any
+	}{
+		{form, map[string]any{"email": "ana@example.com", "message": "Hello, \"you\""}},
+		{form, map[string]any{"email": "bob@example.com", "company": "=HYPERLINK(\"http://evil\")"}},
+		{other, map[string]any{"email": "cy@example.com"}},
+	} {
+		_, err := forms.CreateSubmission(slog.Default(), db, entry.form, entry.payload, "test")
+		require.NoError(t, err)
+	}
+	get := signInGet(t, ts)
+
+	t.Run("one row for each submission, one column for each field", func(t *testing.T) {
+		resp := get("/admin/submissions/export.csv")
+
+		require.Equal(t, 200, resp.StatusCode)
+		assert.Contains(t, resp.Header.Get("Content-Disposition"), "attachment")
+		rows, err := csv.NewReader(resp.Body).ReadAll()
+		require.NoError(t, err)
+		require.Len(t, rows, 4)
+		assert.Equal(t, []string{"received", "form", "spam", "company", "email", "message"}, rows[0])
+	})
+
+	t.Run("the filters of the list apply", func(t *testing.T) {
+		resp := get(fmt.Sprintf("/admin/submissions/export.csv?form_id=%d&q=ana", form.ID))
+
+		rows, err := csv.NewReader(resp.Body).ReadAll()
+		require.NoError(t, err)
+		require.Len(t, rows, 2)
+		assert.Equal(t, []string{"received", "form", "spam", "email", "message"}, rows[0])
+		assert.Equal(t, []string{"Contact", "no", "ana@example.com", `Hello, "you"`}, rows[1][1:])
+	})
+
+	t.Run("a value cannot be a spreadsheet formula", func(t *testing.T) {
+		resp := get("/admin/submissions/export.csv?q=bob")
+
+		rows, err := csv.NewReader(resp.Body).ReadAll()
+		require.NoError(t, err)
+		require.Len(t, rows, 2)
+		assert.Equal(t, `'=HYPERLINK("http://evil")`, rows[1][3])
+	})
+
+	t.Run("needs a login", func(t *testing.T) {
+		resp, err := ts.App.Test(httptest.NewRequest("GET", "/admin/submissions/export.csv", nil), -1)
+
+		require.NoError(t, err)
+		assert.NotEqual(t, 200, resp.StatusCode)
+	})
+}
+
+// signInGet signs the admin in and returns a function that gets a page.
+func signInGet(t *testing.T, ts *cartridgetestsupport.TestServer) func(path string) *http.Response {
+	t.Helper()
+	seedAdmin(t, ts, "admin@example.com", "a-good-password")
+	req := httptest.NewRequest("POST", "/admin/login", strings.NewReader("email=admin@example.com&password=a-good-password"))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	resp, err := ts.App.Test(req, -1)
+	require.NoError(t, err)
+	require.Equal(t, 302, resp.StatusCode)
+	cookies := resp.Cookies()
+
+	return func(path string) *http.Response {
+		t.Helper()
+		req := httptest.NewRequest("GET", path, nil)
+		for _, c := range cookies {
+			req.AddCookie(c)
+		}
+		resp, err := ts.App.Test(req, -1)
+		require.NoError(t, err)
+		return resp
+	}
 }

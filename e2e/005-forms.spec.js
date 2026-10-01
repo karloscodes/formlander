@@ -138,13 +138,13 @@ test.describe("Forms Management", () => {
     await page.waitForLoadState("networkidle");
 
     // Get initial form code (should not include SDK)
-    const codeElement = await page.waitForSelector("#form-code");
+    const codeElement = await page.waitForSelector("[data-code]");
     const initialCode = await codeElement.textContent();
     expect(initialCode).not.toContain("formlander.js");
     helpers.log("✅ Initial code does not include SDK");
 
     // Check the SDK toggle
-    const sdkCheckbox = await page.waitForSelector("#include-sdk");
+    const sdkCheckbox = await page.waitForSelector("[data-sdk]");
     await sdkCheckbox.check();
 
     // Wait for code to update
@@ -192,5 +192,24 @@ test.describe("Forms Management", () => {
     expect(pageContent).toContain("Test Bug Report");
 
     helpers.log("✅ Form with delivery settings created");
+  });
+
+  test("6. See an example of each starting point, and of the new form", async ({ page }) => {
+    helpers.log("=== Starting Points And Examples ===");
+
+    await helpers.navigateTo("/admin/forms/new");
+
+    // Each starting point shows its form.
+    const contact = page.locator('a[href="/admin/forms/new?template=contact"]');
+    await expect(contact.frameLocator("iframe").locator("body")).toContainText("Get in touch");
+
+    // The new form has the example next to its fields, and the code behind a tab.
+    await contact.click();
+    await page.waitForURL(/template=contact/);
+    await expect(page.frameLocator("iframe[data-preview]").locator("form")).toContainText("Send message");
+    await page.click('button[data-tab="code"]');
+    await expect(page.locator("[data-code]")).toContainText('method="POST"');
+
+    helpers.log("✅ Examples show");
   });
 });
