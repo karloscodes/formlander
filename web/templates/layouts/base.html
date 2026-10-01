@@ -15,7 +15,7 @@
     <div id="page-loader"></div>
 
     <header class="border-b border-stone-200 bg-white">
-        <div class="mx-auto flex w-full max-w-5xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3 sm:px-6">
+        <div class="mx-auto flex w-full max-w-6xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3 sm:px-6">
             <a href="/admin" class="flex items-center gap-2 text-base font-semibold tracking-tight">
                 <img src="/assets/favicon.svg" alt="" width="24" height="24" class="h-6 w-6">
                 Formlander
@@ -32,7 +32,7 @@
             {{ end }}
         </div>
     </header>
-    <main class="mx-auto w-full max-w-5xl flex-1 space-y-8 px-4 py-8 sm:px-6 sm:py-10">
+    <main class="mx-auto w-full max-w-6xl flex-1 space-y-8 px-4 py-8 sm:px-6 sm:py-10">
         {{ if .ContentView }}
         {{ render .ContentView . }}
         {{ end }}
@@ -53,6 +53,98 @@
             });
             document.body.addEventListener('htmx:afterRequest', function () {
                 setTimeout(function () { document.getElementById('page-loader').style.opacity = '0'; }, 300);
+            });
+
+            // Copy a text and say so on the button, for a moment.
+            window.copyText = function (text, button) {
+                navigator.clipboard.writeText(text).then(function () {
+                    var label = button.textContent;
+                    button.textContent = 'Copied';
+                    setTimeout(function () { button.textContent = label; }, 1500);
+                });
+            };
+
+            // The code of a form, and an example of it. A panel has the source
+            // in a hidden textarea, a place for the code, and an iframe.
+            var formCode = window.formlanderCode = {
+                sdkTag: '\n\n<!-- Formlander SDK: adds automatic retry & loading states -->\n<script src="/assets/formlander.js"><\/script>',
+                // A plain look for the example. :where() keeps these rules weak,
+                // so the styles of a starter template win over them.
+                styles: 'body { margin: 0; padding: 8px; background: transparent; color: #1c1917; font: 15px/1.5 system-ui, -apple-system, sans-serif; }' +
+                    ':where(form) { display: grid; gap: 14px; max-width: 28rem; margin: 0 auto; }' +
+                    ':where(label) { display: grid; gap: 6px; font-size: 14px; font-weight: 500; }' +
+                    ':where(input:not([type=checkbox], [type=radio], [type=hidden], [type=submit]), textarea, select) { box-sizing: border-box; width: 100%; padding: 8px 10px; border: 1px solid #d6d3d1; border-radius: 8px; background: #fff; font: inherit; }' +
+                    ':where(button, input[type=submit]) { justify-self: start; padding: 8px 16px; border: 0; border-radius: 8px; background: #1c1917; color: #fff; font: inherit; font-weight: 500; }' +
+                    '.cf-turnstile { display: flex; align-items: center; justify-content: center; min-height: 65px; border: 1px dashed #a8a29e; border-radius: 8px; color: #78716c; font-size: 13px; }' +
+                    ".cf-turnstile::before { content: 'The captcha shows here'; }",
+
+                // The example is the form code inside an iframe that cannot send
+                // forms. The Turnstile script is left out: the captcha only
+                // works on the allowed sites.
+                show: function (iframe, html) {
+                    var turnstile = /<script[^>]*https:\/\/challenges\.cloudflare\.com\/turnstile\/v0\/api\.js[^>]*><\/script>/gi;
+                    var doc = new DOMParser().parseFromString(html.replaceAll(turnstile, ''), 'text/html');
+                    var styles = '';
+                    doc.querySelectorAll('style').forEach(function (style) { styles += style.textContent + '\n'; style.remove(); });
+                    doc.querySelectorAll('script').forEach(function (script) { script.remove(); });
+                    iframe.srcdoc = '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">' +
+                        '<meta name="viewport" content="width=device-width, initial-scale=1.0">' +
+                        '<style>' + formCode.styles + '</style><style>' + styles + '</style></head><body>' + doc.body.innerHTML + '</body></html>';
+                },
+                // The iframe gets the height of its content, so it has no
+                // scrollbar of its own. A hidden iframe has no height yet.
+                fit: function (iframe) {
+                    if (iframe.offsetParent && iframe.contentWindow) iframe.style.height = iframe.contentWindow.document.documentElement.scrollHeight + 'px';
+                },
+                source: function (panel) {
+                    var sdk = document.querySelector('[data-sdk]');
+                    return panel.querySelector('[data-source]').value + (sdk && sdk.checked ? formCode.sdkTag : '');
+                },
+                render: function (panel) {
+                    var code = panel.querySelector('[data-code]');
+                    code.textContent = formCode.source(panel);
+                    if (window.hljs) {
+                        code.removeAttribute('data-highlighted');
+                        hljs.highlightElement(code);
+                    }
+                    formCode.show(panel.querySelector('[data-preview]'), panel.querySelector('[data-source]').value);
+                },
+                init: function () {
+                    var panels = document.querySelectorAll('[data-code-panel]');
+                    panels.forEach(function (panel) {
+                        panel.querySelector('[data-preview]').addEventListener('load', function () { formCode.fit(this); });
+                        formCode.render(panel);
+                    });
+                    document.querySelectorAll('iframe[data-thumb]').forEach(function (iframe) {
+                        formCode.show(iframe, document.getElementById(iframe.getAttribute('data-thumb')).value);
+                    });
+                    // The highlighter is large, so only a page with code loads it.
+                    if (panels.length && !window.hljs && !formCode.loading) {
+                        formCode.loading = true;
+                        var script = document.createElement('script');
+                        script.src = '/assets/vendor/highlight.min.js';
+                        script.onload = function () { document.querySelectorAll('[data-code-panel]').forEach(formCode.render); };
+                        document.head.appendChild(script);
+                    }
+                }
+            };
+            document.addEventListener('click', function (event) {
+                var tab = event.target.closest('[data-tab]');
+                if (tab) {
+                    var panel = tab.closest('[data-code-panel]');
+                    panel.querySelectorAll('[data-tab]').forEach(function (button) {
+                        button.setAttribute('aria-selected', button === tab ? 'true' : 'false');
+                    });
+                    panel.querySelectorAll('[data-panel]').forEach(function (part) {
+                        part.hidden = part.getAttribute('data-panel') !== tab.getAttribute('data-tab');
+                    });
+                    formCode.fit(panel.querySelector('[data-preview]'));
+                }
+                var copy = event.target.closest('[data-copy-code]');
+                if (copy) window.copyText(formCode.source(copy.closest('[data-code-panel]')), copy);
+            });
+            document.addEventListener('change', function (event) {
+                if (event.target.matches('[data-sdk]')) document.querySelectorAll('[data-code-panel]').forEach(formCode.render);
             });
 
             // "Add a row" copies the <template> that the button names, and puts
@@ -98,6 +190,12 @@
                 }
             });
         }
+
+        // These run with each page.
+        document.querySelectorAll('.nav-link[href]').forEach(function (link) {
+            if (location.pathname.indexOf(link.getAttribute('href')) === 0) link.setAttribute('aria-current', 'page');
+        });
+        window.formlanderCode.init();
     </script>
 </body>
 

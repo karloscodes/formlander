@@ -1,0 +1,40 @@
+{{/* The code of a form and an example of it. It needs .FormCode. With
+     .CodeSplit, a wide screen shows both side by side and the panel has the
+     SDK switch. Without it, the switch is a field of the page (data-sdk). */}}
+{{ define "admin/forms/code" }}
+<div class="card overflow-hidden {{ if .CodeSplit }}code-split{{ end }}" data-code-panel>
+    <link rel="stylesheet" href="/assets/vendor/highlight-github-dark.min.css">
+    <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 border-b border-stone-100 px-5 py-3.5 sm:px-6">
+        <div>
+            <h2 class="card-title">{{ if or .CodeSplit .IsEdit }}Code for your site{{ else }}Example{{ end }}</h2>
+            <p class="card-note">{{ if .CodeSplit }}Paste it, then change it as you like. Formlander saves every field the form sends.{{ else if .IsEdit }}What your site has now, when you pasted the code as it is.{{ else }}A starting point. Change the fields in your own HTML.{{ end }}</p>
+        </div>
+        <div class="flex flex-wrap items-center gap-4">
+            {{ if .CodeSplit }}
+            <label class="flex items-center gap-2.5 text-sm text-stone-700">
+                <input type="checkbox" class="switch" data-sdk {{ if .UseSDK }}checked{{ end }}>
+                JavaScript SDK
+            </label>
+            {{ end }}
+            <div class="seg" role="tablist">
+                <button type="button" class="seg-btn" role="tab" data-tab="preview" aria-selected="true">Preview</button>
+                <button type="button" class="seg-btn" role="tab" data-tab="code" aria-selected="false">Code</button>
+            </div>
+        </div>
+    </div>
+    <div data-panels>
+        <div data-panel="preview" class="preview-stage">
+            <iframe data-preview title="Example of the form" sandbox="allow-same-origin" class="block w-full border-0" style="height: 360px;"></iframe>
+        </div>
+        <div data-panel="code" class="relative bg-stone-950" hidden>
+            <div class="flex items-center justify-between border-b border-white/10 px-5 py-2">
+                <span class="font-mono text-xs text-stone-400">HTML</span>
+                <button type="button" class="rounded-md bg-white/10 px-2.5 py-1 text-xs font-medium text-white ring-1 ring-white/20 transition hover:bg-white/20" data-copy-code>Copy</button>
+            </div>
+            <pre class="code-block" style="max-height: 600px;"><code data-code class="language-html"></code></pre>
+        </div>
+    </div>
+    <textarea data-source hidden>{{ .FormCode }}</textarea>
+    <p class="border-t border-stone-100 px-5 py-3 text-sm text-stone-600 sm:px-6">The preview has a plain style and cannot send. On your site, the form looks the way your HTML and CSS make it look.</p>
+</div>
+{{ end }}

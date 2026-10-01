@@ -1,5 +1,5 @@
 {{ define "admin/mailers/index" }}
-<div class="mx-auto max-w-2xl space-y-6">
+<div class="page-settings space-y-6">
     <div>
         <a href="/admin/settings" class="back">← Settings</a>
         <div class="mt-2 flex flex-wrap items-center justify-between gap-3">
@@ -19,12 +19,13 @@
         <ul class="divide-y divide-stone-100">
             {{ range .Profiles }}
             <li>
-                <a href="/admin/settings/mailers/{{ .ID }}" class="flex items-baseline gap-4 px-5 py-4 transition hover:bg-stone-50 sm:px-6">
+                <a href="/admin/settings/mailers/{{ .ID }}" class="group flex items-center gap-4 px-5 py-4 transition hover:bg-stone-50 sm:px-6">
                     <span class="min-w-0 flex-1">
                         <span class="block truncate text-sm font-medium text-stone-900">{{ .Name }}</span>
                         <span class="block truncate text-sm text-stone-500">{{ if .DefaultFromEmail }}From {{ .DefaultFromEmail }}{{ else }}No From address{{ end }}</span>
                     </span>
                     <span class="whitespace-nowrap text-sm text-stone-500">{{ if eq .Provider "mailgun" }}Mailgun{{ else }}SMTP{{ end }}</span>
+                    <span class="text-stone-400 transition group-hover:translate-x-0.5 group-hover:text-stone-900" aria-hidden="true">→</span>
                 </a>
             </li>
             {{ end }}

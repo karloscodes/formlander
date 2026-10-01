@@ -27,15 +27,10 @@
         </div>
         <div class="space-y-5 p-5 sm:p-6">
             <div class="flex flex-wrap items-center gap-2">
-                <code id="endpoint" class="mono min-w-0 flex-1 break-all rounded-lg bg-stone-100 px-3 py-2 text-stone-900">{{ .ActionURL }}</code>
-                <button type="button" class="btn btn-small" onclick="copyText(document.getElementById('endpoint').textContent, this)">Copy</button>
+                <code id="endpoint" class="mono min-w-0 flex-1 break-all rounded-lg bg-stone-100 px-3 py-2.5 text-stone-900 ring-1 ring-inset ring-stone-900/5">{{ .ActionURL }}</code>
+                <button type="button" class="btn" onclick="copyText(document.getElementById('endpoint').textContent, this)">Copy</button>
             </div>
-            <p class="flex flex-wrap gap-x-6 gap-y-1 text-sm text-stone-600">
-                <span>Form ID <code class="mono break-all text-stone-900">{{ .Form.PublicID }}</code></span>
-                <span>Token <code class="mono break-all text-stone-900">{{ .Token }}</code></span>
-            </p>
-
-            <dl class="grid gap-x-8 gap-y-4 text-sm sm:grid-cols-3">
+            <dl class="grid gap-x-8 gap-y-5 text-sm sm:grid-cols-2 lg:grid-cols-3">
                 <div>
                     <dt class="text-stone-500">Allowed sites</dt>
                     <dd class="mt-1">
@@ -75,132 +70,20 @@
                         {{ end }}
                     </dd>
                 </div>
+                <div>
+                    <dt class="text-stone-500">Form ID</dt>
+                    <dd class="mono mt-1 break-all text-stone-900">{{ .Form.PublicID }}</dd>
+                </div>
+                <div class="lg:col-span-2">
+                    <dt class="text-stone-500">Token</dt>
+                    <dd class="mono mt-1 break-all text-stone-900">{{ .Token }}</dd>
+                </div>
             </dl>
         </div>
     </div>
 
-    <!-- The code to paste -->
-    <div class="card">
-        <div class="card-head">
-            <h2 class="card-title">Code for your site</h2>
-            <p class="card-note">Change it as you like. Formlander saves every field the form sends.</p>
-        </div>
-        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-stone-100 px-5 sm:px-6">
-            <nav class="-mb-px flex gap-5" aria-label="Tabs">
-                <button type="button" onclick="switchTab('source')" id="tab-source" class="tab-button border-b-2 border-stone-900 py-3 text-sm font-medium text-stone-900">Source Code</button>
-                <button type="button" onclick="switchTab('preview')" id="tab-preview" class="tab-button border-b-2 border-transparent py-3 text-sm font-medium text-stone-500">Example Preview</button>
-            </nav>
-            <label for="include-sdk" class="flex items-center gap-2 py-2 text-sm text-stone-600">
-                <input type="checkbox" id="include-sdk" onchange="toggleSDK()" class="h-4 w-4 rounded border-stone-300 text-stone-900 focus:ring-stone-900" {{ if .Form.UseSDK }}checked{{ end }}>
-                Include JavaScript SDK <span class="hidden text-stone-400 sm:inline">(retries, loading states)</span>
-            </label>
-        </div>
-
-        <div id="panel-source" class="tab-panel p-5 sm:p-6">
-            <div class="relative">
-                <button type="button" onclick="copyCode(this)" class="btn btn-small absolute right-2 top-2">Copy</button>
-                <pre class="overflow-x-auto rounded-xl bg-stone-900 p-4 font-mono text-xs" style="max-height: 480px;"><code id="form-code" class="language-html text-stone-100">{{ .FormCode }}</code></pre>
-            </div>
-        </div>
-
-        <div id="panel-preview" class="tab-panel hidden p-5 sm:p-6">
-            <p class="mb-3 text-sm text-stone-500">This is an example with a plain style, so you can see the fields. On your site, the form takes the fonts and colours of your site. The example cannot send.</p>
-            <iframe id="form-preview" title="Example of the form" sandbox="allow-scripts allow-same-origin" class="block w-full rounded-xl bg-white ring-1 ring-stone-200" style="height: 320px;"></iframe>
-        </div>
-    </div>
-
-    <script src="/assets/vendor/highlight.min.js" onload="window.showFormCode && showFormCode()"></script>
-    <link rel="stylesheet" href="/assets/vendor/highlight-github-dark.min.css">
-    <script>
-        // The page changes without a full reload, so this script can run more
-        // than once. Everything lives in one function and nothing waits for a
-        // load event.
-        (function () {
-            var codeElement = document.getElementById('form-code');
-            var checkbox = document.getElementById('include-sdk');
-            var iframe = document.getElementById('form-preview');
-            var originalFormCode = codeElement.textContent;
-            var sdkScriptTag = '\n\n<!-- Formlander SDK: adds automatic retry & loading states -->\n<script src="/assets/formlander.js"><\/script>';
-
-            // A plain look for the example. :where() keeps these rules weak, so
-            // the styles of a starter template win over them.
-            var exampleStyles = `
-        body { margin: 0; padding: 24px; background: #fff; color: #1c1917; font: 15px/1.5 system-ui, -apple-system, sans-serif; }
-        :where(form) { display: grid; gap: 14px; max-width: 28rem; margin: 0 auto; }
-        :where(label) { display: grid; gap: 6px; font-size: 14px; font-weight: 500; }
-        :where(input:not([type=checkbox], [type=radio], [type=hidden], [type=submit]), textarea, select) { box-sizing: border-box; width: 100%; padding: 8px 10px; border: 1px solid #d6d3d1; border-radius: 8px; background: #fff; color: inherit; font: inherit; }
-        :where(button, input[type=submit]) { justify-self: start; padding: 8px 16px; border: 0; border-radius: 8px; background: #1c1917; color: #fff; font: inherit; font-weight: 500; }
-        .cf-turnstile { display: flex; align-items: center; justify-content: center; min-height: 65px; border: 1px dashed #a8a29e; border-radius: 8px; color: #78716c; font-size: 13px; }
-        .cf-turnstile::before { content: 'The captcha shows here'; }`;
-
-            function showCode() {
-                codeElement.textContent = originalFormCode + (checkbox.checked ? sdkScriptTag : '');
-                // After a change of page without a reload, the highlighter can
-                // arrive after this script. It calls showFormCode when it is here.
-                if (window.hljs) {
-                    codeElement.removeAttribute('data-highlighted');
-                    hljs.highlightElement(codeElement);
-                }
-            }
-            window.showFormCode = showCode;
-
-            // The example is the form code inside an iframe that cannot send
-            // forms. The Turnstile script is left out: the captcha only works
-            // on the allowed sites.
-            function loadPreview() {
-                var turnstileScript = /<script[^>]*https:\/\/challenges\.cloudflare\.com\/turnstile\/v0\/api\.js[^>]*><\/script>/gi;
-                var doc = new DOMParser().parseFromString(codeElement.textContent.replaceAll(turnstileScript, ''), 'text/html');
-                var styles = '';
-                doc.querySelectorAll('style').forEach(function (style) {
-                    styles += style.textContent + '\n';
-                    style.remove();
-                });
-                iframe.srcdoc = '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">' +
-                    '<meta name="viewport" content="width=device-width, initial-scale=1.0">' +
-                    '<style>' + exampleStyles + '</style><style>' + styles + '</style></head><body>' +
-                    doc.body.innerHTML + '</body></html>';
-            }
-
-            // The iframe gets the height of its content, so it has no scrollbar
-            // of its own.
-            iframe.addEventListener('load', function () {
-                iframe.style.height = iframe.contentWindow.document.documentElement.scrollHeight + 'px';
-            });
-
-            window.toggleSDK = function () {
-                showCode();
-                loadPreview();
-            };
-
-            window.switchTab = function (tab) {
-                ['source', 'preview'].forEach(function (name) {
-                    var button = document.getElementById('tab-' + name);
-                    var on = name === tab;
-                    button.classList.toggle('border-stone-900', on);
-                    button.classList.toggle('text-stone-900', on);
-                    button.classList.toggle('border-transparent', !on);
-                    button.classList.toggle('text-stone-500', !on);
-                    document.getElementById('panel-' + name).classList.toggle('hidden', !on);
-                });
-                // The iframe has no height while its panel is hidden.
-                if (tab === 'preview') loadPreview();
-            };
-
-            // Copy a text and say so on the button, for a moment.
-            window.copyText = function (text, button) {
-                navigator.clipboard.writeText(text).then(function () {
-                    var label = button.textContent;
-                    button.textContent = 'Copied';
-                    setTimeout(function () { button.textContent = label; }, 1500);
-                });
-            };
-            window.copyCode = function (button) {
-                window.copyText(codeElement.textContent, button);
-            };
-
-            showCode();
-        })();
-    </script>
+    <!-- The code to paste, and what it looks like -->
+    {{ template "admin/forms/code" . }}
 
     <!-- Submissions -->
     <div class="card overflow-hidden">

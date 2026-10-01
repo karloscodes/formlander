@@ -1,60 +1,74 @@
 {{ define "admin/dashboard/content" }}
 <div class="space-y-6">
     <div class="flex flex-wrap items-center justify-between gap-3">
-        <h1 class="text-2xl font-semibold tracking-tight text-stone-900">Dashboard</h1>
+        <h1 class="page-title">Dashboard</h1>
         <a href="/admin/forms/new" class="btn-primary">New Form</a>
     </div>
 
-    <div class="grid gap-6 lg:grid-cols-3">
+    <div class="grid gap-4 sm:grid-cols-3">
+        <a href="/admin/submissions?range=7d" class="stat transition hover:ring-stone-900/20">
+            <p class="stat-value">{{ .Stats.SubmissionsLast24h }}</p>
+            <p class="stat-label">Submissions in the last 24 hours</p>
+        </a>
+        <a href="/admin/submissions" class="stat transition hover:ring-stone-900/20">
+            <p class="stat-value">{{ .Stats.TotalSubmissions }}</p>
+            <p class="stat-label">Submissions in total</p>
+        </a>
+        <a href="/admin/forms" class="stat transition hover:ring-stone-900/20">
+            <p class="stat-value">{{ .Stats.TotalForms }}</p>
+            <p class="stat-label">{{ if eq .Stats.TotalForms 1 }}Form{{ else }}Forms{{ end }}</p>
+        </a>
+    </div>
+
+    <div class="grid gap-6 lg:grid-cols-3 lg:items-start">
         <!-- What arrived -->
         <div class="card overflow-hidden lg:col-span-2">
             <div class="card-head">
                 <h2 class="card-title">Latest submissions</h2>
-                <p class="card-note">{{ .Stats.SubmissionsLast24h }} in the last 24 hours · {{ .Stats.TotalSubmissions }} in total</p>
+                <a href="/admin/submissions" class="link text-sm">See all</a>
             </div>
             {{ if not .RecentSubmissions }}
-            <p class="px-5 py-10 text-center text-sm text-stone-500 sm:px-6">Nothing has arrived yet. Make a form, paste its code into your site, and send a test.</p>
+            <div class="px-6 py-12 text-center">
+                <p class="text-base font-medium text-stone-900">Nothing has arrived yet</p>
+                <p class="mt-1 text-sm text-stone-600">Make a form, paste its code into your site, and send a test.</p>
+            </div>
             {{ else }}
             <ul class="divide-y divide-stone-100">
                 {{ range .RecentSubmissions }}
                 <li>
-                    <a href="/admin/submissions/{{ .ID }}" class="flex items-baseline gap-4 px-5 py-3 transition hover:bg-stone-50 sm:px-6">
-                        <span class="min-w-0 flex-1">
-                            <span class="block truncate text-sm font-medium text-stone-900">{{ if who .DataJSON }}{{ who .DataJSON }}{{ else }}Someone{{ end }}{{ if .IsSpam }} <span class="pill pill-warn">spam</span>{{ end }}</span>
-                            <span class="block truncate text-sm text-stone-500">{{ gist .DataJSON }}</span>
-                        </span>
-                        <span class="text-right text-xs text-stone-400">
-                            <span class="block whitespace-nowrap text-stone-500">{{ if .Form }}{{ .Form.Name }}{{ end }}</span>
-                            <span class="block whitespace-nowrap">{{ ago .CreatedAt }}</span>
-                        </span>
+                    <a href="/admin/submissions/{{ .ID }}" class="grid grid-cols-[1fr_auto] items-baseline gap-x-4 px-5 py-2.5 text-sm transition hover:bg-stone-50 sm:grid-cols-[12rem_1fr_auto] sm:px-6">
+                        <span class="truncate font-medium text-stone-900">{{ if who .DataJSON }}{{ who .DataJSON }}{{ else }}Someone{{ end }}</span>
+                        <span class="order-last col-span-2 truncate text-stone-600 sm:order-none sm:col-span-1">{{ if .IsSpam }}<span class="pill pill-warn mr-1">spam</span>{{ end }}{{ if gist .DataJSON }}{{ gist .DataJSON }}{{ else if .Form }}<span class="text-stone-400">{{ .Form.Name }}</span>{{ end }}</span>
+                        <span class="whitespace-nowrap text-right text-xs tabular-nums text-stone-500" title="{{ .CreatedAt.Format "Jan 2, 2006 15:04 MST" }}">{{ ago .CreatedAt }}</span>
                     </a>
                 </li>
                 {{ end }}
             </ul>
-            <a href="/admin/submissions" class="block border-t border-stone-100 px-5 py-3 text-sm font-medium text-stone-900 hover:bg-stone-50 sm:px-6">All submissions →</a>
             {{ end }}
         </div>
 
         <!-- Where it arrives -->
-        <div class="card overflow-hidden self-start">
+        <div class="card overflow-hidden">
             <div class="card-head">
                 <h2 class="card-title">Forms</h2>
-                <p class="card-note">{{ .Stats.TotalForms }}</p>
+                <a href="/admin/forms" class="link text-sm">See all</a>
             </div>
             {{ if not .TopForms }}
-            <p class="px-5 py-8 text-center text-sm text-stone-500 sm:px-6">No forms yet.</p>
+            <div class="px-6 py-10 text-center">
+                <p class="text-sm text-stone-600">No forms yet.</p>
+                <a href="/admin/forms/new" class="btn mt-4">New Form</a>
+            </div>
             {{ else }}
             <ul class="divide-y divide-stone-100">
                 {{ range .TopForms }}
                 <li>
-                    <a href="/admin/forms/{{ .ID }}" class="flex items-baseline justify-between gap-3 px-5 py-3 text-sm transition hover:bg-stone-50 sm:px-6">
+                    <a href="/admin/forms/{{ .ID }}" class="flex items-baseline justify-between gap-3 px-5 py-2.5 text-sm transition hover:bg-stone-50 sm:px-6">
                         <span class="min-w-0 truncate font-medium text-stone-900">{{ .Name }}</span>
-                        <span class="whitespace-nowrap text-stone-500">{{ .SubmissionCount }}</span>
+                        <span class="whitespace-nowrap tabular-nums text-stone-500">{{ .SubmissionCount }}</span>
                     </a>
                 </li>
                 {{ end }}
             </ul>
-            <a href="/admin/forms" class="block border-t border-stone-100 px-5 py-3 text-sm font-medium text-stone-900 hover:bg-stone-50 sm:px-6">All forms →</a>
             {{ end }}
         </div>
     </div>

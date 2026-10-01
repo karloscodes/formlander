@@ -33,9 +33,24 @@ func AdminFormsIndex(ctx *cartridge.Context) error {
 		db.Preload("EmailDelivery").Preload("WebhookDelivery").First(&formsList[i], formsList[i].ID)
 	}
 
+	// How many submissions each form has.
+	var rows []struct {
+		FormID uint
+		Count  int64
+	}
+	db.Model(&forms.Submission{}).Select("form_id, COUNT(*) AS count").Group("form_id").Scan(&rows)
+	counts := make(map[uint]int64, len(formsList))
+	for _, form := range formsList {
+		counts[form.ID] = 0
+	}
+	for _, row := range rows {
+		counts[row.FormID] = row.Count
+	}
+
 	return ctx.Render("layouts/base", fiber.Map{
 		"Title":       "Forms",
 		"Forms":       formsList,
+		"Counts":      counts,
 		"CreateRoute": "/admin/forms/new",
 		"ContentView": "admin/forms/index/content",
 	}, "")
@@ -142,10 +157,14 @@ func renderFormScreen(ctx *cartridge.Context, form *forms.Form, templateID strin
 		"WebhookProfiles": webhookProfiles,
 		"ContentView":     "admin/forms/new/content",
 	}
+	// The example on the right: the code of the form, or of its starter.
 	if form != nil {
 		data["Title"] = "Edit Form"
 		data["IsEdit"] = true
 		data["Form"] = form
+		_, data["FormCode"] = formCodeFor(ctx, form)
+	} else if starter := GetTemplateByID(templateID); starter != nil {
+		data["FormCode"] = starter.RenderHTML("")
 	}
 	return ctx.Render("layouts/base", data, "")
 }
@@ -274,42 +293,41 @@ func AdminFormShow(ctx *cartridge.Context) error {
 	}
 
 	endpoint := fmt.Sprintf("/forms/%s/submit", form.Slug)
-	// The code is pasted on other sites, so the action must be absolute.
-	actionURL := ctx.BaseURL() + liveFormAction(form.Slug, form.Token)
-	captchaEmbed := buildCaptchaEmbed(form)
-	formCode := ""
-	hasGeneratedHTML := strings.TrimSpace(form.GeneratedHTML) != ""
-
-	if hasGeneratedHTML {
-		var prepared string
-		var err error
-		if prepared, err = normalizeFormHTML(form.GeneratedHTML, actionURL, form); err != nil {
-			if logger != nil {
-				logger.Warn("failed to normalize generated form HTML", slog.Any("error", err), slog.Uint64("form_id", uint64(form.ID)))
-			}
-			prepared = form.GeneratedHTML
-		}
-		formCode = injectCaptchaSnippet(prepared, captchaEmbed)
-	} else {
-		formCode = buildDefaultFormCode(actionURL, form, captchaEmbed)
-	}
+	actionURL, formCode := formCodeFor(ctx, form)
 
 	return ctx.Render("layouts/base", fiber.Map{
-		"Title":            form.Name,
-		"Form":             form,
-		"Submissions":      submissions,
-		"ReturnTo":         fmt.Sprintf("/admin/forms/%d", form.ID),
-		"Endpoint":         endpoint,
-		"ActionURL":        actionURL,
-		"CaptchaSiteKey":   captchaSiteKey(form),
-		"Token":            form.Token,
-		"WebhookEvents":    webhookEvents,
-		"EmailEvents":      emailEvents,
-		"EmailRecipient":   emailRecipient(form.EmailDelivery),
-		"FormCode":         formCode,
-		"HasGeneratedHTML": hasGeneratedHTML,
-		"ContentView":      "admin/forms/show/content",
+		"Title":          form.Name,
+		"Form":           form,
+		"Submissions":    submissions,
+		"ReturnTo":       fmt.Sprintf("/admin/forms/%d", form.ID),
+		"Endpoint":       endpoint,
+		"ActionURL":      actionURL,
+		"CaptchaSiteKey": captchaSiteKey(form),
+		"Token":          form.Token,
+		"WebhookEvents":  webhookEvents,
+		"EmailEvents":    emailEvents,
+		"EmailRecipient": emailRecipient(form.EmailDelivery),
+		"FormCode":       formCode,
+		"CodeSplit":      true,
+		"UseSDK":         form.UseSDK,
+		"ContentView":    "admin/forms/show/content",
 	}, "")
+}
+
+// formCodeFor returns the address a form posts to and the HTML to paste into
+// a site. The code is pasted on other sites, so the address is absolute.
+func formCodeFor(ctx *cartridge.Context, form *forms.Form) (actionURL, code string) {
+	actionURL = ctx.BaseURL() + liveFormAction(form.Slug, form.Token)
+	embed := buildCaptchaEmbed(form)
+	if strings.TrimSpace(form.GeneratedHTML) == "" {
+		return actionURL, buildDefaultFormCode(actionURL, form, embed)
+	}
+	prepared, err := normalizeFormHTML(form.GeneratedHTML, actionURL, form)
+	if err != nil {
+		ctx.Logger.Warn("failed to normalize generated form HTML", slog.Any("error", err), slog.Uint64("form_id", uint64(form.ID)))
+		prepared = form.GeneratedHTML
+	}
+	return actionURL, injectCaptchaSnippet(prepared, embed)
 }
 
 // AdminFormsEdit renders the edit form.

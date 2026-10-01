@@ -1,6 +1,6 @@
 {{ define "admin/forms/new/content" }}
 {{ $in := .Input }}
-<div class="mx-auto max-w-2xl space-y-6">
+<div class="space-y-6">
     <div>
         {{ if .IsEdit }}
         <a href="/admin/forms/{{ .Form.ID }}" class="back">← {{ .Form.Name }}</a>
@@ -9,7 +9,7 @@
         {{ end }}
         <h1 class="page-title mt-2">{{ if .IsEdit }}Edit Form{{ else }}New Form{{ end }}</h1>
         {{ if not .IsEdit }}
-        <p class="page-note">A form is an address that your website posts to. You get the code for your site after you create it.</p>
+        <p class="page-note">A form is an address that your website posts to. You get the code for your site when you create it.</p>
         {{ end }}
     </div>
 
@@ -17,10 +17,8 @@
     <div class="notice notice-bad">{{ .Error }}</div>
     {{ end }}
 
+    <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_28rem] lg:items-start">
     <form action="{{ if .IsEdit }}/admin/forms/{{ .Form.ID }}{{ else }}/admin/forms{{ end }}" method="post" class="space-y-6">
-        {{ if and .TemplateID (not .IsEdit) }}
-        <input type="hidden" name="template_id" value="{{ .TemplateID }}">
-        {{ end }}
 
         <!-- 1. What it is called and where it lives -->
         <div class="card">
@@ -54,14 +52,9 @@
                 <div>
                     <label for="allowed_origins" class="field-label">Allowed sites</label>
                     <input type="text" id="allowed_origins" name="allowed_origins" value="{{ $in.AllowedOrigins }}" {{ if not .IsEdit }}required{{ end }} class="field-input mono" placeholder="example.com">
-                    <p class="field-help">Formlander accepts submissions from these sites only. When the list is empty, no site can submit.</p>
+                    <p class="field-help">Only these sites can submit.</p>
                 </div>
-                <ul class="list-disc space-y-1 pl-5 text-sm text-stone-500">
-                    <li>Separate several sites with commas.</li>
-                    <li><code class="mono">example.com</code> also covers <code class="mono">www.example.com</code> and every other subdomain.</li>
-                    <li>Add <code class="mono">localhost</code> to test from your computer.</li>
-                    <li><code class="mono">*</code> lets any site submit. Avoid it.</li>
-                </ul>
+                <p class="text-sm text-stone-600">Separate sites with commas. <code class="mono">example.com</code> covers its subdomains too. Add <code class="mono">localhost</code> to test from your computer. <code class="mono">*</code> lets any site submit: avoid it.</p>
             </div>
         </div>
 
@@ -94,9 +87,12 @@
             </div>
             <div class="divide-y divide-stone-100">
                 <div class="space-y-4 p-5 sm:p-6">
-                    <label for="email_enabled" class="flex items-center gap-3 text-sm font-medium text-stone-900">
-                        <input type="checkbox" name="email_enabled" id="email_enabled" class="check" data-reveals="email-fields" {{ if $in.EmailEnabled }}checked{{ end }}>
-                        Send each submission by email
+                    <label for="email_enabled" class="flex cursor-pointer items-center justify-between gap-4">
+                        <span>
+                            <span class="block text-sm font-medium text-stone-900">Email</span>
+                            <span class="block text-sm text-stone-600">Send each submission to an address.</span>
+                        </span>
+                        <input type="checkbox" name="email_enabled" id="email_enabled" class="switch" data-reveals="email-fields" {{ if $in.EmailEnabled }}checked{{ end }}>
                     </label>
                     <div id="email-fields" class="space-y-5" {{ if not $in.EmailEnabled }}hidden{{ end }}>
                         {{ if not .MailerProfiles }}
@@ -121,9 +117,12 @@
                 </div>
 
                 <div class="space-y-4 p-5 sm:p-6">
-                    <label for="webhook_enabled" class="flex items-center gap-3 text-sm font-medium text-stone-900">
-                        <input type="checkbox" name="webhook_enabled" id="webhook_enabled" class="check" data-reveals="webhook-fields" {{ if $in.WebhookEnabled }}checked{{ end }}>
-                        Send each submission to a webhook
+                    <label for="webhook_enabled" class="flex cursor-pointer items-center justify-between gap-4">
+                        <span>
+                            <span class="block text-sm font-medium text-stone-900">Webhook</span>
+                            <span class="block text-sm text-stone-600">Post each submission to your server or to another service.</span>
+                        </span>
+                        <input type="checkbox" name="webhook_enabled" id="webhook_enabled" class="switch" data-reveals="webhook-fields" {{ if $in.WebhookEnabled }}checked{{ end }}>
                     </label>
                     <div id="webhook-fields" class="space-y-5" {{ if not $in.WebhookEnabled }}hidden{{ end }}>
                         {{ if not .WebhookProfiles }}
@@ -149,11 +148,13 @@
             <summary class="cursor-pointer px-5 py-4 text-sm font-medium text-stone-900 sm:px-6">Advanced <span class="font-normal text-stone-500">: the JavaScript SDK, special fields</span></summary>
             <div class="space-y-6 border-t border-stone-100 p-5 sm:p-6">
                 <div>
-                    <label for="use_sdk" class="flex items-center gap-3 text-sm font-medium text-stone-900">
-                        <input type="checkbox" name="use_sdk" id="use_sdk" class="check" {{ if $in.UseSDK }}checked{{ end }}>
-                        Include the JavaScript SDK in the form code
+                    <label for="use_sdk" class="flex cursor-pointer items-center justify-between gap-4">
+                        <span>
+                            <span class="block text-sm font-medium text-stone-900">JavaScript SDK</span>
+                            <span class="block text-sm text-stone-600">Sends the form without a page reload, shows a loading state, and tries again when the network fails.</span>
+                        </span>
+                        <input type="checkbox" name="use_sdk" id="use_sdk" class="switch" data-sdk {{ if $in.UseSDK }}checked{{ end }}>
                     </label>
-                    <p class="field-help">The SDK sends the form without a page reload, shows a loading state, and tries again when the network fails.</p>
                 </div>
 
                 <div class="space-y-3 text-sm text-stone-600">
@@ -178,10 +179,20 @@
             </div>
         </details>
 
+        {{ if and .TemplateID (not .IsEdit) }}
+        <input type="hidden" name="template_id" value="{{ .TemplateID }}">
+        {{ end }}
         <div class="flex justify-end gap-3">
             <a href="{{ if .IsEdit }}/admin/forms/{{ .Form.ID }}{{ else }}/admin/forms{{ end }}" class="btn">Cancel</a>
             <button type="submit" class="btn-primary">{{ if .IsEdit }}Save Changes{{ else }}Create Form{{ end }}</button>
         </div>
     </form>
+
+    {{ if .FormCode }}
+    <aside class="order-first lg:sticky lg:top-6 lg:order-none">
+        {{ template "admin/forms/code" . }}
+    </aside>
+    {{ end }}
+    </div>
 </div>
 {{ end }}

@@ -64,26 +64,33 @@ func ErrorHandler(log *slog.Logger, cfg *config.Config) fiber.ErrorHandler {
 			slog.Int("status", code),
 		)
 
-		// JSON error response for API requests
-		if c.Accepts(fiber.MIMEApplicationJSON) == fiber.MIMEApplicationJSON {
+		// A program gets JSON. A browser asks for HTML first, and gets a page.
+		if c.Accepts(fiber.MIMEApplicationJSON, fiber.MIMETextHTML) != fiber.MIMETextHTML {
 			return c.Status(code).JSON(fiber.Map{
 				"error":   "internal_server_error",
 				"message": err.Error(),
 			})
 		}
 
-		// HTML error page for browser requests
-		if code == fiber.StatusInternalServerError {
-			return c.Status(code).Render("layouts/base", fiber.Map{
-				"Title":             "500 - Internal Server Error",
-				"ContentView":       "errors/500/content",
-				"DevMode":           cfg.IsDevelopment(),
-				"ErrorMessage":      err.Error(),
-				"HideHeaderActions": true,
-			}, "")
+		heading, message := "Something went wrong", "Formlander could not finish this request. Try again. The server log has the details."
+		switch code {
+		case fiber.StatusNotFound:
+			heading, message = "Page not found", "This page does not exist, or it was deleted."
+		case fiber.StatusForbidden, fiber.StatusUnauthorized:
+			heading, message = "Not allowed", "You cannot open this page."
 		}
-
-		return c.Status(code).SendString(fmt.Sprintf("Error: %d - %s", code, err.Error()))
+		data := fiber.Map{
+			"Title":             heading,
+			"ContentView":       "errors/500/content",
+			"Code":              code,
+			"Heading":           heading,
+			"Message":           message,
+			"HideHeaderActions": true,
+		}
+		if cfg.IsDevelopment() && code >= fiber.StatusInternalServerError {
+			data["ErrorMessage"] = err.Error()
+		}
+		return c.Status(code).Render("layouts/base", data, "")
 	}
 }
 

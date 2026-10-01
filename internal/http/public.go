@@ -1,6 +1,7 @@
 package http
 
 import (
+	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -36,7 +37,7 @@ func PublicFormSubmission(ctx *cartridge.Context) error {
 		return submitError(ctx, fiber.StatusInternalServerError, "form lookup failed")
 	}
 
-	if token := ctx.Query("token"); token == "" || token != form.Token {
+	if token := ctx.Query("token"); subtle.ConstantTimeCompare([]byte(token), []byte(form.Token)) != 1 {
 		return submitError(ctx, fiber.StatusUnauthorized, "invalid token")
 	}
 

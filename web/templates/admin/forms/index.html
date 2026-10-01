@@ -1,41 +1,41 @@
 {{ define "admin/forms/index/content" }}
 <div class="space-y-6">
     <div class="flex flex-wrap items-center justify-between gap-3">
-        <h1 class="text-2xl font-semibold tracking-tight text-stone-900">Forms</h1>
+        <h1 class="page-title">Forms</h1>
         <a href="/admin/forms/new" class="btn-primary">New Form</a>
     </div>
 
     {{ if not .Forms }}
     <div class="card px-6 py-14 text-center">
         <p class="text-base font-medium text-stone-900">No forms yet</p>
-        <p class="mt-1 text-sm text-stone-500">A form is an address that your website posts to. Make one, paste its code into your site, and submissions arrive here.</p>
+        <p class="mx-auto mt-1 max-w-md text-sm text-stone-600">A form is an address that your website posts to. Make one, paste its code into your site, and submissions arrive here.</p>
         <a href="/admin/forms/new" class="btn-primary mt-6">New Form</a>
     </div>
     {{ else }}
     <div class="card overflow-hidden">
-        <table class="min-w-full">
-            <tbody class="divide-y divide-stone-100">
-                {{ range .Forms }}
-                {{ $emailEnabled := and .EmailDelivery .EmailDelivery.Enabled }}
-                {{ $webhookEnabled := and .WebhookDelivery .WebhookDelivery.Enabled }}
-                <tr class="cursor-pointer transition hover:bg-stone-50" onclick="window.location='/admin/forms/{{ .ID }}'">
-                    <td class="px-5 py-4 sm:px-6">
-                        <a href="/admin/forms/{{ .ID }}" class="text-sm font-medium text-stone-900">{{ .Name }}</a>
-                        <p class="mono mt-0.5 text-stone-500">/forms/{{ .Slug }}/submit</p>
-                    </td>
-                    <td class="hidden px-5 py-4 text-right sm:table-cell sm:px-6">
-                        <span class="flex flex-wrap justify-end gap-1.5">
-                            {{ if not .AllowedOrigins }}<span class="pill pill-bad">no site allowed</span>{{ end }}
-                            {{ if .CaptchaProfileID }}<span class="pill">captcha</span>{{ end }}
-                            {{ if $emailEnabled }}<span class="pill">email</span>{{ end }}
-                            {{ if $webhookEnabled }}<span class="pill">webhook</span>{{ end }}
-                        </span>
-                    </td>
-                    <td class="whitespace-nowrap px-5 py-4 text-right text-xs text-stone-400 sm:px-6">made {{ ago .CreatedAt }}</td>
-                </tr>
-                {{ end }}
-            </tbody>
-        </table>
+        <ul class="divide-y divide-stone-100">
+            {{ range .Forms }}
+            {{ $emailEnabled := and .EmailDelivery .EmailDelivery.Enabled }}
+            {{ $webhookEnabled := and .WebhookDelivery .WebhookDelivery.Enabled }}
+            {{ $count := index $.Counts .ID }}
+            <li>
+                <a href="/admin/forms/{{ .ID }}" class="group flex flex-wrap items-center gap-x-6 gap-y-2 px-5 py-4 transition hover:bg-stone-50 sm:px-6">
+                    <span class="min-w-0 flex-1 basis-56">
+                        <span class="block truncate text-sm font-medium text-stone-900">{{ .Name }}</span>
+                        <span class="mono block truncate text-stone-500">/forms/{{ .Slug }}/submit</span>
+                    </span>
+                    <span class="flex flex-wrap gap-1.5">
+                        {{ if not .AllowedOrigins }}<span class="pill pill-bad">no site allowed</span>{{ end }}
+                        {{ if .CaptchaProfileID }}<span class="pill">captcha</span>{{ end }}
+                        {{ if $emailEnabled }}<span class="pill">email</span>{{ end }}
+                        {{ if $webhookEnabled }}<span class="pill">webhook</span>{{ end }}
+                    </span>
+                    <span class="w-32 whitespace-nowrap text-right text-sm tabular-nums text-stone-600">{{ $count }} {{ if eq $count 1 }}submission{{ else }}submissions{{ end }}</span>
+                    <span class="text-stone-400 transition group-hover:translate-x-0.5 group-hover:text-stone-900" aria-hidden="true">→</span>
+                </a>
+            </li>
+            {{ end }}
+        </ul>
     </div>
     {{ end }}
 </div>

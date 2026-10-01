@@ -1,6 +1,6 @@
 {{ define "admin/mailers/new/content" }}
 {{ $mailgun := eq .Profile.Provider "mailgun" }}
-<div class="mx-auto max-w-2xl space-y-6">
+<div class="page-settings space-y-6">
     <div>
         {{ if .IsEdit }}
         <a href="/admin/settings/mailers/{{ .Profile.ID }}" class="back">← {{ if .Profile.Name }}{{ .Profile.Name }}{{ else }}Mailer{{ end }}</a>
@@ -17,6 +17,10 @@
 
     <form method="POST" action="{{ if .IsEdit }}/admin/settings/mailers/{{ .Profile.ID }}{{ else }}/admin/settings/mailers{{ end }}" class="space-y-6">
         <div class="card">
+            <div class="card-head">
+                <h2 class="card-title">Profile</h2>
+                <p class="card-note">Its name, and how it sends.</p>
+            </div>
             <div class="space-y-5 p-5 sm:p-6">
                 <div>
                     <label for="name" class="field-label">Profile Name</label>

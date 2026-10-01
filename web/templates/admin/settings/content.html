@@ -1,5 +1,5 @@
 {{ define "admin/settings/content" }}
-<div class="mx-auto max-w-2xl space-y-6">
+<div class="page-settings space-y-6">
     <h1 class="page-title">Settings</h1>
 
     {{ if .Success }}
@@ -50,11 +50,11 @@
     <!-- The person who signs in -->
     <div class="card">
         <div class="card-head">
-            <h2 class="card-title">Account</h2>
-            <p class="card-note">You sign in with this email and password.</p>
+            <h2 class="card-title">Email</h2>
+            <p class="card-note">You sign in with it.</p>
         </div>
 
-        <form action="/admin/settings/email" method="post" class="space-y-5 border-b border-stone-100 p-5 sm:p-6">
+        <form action="/admin/settings/email" method="post" class="space-y-5 p-5 sm:p-6">
             <div>
                 <label for="new_email" class="field-label">Email</label>
                 <input type="email" name="new_email" id="new_email" required value="{{ .User.Email }}" class="field-input">
@@ -68,6 +68,13 @@
                 <button type="submit" class="btn">Update email</button>
             </div>
         </form>
+    </div>
+
+    <div class="card">
+        <div class="card-head">
+            <h2 class="card-title">Password</h2>
+            <p class="card-note">A new password signs out every other device.</p>
+        </div>
 
         <form action="/admin/settings/password" method="post" class="space-y-5 p-5 sm:p-6">
             <div>
@@ -86,7 +93,6 @@
                         oninput="this.setCustomValidity(this.value && this.value !== document.getElementById('new_password').value ? 'The two passwords are not the same' : '')">
                 </div>
             </div>
-            <p class="text-sm text-stone-500">A new password signs out every other device.</p>
             <div class="flex justify-end">
                 <button type="submit" class="btn">Update password</button>
             </div>

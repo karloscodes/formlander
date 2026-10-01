@@ -1,5 +1,5 @@
 {{ define "admin/webhooks/new/content" }}
-<div class="mx-auto max-w-2xl space-y-6">
+<div class="page-settings space-y-6">
     <div>
         {{ if .IsEdit }}
         <a href="/admin/settings/webhooks/{{ .Profile.ID }}" class="back">← {{ if .Profile.Name }}{{ .Profile.Name }}{{ else }}Webhook{{ end }}</a>
@@ -16,6 +16,10 @@
 
     <form method="POST" action="{{ if .IsEdit }}/admin/settings/webhooks/{{ .Profile.ID }}{{ else }}/admin/settings/webhooks{{ end }}" class="space-y-6">
         <div class="card">
+            <div class="card-head">
+                <h2 class="card-title">Receiver</h2>
+                <p class="card-note">Where each submission goes.</p>
+            </div>
             <div class="space-y-5 p-5 sm:p-6">
                 <div>
                     <label for="name" class="field-label">Profile Name</label>
