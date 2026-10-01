@@ -135,4 +135,37 @@ test.describe("Form Submissions", () => {
 
     helpers.log("✅ API submission appears in admin");
   });
+
+  test("5. Delete a submission from its page and from the list", async ({ page }) => {
+    helpers.log("=== Deleting Submissions ===");
+
+    const stamp = Date.now();
+    const first = `delete-one-${stamp}@example.com`;
+    const second = `delete-two-${stamp}@example.com`;
+    for (const email of [first, second]) {
+      const response = await helpers.submitToForm(formSlug, formToken, { name: "To Delete", email });
+      expect(response.status()).toBe(200);
+    }
+
+    // Every delete asks first.
+    page.on("dialog", (dialog) => dialog.accept());
+
+    // From the page of the submission. It goes back to the list.
+    await helpers.navigateTo("/admin/submissions");
+    await page.click(`a:has-text("${first}")`);
+    await page.waitForURL(/\/admin\/submissions\/\d+$/);
+    await expect(page.locator("h1")).toContainText(first);
+    await page.click('main button:has-text("Delete")');
+    await page.waitForURL("**/admin/submissions");
+    await expect(page.locator("body")).not.toContainText(first);
+
+    // From the list: tick it, then delete the selected.
+    await page.locator(`li:has-text("${second}") input[name="ids"]`).check();
+    await expect(page.locator("[data-delete-selected]")).toHaveText("Delete 1 selected");
+    await page.click("[data-delete-selected]");
+    await page.waitForLoadState("networkidle");
+    await expect(page.locator("body")).not.toContainText(second);
+
+    helpers.log("✅ Submissions deleted");
+  });
 });

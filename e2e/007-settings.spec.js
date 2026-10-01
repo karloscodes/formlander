@@ -57,7 +57,6 @@ test.describe("Settings Management", () => {
     await page.fill('input[name="domain"]', "mg.example.com");
     await page.fill('input[name="default_from_name"]', "Test Sender");
     await page.fill('input[name="default_from_email"]', `test+${Date.now()}@example.com`);
-    await page.fill('textarea[name="defaults_json"]', '{"tags":["formlander-e2e"]}');
 
     await page.click('form[action="/admin/settings/mailers"] button[type="submit"]');
     await page.waitForURL("**/admin/settings/mailers");
@@ -90,6 +89,14 @@ test.describe("Settings Management", () => {
     await page.fill('input[name="name"]', captchaName);
     await page.fill('input[name="site_key"]', siteKey);
     await page.fill('input[name="secret_key"]', "1x0000000000000000000000000000000AA");
+
+    // More options: a theme, and a second domain with its own Site Key. No JSON.
+    await page.click('summary:has-text("More options")');
+    await page.selectOption('select[name="theme"]', "dark");
+    await page.fill('#host_pattern', "example.com");
+    await page.click('button:has-text("Add a domain")');
+    await page.fill('[data-row] input[name="host_pattern"]', "example.org");
+    await page.fill('[data-row] input[name="site_key"]', `${siteKey}-ORG`);
 
     await page.click('form[action="/admin/settings/captcha"] button[type="submit"]');
     await page.waitForURL("**/admin/settings/captcha");

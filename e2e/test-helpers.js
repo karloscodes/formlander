@@ -226,12 +226,17 @@ class TestHelpers {
         this.log(`✅ Created email delivery for form: ${name}`);
       }
 
-      // Create webhook delivery if needed
+      // Create webhook delivery if needed. A form posts to a webhook profile.
       if (webhookEnabled && webhookUrl) {
+        const profile = await this.execSQL(
+          `INSERT INTO webhook_profiles (name, url, secret, headers_json, created_at, updated_at)
+           VALUES (?, ?, '', '', ?, ?)`,
+          [`${name} webhook ${Date.now()}`, webhookUrl, now, now]
+        );
         await this.execSQL(
-          `INSERT INTO webhook_deliveries (form_id, enabled, url, created_at, updated_at) 
+          `INSERT INTO webhook_deliveries (form_id, enabled, webhook_profile_id, created_at, updated_at)
            VALUES (?, ?, ?, ?, ?)`,
-          [formId, 1, webhookUrl, now, now]
+          [formId, 1, profile.lastID, now, now]
         );
         this.log(`✅ Created webhook delivery for form: ${name}`);
       }
