@@ -31,6 +31,10 @@ func SubmissionList(ctx *cartridge.Context) error {
 	formID := ctx.Query("form_id")
 	rangeFilter := ctx.Query("range")
 	search := strings.TrimSpace(ctx.Query("q"))
+	spam := ctx.Query("spam")
+	if rangeFilter == "all" {
+		rangeFilter = ""
+	}
 
 	// Build query
 	query := db.Model(&forms.Submission{}).Preload("Form")
@@ -39,13 +43,22 @@ func SubmissionList(ctx *cartridge.Context) error {
 		query = query.Where("form_id = ?", formID)
 	}
 
+	switch spam {
+	case "only":
+		query = query.Where("is_spam = ?", true)
+	case "no":
+		query = query.Where("is_spam = ?", false)
+	default:
+		spam = ""
+	}
+
 	// Search in data_json
 	if search != "" {
 		query = query.Where("data_json LIKE ?", "%"+search+"%")
 	}
 
 	// Handle date range filter
-	if rangeFilter != "" && rangeFilter != "all" {
+	if rangeFilter != "" {
 		var startTime time.Time
 		now := time.Now()
 		switch rangeFilter {
@@ -96,6 +109,22 @@ func SubmissionList(ctx *cartridge.Context) error {
 	nextPage := page + 1
 	prevPage := page - 1
 
+	// Each choice of a filter is a link that keeps the other filters.
+	link := func(rangeFilter, spam string, page int) string {
+		return submissionsURL(formID, rangeFilter, spam, search, page)
+	}
+	ranges := []filterLink{
+		{"All time", link("", spam, 1), rangeFilter == ""},
+		{"7 days", link("7d", spam, 1), rangeFilter == "7d"},
+		{"30 days", link("30d", spam, 1), rangeFilter == "30d"},
+		{"90 days", link("90d", spam, 1), rangeFilter == "90d"},
+	}
+	spamChoices := []filterLink{
+		{"All", link(rangeFilter, "", 1), spam == ""},
+		{"No spam", link(rangeFilter, "no", 1), spam == "no"},
+		{"Spam", link(rangeFilter, "only", 1), spam == "only"},
+	}
+
 	return ctx.Render("layouts/base", fiber.Map{
 		"Title":       "Submissions",
 		"Submissions": submissions,
@@ -103,17 +132,62 @@ func SubmissionList(ctx *cartridge.Context) error {
 		"ReturnTo":    ctx.OriginalURL(),
 		"Forms":       forms,
 		"Page":        page,
-		"NextPage":    nextPage,
-		"PrevPage":    prevPage,
+		"NextURL":     link(rangeFilter, spam, nextPage),
+		"PrevURL":     link(rangeFilter, spam, prevPage),
 		"TotalPages":  totalPages,
 		"TotalCount":  totalCount,
 		"HasNext":     hasNext,
 		"HasPrev":     hasPrev,
 		"FormID":      formID,
 		"Range":       rangeFilter,
+		"Spam":        spam,
 		"Search":      search,
+		"Filtered":    formID != "" || rangeFilter != "" || spam != "" || search != "",
+		"Ranges":      ranges,
+		"SpamChoices": spamChoices,
 		"ContentView": "admin/submissions/index/content",
 	}, "")
+}
+
+// filterLink is one choice of a filter of the submissions list.
+type filterLink struct {
+	Label string
+	URL   string
+	On    bool
+}
+
+// submissionsURL returns the address of the submissions list with these
+// filters. An empty filter and the first page are left out.
+func submissionsURL(formID, rangeFilter, spam, search string, page int) string {
+	query := url.Values{}
+	for name, value := range map[string]string{"form_id": formID, "range": rangeFilter, "spam": spam, "q": search} {
+		if value != "" {
+			query.Set(name, value)
+		}
+	}
+	if page > 1 {
+		query.Set("page", strconv.Itoa(page))
+	}
+	if len(query) == 0 {
+		return "/admin/submissions"
+	}
+	return "/admin/submissions?" + query.Encode()
+}
+
+// replyAddress returns the email address of the person who sent a
+// submission, or "" when no field has one.
+func replyAddress(dataJSON string) string {
+	var payload map[string]any
+	if json.Unmarshal([]byte(dataJSON), &payload) != nil {
+		return ""
+	}
+	for name, value := range payload {
+		text, _ := value.(string)
+		if text = strings.TrimSpace(text); strings.Contains(strings.ToLower(name), "email") && strings.Contains(text, "@") && !strings.ContainsAny(text, " \n\r") {
+			return text
+		}
+	}
+	return ""
 }
 
 // AdminSubmissionShow renders a single submission payload.
@@ -148,6 +222,7 @@ func AdminSubmissionShow(ctx *cartridge.Context) error {
 		"Title":       "Submission",
 		"Submission":  submission,
 		"JSON":        prettyJSON,
+		"ReplyTo":     replyAddress(submission.DataJSON),
 		"ReturnTo":    cameFrom(ctx, fmt.Sprintf("/admin/forms/%d", submission.FormID)),
 		"ContentView": "admin/submissions/show/content",
 	}, "")

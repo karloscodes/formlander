@@ -6,7 +6,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{ if .Title }}{{ .Title }} · Formlander{{ else }}Formlander{{ end }}</title>
-    <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
+    <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg?v={{ assetVersion }}">
     <link rel="preload" href="/assets/fonts/geist.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="stylesheet" href="/assets/app.built.css?v={{ assetVersion }}">
 </head>
@@ -14,14 +14,14 @@
 <body hx-boost="true" class="flex min-h-screen flex-col bg-stone-100 text-stone-900 antialiased">
     <div id="page-loader"></div>
 
-    <header class="border-b border-stone-200 bg-white">
-        <div class="mx-auto flex w-full max-w-6xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3 sm:px-6">
-            <a href="/admin" class="flex items-center gap-2 text-base font-semibold tracking-tight">
-                <img src="/assets/favicon.svg" alt="" width="24" height="24" class="h-6 w-6">
+    <header class="bg-stone-950 text-white">
+        <div class="mx-auto flex w-full max-w-6xl flex-wrap items-center gap-x-8 gap-y-1 px-4 py-3 sm:px-6 sm:py-4">
+            <a href="/admin" class="flex items-center gap-2.5 text-lg font-semibold tracking-tight">
+                <img src="/assets/favicon.svg?v={{ assetVersion }}" alt="" width="28" height="28" class="h-7 w-7">
                 Formlander
             </a>
             {{ if not .HideHeaderActions }}
-            <nav class="order-last flex w-full items-center gap-1 text-sm sm:order-none sm:w-auto" aria-label="Main">
+            <nav class="order-last flex w-full items-center gap-1 sm:order-none sm:w-auto" aria-label="Main">
                 <a href="/admin/forms" class="nav-link">Forms</a>
                 <a href="/admin/submissions" class="nav-link">Submissions</a>
                 <a href="/admin/settings" class="nav-link">Settings</a>
@@ -145,6 +145,16 @@
             });
             document.addEventListener('change', function (event) {
                 if (event.target.matches('[data-sdk]')) document.querySelectorAll('[data-code-panel]').forEach(formCode.render);
+            });
+
+            // A search box that searches while you type, a moment after the
+            // last key. The page keeps the focus on the box.
+            var searchTimer;
+            document.addEventListener('input', function (event) {
+                if (!event.target.matches('[data-live-search] input[type=search]')) return;
+                var form = event.target.form;
+                clearTimeout(searchTimer);
+                searchTimer = setTimeout(function () { form.requestSubmit(); }, 350);
             });
 
             // "Add a row" copies the <template> that the button names, and puts

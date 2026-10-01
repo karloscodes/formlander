@@ -36,7 +36,7 @@
     .btn-danger { @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-lg sm:min-h-9 bg-white px-4 py-2 text-sm font-medium text-red-700 ring-1 ring-red-200 transition hover:bg-red-50 hover:ring-red-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-600 disabled:cursor-not-allowed disabled:text-stone-400 disabled:ring-stone-200 disabled:hover:bg-white; }
     .btn-small { @apply px-3 py-1.5 text-sm sm:min-h-7 sm:text-xs; }
     .back { @apply inline-flex min-h-11 items-center text-sm text-stone-600 hover:text-stone-900 sm:min-h-0; }
-    .nav-link { @apply inline-flex min-h-11 items-center rounded-lg px-3 text-sm font-medium text-stone-600 hover:bg-stone-100 hover:text-stone-900 sm:min-h-9; }
+    .nav-link { @apply inline-flex min-h-11 items-center rounded-lg px-3 text-sm font-medium text-stone-300 transition hover:bg-white/10 hover:text-white sm:min-h-9; }
     .page-title { @apply text-2xl font-semibold tracking-tight text-stone-900; }
     .page-note { @apply mt-1 text-sm text-stone-600; }
     .check { @apply h-5 w-5 shrink-0 cursor-pointer accent-stone-900 sm:h-4 sm:w-4; }
@@ -87,11 +87,11 @@
     }
 
     /* Two or three choices in one control. */
-    .seg { @apply inline-flex rounded-lg bg-stone-100 p-0.5; }
+    .seg { @apply inline-flex rounded-lg bg-stone-200/70 p-0.5; }
     .seg-btn { @apply rounded-md px-3 py-1.5 text-sm font-medium text-stone-600 transition hover:text-stone-900; }
-    .seg-btn[aria-selected="true"] { @apply bg-white text-stone-900 shadow-sm ring-1 ring-stone-900/5; }
+    .seg-btn[aria-selected="true"], .seg-btn[aria-current="true"] { @apply bg-white text-stone-900 shadow-sm ring-1 ring-stone-900/5; }
 
-    .nav-link[aria-current="page"] { @apply bg-stone-100 text-stone-900; }
+    .nav-link[aria-current="page"] { @apply bg-white/15 text-white; }
 
     /* A number that matters, with its name under it. */
     .stat { @apply rounded-2xl bg-white px-5 py-4 shadow-sm ring-1 ring-stone-900/5; }

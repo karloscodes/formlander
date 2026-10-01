@@ -145,7 +145,7 @@
 
         <!-- 5. Advanced -->
         <details class="card">
-            <summary class="cursor-pointer px-5 py-4 text-sm font-medium text-stone-900 sm:px-6">Advanced <span class="font-normal text-stone-500">: the JavaScript SDK, special fields</span></summary>
+            <summary class="cursor-pointer px-5 py-4 text-sm font-medium text-stone-900 sm:px-6">Advanced <span class="font-normal text-stone-500">: the JavaScript SDK and special fields</span></summary>
             <div class="space-y-6 border-t border-stone-100 p-5 sm:p-6">
                 <div>
                     <label for="use_sdk" class="flex cursor-pointer items-center justify-between gap-4">
@@ -157,25 +157,7 @@
                     </label>
                 </div>
 
-                <div class="space-y-3 text-sm text-stone-600">
-                    <p class="field-label">Special fields</p>
-                    <p>Formlander saves every field your form sends, with any name. It reads these fields and does not save them:</p>
-                    <dl class="space-y-3">
-                        <div>
-                            <dt><code class="mono rounded bg-stone-100 px-1.5 py-0.5 text-stone-900">_success_url</code></dt>
-                            <dd class="mt-1">Where the visitor goes after the form is sent. Use a full URL on one of the allowed sites. Without it, the visitor sees a thank-you page from Formlander.</dd>
-                        </div>
-                        <div>
-                            <dt><code class="mono rounded bg-stone-100 px-1.5 py-0.5 text-stone-900">_error_url</code></dt>
-                            <dd class="mt-1">Where the visitor goes when the form is rejected, for example after a failed captcha. Without it, the visitor sees a page from Formlander that explains the problem.</dd>
-                        </div>
-                        <div>
-                            <dt><code class="mono rounded bg-stone-100 px-1.5 py-0.5 text-stone-900">__fl_hp</code></dt>
-                            <dd class="mt-1">A trap for robots: a hidden text input. People leave it empty. Robots fill it, and Formlander marks those submissions as spam. The starter code has it.</dd>
-                        </div>
-                    </dl>
-                    <p><a href="https://formlander.com/docs/integration/" target="_blank" rel="noopener" class="link">Read the integration docs</a></p>
-                </div>
+                <p class="text-sm text-stone-600">Three field names are special: <code class="mono">_success_url</code> and <code class="mono">_error_url</code> say where the visitor goes after the form, and <code class="mono">__fl_hp</code> is the trap for robots. <a href="https://formlander.com/docs/integration/" target="_blank" rel="noopener" class="link">The docs explain them</a></p>
             </div>
         </details>
 

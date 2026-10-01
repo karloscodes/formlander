@@ -55,7 +55,7 @@
         </div>
 
         <details class="card" {{ if or .Host .MoreKeys .Policy.Size .Policy.Language (ne .Policy.Theme "auto") (ne .Policy.Action "submit") }}open{{ end }}>
-            <summary class="cursor-pointer px-5 py-4 text-sm font-medium text-stone-900 sm:px-6">More options <span class="font-normal text-stone-500">: the look, the language, one widget for each domain</span></summary>
+            <summary class="cursor-pointer px-5 py-4 text-sm font-medium text-stone-900 sm:px-6">More options <span class="font-normal text-stone-500">: the look and the language</span></summary>
             <div class="space-y-6 border-t border-stone-100 p-5 sm:p-6">
                 <div>
                     <label for="theme" class="field-label">Theme</label>
@@ -88,6 +88,7 @@
                     <p class="field-help">A label for the Turnstile statistics in Cloudflare. It tells the captchas of this profile apart from others. Most people leave it.</p>
                 </div>
 
+                {{ if or .Host .MoreKeys }}
                 <div>
                     <p class="field-label">One widget for each domain</p>
                     <p class="field-help">Skip this when one widget covers all your sites. Use it when you have a different Site Key for each domain: say which domain the Site Key above is for, then add the other domains.</p>
@@ -123,6 +124,7 @@
                         <button type="button" class="btn btn-small" data-add-row="site-key-row">Add a domain</button>
                     </div>
                 </div>
+                {{ end }}
             </div>
         </details>
 

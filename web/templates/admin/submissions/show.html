@@ -1,6 +1,6 @@
 {{ define "admin/submissions/show/content" }}
 {{ $fields := details .Submission.DataJSON }}
-<div class="page-settings space-y-6">
+<div class="space-y-6">
     <div>
         {{ if .Submission.Form }}
         <a href="/admin/forms/{{ .Submission.Form.ID }}" class="back">← {{ .Submission.Form.Name }}</a>
@@ -8,31 +8,32 @@
         <a href="/admin/submissions" class="back">← Submissions</a>
         {{ end }}
         <div class="mt-2 flex flex-wrap items-center justify-between gap-3">
-            <h1 class="page-title min-w-0 break-words">{{ if who .Submission.DataJSON }}{{ who .Submission.DataJSON }}{{ else }}Submission {{ .Submission.ID }}{{ end }}</h1>
-            <form method="post" action="/admin/submissions/{{ .Submission.ID }}/delete" hx-boost="false"
-                onsubmit="return confirm('Delete this submission{{ if .Submission.Files }} and its files{{ end }}? You cannot undo it.')">
-                <input type="hidden" name="return_to" value="{{ .ReturnTo }}">
-                <button type="submit" class="btn-danger">Delete</button>
-            </form>
+            <h1 class="page-title min-w-0 break-words">{{ if who .Submission.DataJSON }}{{ who .Submission.DataJSON }}{{ else }}Submission {{ .Submission.ID }}{{ end }}{{ if .Submission.IsSpam }} <span class="pill pill-warn align-middle">spam</span>{{ end }}</h1>
+            <div class="flex items-center gap-2">
+                {{ if .ReplyTo }}<a href="mailto:{{ .ReplyTo }}" class="btn-primary">Reply by email</a>{{ end }}
+                <form method="post" action="/admin/submissions/{{ .Submission.ID }}/delete" hx-boost="false"
+                    onsubmit="return confirm('Delete this submission{{ if .Submission.Files }} and its files{{ end }}? You cannot undo it.')">
+                    <input type="hidden" name="return_to" value="{{ .ReturnTo }}">
+                    <button type="submit" class="btn-danger">Delete</button>
+                </form>
+            </div>
         </div>
-        <p class="page-note">
-            Received {{ .Submission.CreatedAt.Format "Jan 2, 2006" }} at {{ .Submission.CreatedAt.Format "15:04" }}
-            {{ if .Submission.IsSpam }}<span class="pill pill-warn ml-1">spam</span>{{ end }}
-        </p>
     </div>
 
     {{ if .Submission.IsSpam }}
     <div class="notice notice-warn">A robot filled the hidden trap field, so Formlander marked this as spam. It sent no email and no webhook for it.</div>
     {{ end }}
 
+    <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
+    <div class="space-y-6">
     <!-- What the person sent -->
     <div class="card overflow-hidden">
         {{ if $fields }}
         <dl class="divide-y divide-stone-100 text-sm">
             {{ range $fields }}
-            <div class="gap-4 px-5 py-3 sm:grid sm:grid-cols-3 sm:px-6">
+            <div class="gap-4 px-5 py-3.5 sm:grid sm:grid-cols-[11rem_minmax(0,1fr)] sm:px-6">
                 <dt class="break-words text-stone-500">{{ .Label }}</dt>
-                <dd class="mt-0.5 whitespace-pre-wrap break-words text-stone-900 sm:col-span-2 sm:mt-0">{{ if .Value }}{{ .Value }}{{ else }}<span class="text-stone-400">Empty</span>{{ end }}</dd>
+                <dd class="mt-0.5 whitespace-pre-wrap break-words text-stone-900 sm:mt-0">{{ if .Value }}{{ .Value }}{{ else }}<span class="text-stone-400">Empty</span>{{ end }}</dd>
             </div>
             {{ end }}
         </dl>
@@ -65,30 +66,54 @@
     </div>
     {{ end }}
 
-    {{ if or .Submission.WebhookEvents .Submission.EmailEvents }}
-    <div class="card overflow-hidden">
-        <div class="card-head">
-            <h2 class="card-title">Who was told</h2>
-        </div>
-        <ul class="divide-y divide-stone-100 text-sm">
-            {{ range .Submission.EmailEvents }}
-            <li class="flex flex-wrap items-center gap-x-4 gap-y-1 px-5 py-3 sm:px-6">
-                <span class="w-16 font-medium text-stone-900">Email</span>
-                {{ template "admin/deliveries/attempt" . }}
-            </li>
-            {{ end }}
-            {{ range .Submission.WebhookEvents }}
-            <li class="flex flex-wrap items-center gap-x-4 gap-y-1 px-5 py-3 sm:px-6">
-                <span class="w-16 font-medium text-stone-900">Webhook</span>
-                {{ template "admin/deliveries/attempt" . }}
-            </li>
-            {{ end }}
-        </ul>
     </div>
-    {{ end }}
 
-    {{ if .Submission.UserAgent }}
-    <p class="break-words px-1 text-xs text-stone-400">Sent with {{ .Submission.UserAgent }}</p>
-    {{ end }}
+    <aside class="space-y-6">
+        <div class="card">
+            <dl class="space-y-4 p-5 text-sm sm:p-6">
+                <div>
+                    <dt class="text-stone-500">Received</dt>
+                    <dd class="mt-0.5 text-stone-900">{{ .Submission.CreatedAt.Format "Jan 2, 2006" }} at {{ .Submission.CreatedAt.Format "15:04" }} <span class="text-stone-500">· {{ ago .Submission.CreatedAt }}</span></dd>
+                </div>
+                {{ if .Submission.Form }}
+                <div>
+                    <dt class="text-stone-500">Form</dt>
+                    <dd class="mt-0.5"><a href="/admin/forms/{{ .Submission.Form.ID }}" class="link">{{ .Submission.Form.Name }}</a></dd>
+                </div>
+                {{ end }}
+                {{ if .Submission.UserAgent }}
+                <div>
+                    <dt class="text-stone-500">Sent with</dt>
+                    <dd class="mt-0.5 break-words text-xs text-stone-600">{{ .Submission.UserAgent }}</dd>
+                </div>
+                {{ end }}
+            </dl>
+        </div>
+
+        <div class="card overflow-hidden">
+            <div class="card-head">
+                <h2 class="card-title">Who was told</h2>
+            </div>
+            {{ if or .Submission.WebhookEvents .Submission.EmailEvents }}
+            <ul class="divide-y divide-stone-100 text-sm">
+                {{ range .Submission.EmailEvents }}
+                <li class="flex flex-wrap items-center gap-x-3 gap-y-1 px-5 py-3 sm:px-6">
+                    <span class="font-medium text-stone-900">Email</span>
+                    {{ template "admin/deliveries/attempt" . }}
+                </li>
+                {{ end }}
+                {{ range .Submission.WebhookEvents }}
+                <li class="flex flex-wrap items-center gap-x-3 gap-y-1 px-5 py-3 sm:px-6">
+                    <span class="font-medium text-stone-900">Webhook</span>
+                    {{ template "admin/deliveries/attempt" . }}
+                </li>
+                {{ end }}
+            </ul>
+            {{ else }}
+            <p class="px-5 py-4 text-sm text-stone-600 sm:px-6">Nobody. This form sent no email and no webhook for it.</p>
+            {{ end }}
+        </div>
+    </aside>
+    </div>
 </div>
 {{ end }}

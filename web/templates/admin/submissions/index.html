@@ -1,10 +1,12 @@
 {{ define "admin/submissions/index/content" }}
-{{ $filtered := or .FormID .Search (and .Range (ne .Range "all")) }}
 <div class="space-y-6">
     <div class="flex flex-wrap items-end justify-between gap-3">
         <div>
             <h1 class="page-title">Submissions</h1>
-            <p class="page-note">{{ .TotalCount }} {{ if $filtered }}that match{{ else }}in total{{ end }}</p>
+            <p class="page-note">
+                {{ .TotalCount }} {{ if .Filtered }}{{ if eq .TotalCount 1 }}matches{{ else }}match{{ end }}{{ else }}in total{{ end }}
+                {{ if .Filtered }}· <a href="/admin/submissions" class="link">Clear the filters</a>{{ end }}
+            </p>
         </div>
         {{ if gt .SpamCount 0 }}
         <form method="post" action="/admin/submissions/delete" hx-boost="false">
@@ -17,45 +19,49 @@
         {{ end }}
     </div>
 
-    <form method="GET" action="/admin/submissions" class="flex flex-wrap items-center gap-2">
-        <input type="search" name="q" value="{{ .Search }}" placeholder="Search, then press Enter" aria-label="Search the submissions"
-            class="field-compact min-w-0 flex-1 basis-56 sm:max-w-sm">
-        <select name="form_id" aria-label="Form" onchange="this.form.submit()" class="field-compact max-w-full">
-            <option value="">All forms</option>
-            {{ range .Forms }}
-            <option value="{{ .ID }}" {{ if eq $.FormID (printf "%d" .ID) }}selected{{ end }}>{{ .Name }}</option>
-            {{ end }}
-        </select>
-        <select name="range" aria-label="Time" onchange="this.form.submit()" class="field-compact">
-            <option value="all" {{ if or (eq .Range "all") (eq .Range "") }}selected{{ end }}>All time</option>
-            <option value="7d" {{ if eq .Range "7d" }}selected{{ end }}>Last 7 days</option>
-            <option value="30d" {{ if eq .Range "30d" }}selected{{ end }}>Last 30 days</option>
-            <option value="90d" {{ if eq .Range "90d" }}selected{{ end }}>Last 90 days</option>
-        </select>
-        {{ if $filtered }}
-        <a href="/admin/submissions" class="back px-2">Clear</a>
-        {{ end }}
-    </form>
-
-    {{ if .Submissions }}
     <div class="card overflow-hidden">
+        <!-- The filters. Each one applies at once, and keeps the others. -->
+        <form method="GET" action="/admin/submissions" class="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-stone-200 bg-stone-50 px-5 py-3 sm:px-6" data-live-search>
+            <label class="relative min-w-0 flex-1 basis-60">
+                <svg class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-400" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5 14 14"/></svg>
+                <input type="search" id="submission-search" name="q" value="{{ .Search }}" placeholder="Search a name, an email, or a word" aria-label="Search the submissions" autocomplete="off" class="field-compact w-full pl-9">
+            </label>
+            <select name="form_id" aria-label="Form" onchange="this.form.requestSubmit()" class="field-compact max-w-full">
+                <option value="">All forms</option>
+                {{ range .Forms }}
+                <option value="{{ .ID }}" {{ if eq $.FormID (printf "%d" .ID) }}selected{{ end }}>{{ .Name }}</option>
+                {{ end }}
+            </select>
+            <input type="hidden" name="range" value="{{ .Range }}">
+            <input type="hidden" name="spam" value="{{ .Spam }}">
+            <div class="seg" role="group" aria-label="Time">
+                {{ range .Ranges }}<a href="{{ .URL }}" class="seg-btn" {{ if .On }}aria-current="true"{{ end }}>{{ .Label }}</a>{{ end }}
+            </div>
+            {{ if or (gt .SpamCount 0) .Spam }}
+            <div class="seg" role="group" aria-label="Spam">
+                {{ range .SpamChoices }}<a href="{{ .URL }}" class="seg-btn" {{ if .On }}aria-current="true"{{ end }}>{{ .Label }}</a>{{ end }}
+            </div>
+            {{ end }}
+        </form>
+
+        {{ if .Submissions }}
         {{ template "admin/submissions/list" . }}
 
         {{ if or .HasPrev .HasNext }}
         <div class="flex items-center justify-between gap-3 border-t border-stone-100 px-5 py-3 sm:px-6">
-            <p class="text-sm text-stone-500">Page {{ .Page }} of {{ .TotalPages }}</p>
+            <p class="text-sm tabular-nums text-stone-600">Page {{ .Page }} of {{ .TotalPages }}</p>
             <div class="flex gap-2">
-                {{ if .HasPrev }}<a href="/admin/submissions?page={{ .PrevPage }}{{ if .FormID }}&form_id={{ .FormID }}{{ end }}{{ if .Range }}&range={{ .Range }}{{ end }}{{ if .Search }}&q={{ .Search }}{{ end }}" class="btn btn-small">Previous</a>{{ end }}
-                {{ if .HasNext }}<a href="/admin/submissions?page={{ .NextPage }}{{ if .FormID }}&form_id={{ .FormID }}{{ end }}{{ if .Range }}&range={{ .Range }}{{ end }}{{ if .Search }}&q={{ .Search }}{{ end }}" class="btn btn-small">Next</a>{{ end }}
+                {{ if .HasPrev }}<a href="{{ .PrevURL }}" class="btn btn-small">← Newer</a>{{ end }}
+                {{ if .HasNext }}<a href="{{ .NextURL }}" class="btn btn-small">Older →</a>{{ end }}
             </div>
         </div>
         {{ end }}
+        {{ else }}
+        <div class="px-6 py-14 text-center">
+            <p class="text-base font-medium text-stone-900">{{ if .Filtered }}No submission matches{{ else }}No submissions yet{{ end }}</p>
+            <p class="mt-1 text-sm text-stone-600">{{ if .Filtered }}Change the search, the form, or the time. <a href="/admin/submissions" class="link">Clear the filters</a>{{ else }}They arrive here when someone sends one of your forms.{{ end }}</p>
+        </div>
+        {{ end }}
     </div>
-    {{ else }}
-    <div class="card px-6 py-12 text-center">
-        <p class="text-base font-medium text-stone-900">{{ if $filtered }}No submission matches{{ else }}No submissions yet{{ end }}</p>
-        <p class="mt-1 text-sm text-stone-500">{{ if $filtered }}Change the search, the form, or the time. <a href="/admin/submissions" class="link">Show all</a>{{ else }}They arrive here when someone sends one of your forms.{{ end }}</p>
-    </div>
-    {{ end }}
 </div>
 {{ end }}
