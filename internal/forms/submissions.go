@@ -110,8 +110,7 @@ func CreateSubmissionWithFiles(logger *slog.Logger, db *gorm.DB, form *Form, pay
 		// success response while the honeypot quietly contains it.
 		if !isSpam {
 			// Check webhook delivery
-			webhookDelivery := form.WebhookDelivery
-			if webhookDelivery != nil && webhookDelivery.Enabled && webhookDelivery.URL != "" {
+			if form.WebhookDelivery.Delivers() {
 				event := NewWebhookEvent(submission.ID, time.Now().UTC())
 				if err := tx.Create(event).Error; err != nil {
 					return err
@@ -159,4 +158,64 @@ func extractEmailRecipient(emailDelivery *EmailDelivery) string {
 		}
 	}
 	return ""
+}
+
+// DeleteSubmissions removes submissions for good: the rows, their delivery
+// attempts, and their uploaded files. It returns how many it removed. IDs
+// that do not exist are skipped.
+func DeleteSubmissions(logger *slog.Logger, db *gorm.DB, dataDir string, ids []uint) (int, error) {
+	if len(ids) == 0 {
+		return 0, nil
+	}
+
+	var submissions []Submission
+	if err := db.Select("id", "form_id").Where("id IN ?", ids).Find(&submissions).Error; err != nil {
+		return 0, err
+	}
+	if len(submissions) == 0 {
+		return 0, nil
+	}
+	found := make([]uint, len(submissions))
+	for i, submission := range submissions {
+		found[i] = submission.ID
+	}
+
+	// The children go first: SQLite removes them itself only when foreign
+	// keys are on for the connection.
+	if err := dbtxn.WithRetry(logger, db, func(tx *gorm.DB) error {
+		for _, child := range []any{&WebhookEvent{}, &EmailEvent{}, &SubmissionFile{}} {
+			if err := tx.Where("submission_id IN ?", found).Delete(child).Error; err != nil {
+				return err
+			}
+		}
+		return tx.Where("id IN ?", found).Delete(&Submission{}).Error
+	}); err != nil {
+		logger.Error("delete submissions failed", slog.Any("error", err))
+		return 0, err
+	}
+
+	// The rows are gone, so a file that stays behind is only wasted space.
+	if dataDir != "" {
+		for _, submission := range submissions {
+			if err := DeleteSubmissionFiles(dataDir, submission.FormID, submission.ID); err != nil {
+				logger.Warn("delete submission files failed", slog.Uint64("submission_id", uint64(submission.ID)), slog.Any("error", err))
+			}
+		}
+	}
+
+	return len(submissions), nil
+}
+
+// DeleteSpam removes every submission marked as spam, of one form or, with
+// formID 0, of all forms. It returns how many it removed.
+func DeleteSpam(logger *slog.Logger, db *gorm.DB, dataDir string, formID uint) (int, error) {
+	query := db.Model(&Submission{}).Where("is_spam = ?", true)
+	if formID != 0 {
+		query = query.Where("form_id = ?", formID)
+	}
+	var ids []uint
+	if err := query.Pluck("id", &ids).Error; err != nil {
+		return 0, err
+	}
+	return DeleteSubmissions(logger, db, dataDir, ids)
 }

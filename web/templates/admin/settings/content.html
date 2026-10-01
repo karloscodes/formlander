@@ -1,162 +1,96 @@
 {{ define "admin/settings/content" }}
-<div class="max-w-5xl mx-auto space-y-8">
-    <!-- Header -->
-    <div class="flex items-center justify-between">
-        <div>
-            <h1 class="text-3xl font-bold text-stone-900">Settings</h1>
-        </div>
-    </div>
+<div class="mx-auto max-w-2xl space-y-6">
+    <h1 class="page-title">Settings</h1>
 
     {{ if .Success }}
-    <div class="rounded-lg border-2 border-emerald-500 bg-emerald-50 px-4 py-3">
-        <p class="text-sm font-medium text-emerald-900">✓ {{ .Success }}</p>
-    </div>
+    <div class="notice notice-ok">{{ .Success }}</div>
     {{ end }}
 
     {{ if .Error }}
-    <div class="rounded-lg border-2 border-rose-500 bg-rose-50 px-4 py-3">
-        <p class="text-sm font-medium text-rose-900">✗ {{ .Error }}</p>
-    </div>
+    <div class="notice notice-bad">{{ .Error }}</div>
     {{ end }}
 
-    <!-- Account Section -->
-    <div class="rounded-xl border border-stone-200 bg-white shadow-sm">
-        <div class="border-b border-stone-200 px-6 py-4">
-            <h2 class="text-lg font-semibold text-stone-900">Account</h2>
+    <!-- The services that forms use -->
+    <div class="card overflow-hidden">
+        <div class="card-head">
+            <h2 class="card-title">Connections</h2>
+            <p class="card-note">Set one up once. Use it in many forms.</p>
         </div>
-
-        <div class="divide-y divide-stone-200">
-            <form action="/admin/settings/email" method="post" class="p-6 space-y-6">
-                <div>
-                    <label for="new_email" class="block text-sm font-medium text-stone-700">
-                        Email
-                    </label>
-                    <input type="email" name="new_email" id="new_email" required value="{{ .User.Email }}"
-                        class="mt-1 block w-full rounded-lg border-stone-300 px-4 py-2.5 shadow-sm transition-colors focus:border-stone-900 focus:outline-none focus:ring-2 focus:ring-stone-900/20">
-                </div>
-
-                <div>
-                    <label for="current_password_email" class="block text-sm font-medium text-stone-700">
-                        Current password
-                    </label>
-                    <input type="password" name="current_password_email" id="current_password_email" required
-                        class="mt-1 block w-full rounded-lg border-stone-300 px-4 py-2.5 shadow-sm transition-colors focus:border-stone-900 focus:outline-none focus:ring-2 focus:ring-stone-900/20">
-                </div>
-
-                <div class="flex justify-end">
-                    <button type="submit"
-                        class="inline-flex items-center rounded-lg border border-transparent bg-stone-900 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition-all hover:bg-stone-700 hover:shadow focus:outline-none focus:ring-2 focus:ring-stone-900 focus:ring-offset-2">
-                        Update email
-                    </button>
-                </div>
-            </form>
-
-            <form action="/admin/settings/password" method="post" class="p-6 space-y-6">
-                <div>
-                    <label for="current_password" class="block text-sm font-medium text-stone-700">
-                        Current password
-                    </label>
-                    <input type="password" name="current_password" id="current_password" required
-                        class="mt-1 block w-full rounded-lg border-stone-300 px-4 py-2.5 shadow-sm transition-colors focus:border-stone-900 focus:outline-none focus:ring-2 focus:ring-stone-900/20">
-                </div>
-
-                <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                    <div>
-                        <label for="new_password" class="block text-sm font-medium text-stone-700">
-                            New password
-                        </label>
-                        <input type="password" name="new_password" id="new_password" required minlength="8"
-                            class="mt-1 block w-full rounded-lg border-stone-300 px-4 py-2.5 shadow-sm transition-colors focus:border-stone-900 focus:outline-none focus:ring-2 focus:ring-stone-900/20">
-                        <p class="mt-1 text-xs text-stone-500">At least 8 characters.</p>
-                    </div>
-
-                    <div>
-                        <label for="confirm_password" class="block text-sm font-medium text-stone-700">
-                            Confirm new password
-                        </label>
-                        <input type="password" name="confirm_password" id="confirm_password" required minlength="8"
-                            class="mt-1 block w-full rounded-lg border-stone-300 px-4 py-2.5 shadow-sm transition-colors focus:border-stone-900 focus:outline-none focus:ring-2 focus:ring-stone-900/20">
-                    </div>
-                </div>
-
-                <div class="flex justify-end">
-                    <button type="submit"
-                        class="inline-flex items-center rounded-lg border border-transparent bg-stone-900 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition-all hover:bg-stone-700 hover:shadow focus:outline-none focus:ring-2 focus:ring-stone-900 focus:ring-offset-2">
-                        Update password
-                    </button>
-                </div>
-            </form>
-        </div>
+        <ul class="divide-y divide-stone-100">
+            <li>
+                <a href="/admin/settings/mailers" class="flex items-baseline gap-4 px-5 py-4 transition hover:bg-stone-50 sm:px-6">
+                    <span class="min-w-0 flex-1">
+                        <span class="block text-sm font-medium text-stone-900">Mailers</span>
+                        <span class="block text-sm text-stone-500">Send submissions by email.</span>
+                    </span>
+                    <span class="whitespace-nowrap text-sm text-stone-500">{{ .MailerCount }} {{ if eq .MailerCount 1 }}profile{{ else }}profiles{{ end }} →</span>
+                </a>
+            </li>
+            <li>
+                <a href="/admin/settings/captcha" class="flex items-baseline gap-4 px-5 py-4 transition hover:bg-stone-50 sm:px-6">
+                    <span class="min-w-0 flex-1">
+                        <span class="block text-sm font-medium text-stone-900">Captchas</span>
+                        <span class="block text-sm text-stone-500">Stop robots from filling your forms.</span>
+                    </span>
+                    <span class="whitespace-nowrap text-sm text-stone-500">{{ .CaptchaCount }} {{ if eq .CaptchaCount 1 }}profile{{ else }}profiles{{ end }} →</span>
+                </a>
+            </li>
+            <li>
+                <a href="/admin/settings/webhooks" class="flex items-baseline gap-4 px-5 py-4 transition hover:bg-stone-50 sm:px-6">
+                    <span class="min-w-0 flex-1">
+                        <span class="block text-sm font-medium text-stone-900">Webhooks</span>
+                        <span class="block text-sm text-stone-500">Post submissions to your server or to another service.</span>
+                    </span>
+                    <span class="whitespace-nowrap text-sm text-stone-500">{{ .WebhookCount }} {{ if eq .WebhookCount 1 }}profile{{ else }}profiles{{ end }} →</span>
+                </a>
+            </li>
+        </ul>
     </div>
 
-    <!-- Quick Links Section -->
-    <div class="rounded-xl border border-stone-200 bg-white shadow-sm overflow-hidden">
-        <div class="border-b border-stone-200 px-6 py-4">
-            <h2 class="text-lg font-semibold text-stone-900">Configuration</h2>
-            <p class="mt-1 text-sm text-stone-600">Manage integrations and services</p>
+    <!-- The person who signs in -->
+    <div class="card">
+        <div class="card-head">
+            <h2 class="card-title">Account</h2>
+            <p class="card-note">You sign in with this email and password.</p>
         </div>
 
-        <div class="divide-y divide-stone-200">
-            <!-- Mailers Link -->
-            <a href="/admin/settings/mailers" class="block px-6 py-4 hover:bg-stone-50 transition-colors group">
-                <div class="flex items-center justify-between">
-                    <div class="flex items-center">
-                        <div class="flex-shrink-0">
-                            <svg class="h-6 w-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                            </svg>
-                        </div>
-                        <div class="ml-4">
-                            <p class="text-sm font-medium text-stone-900 group-hover:text-green-600 transition-colors">
-                                Email Configuration</p>
-                            <p class="text-sm text-stone-500">SMTP and email delivery settings</p>
-                        </div>
-                    </div>
-                    <svg class="h-5 w-5 text-stone-400 group-hover:text-stone-600 transition-colors" fill="none"
-                        stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                    </svg>
-                </div>
-            </a>
+        <form action="/admin/settings/email" method="post" class="space-y-5 border-b border-stone-100 p-5 sm:p-6">
+            <div>
+                <label for="new_email" class="field-label">Email</label>
+                <input type="email" name="new_email" id="new_email" required value="{{ .User.Email }}" class="field-input">
+            </div>
+            <div>
+                <label for="current_password_email" class="field-label">Current password</label>
+                <input type="password" name="current_password_email" id="current_password_email" required autocomplete="current-password" class="field-input">
+                <p class="field-help">Type it to confirm the change.</p>
+            </div>
+            <div class="flex justify-end">
+                <button type="submit" class="btn">Update email</button>
+            </div>
+        </form>
 
-            <!-- Captcha Link -->
-            <a href="/admin/settings/captcha" class="block px-6 py-4 hover:bg-stone-50 transition-colors group">
-                <div class="flex items-center justify-between">
-                    <div class="flex items-center">
-                        <div class="flex-shrink-0">
-                            <svg class="h-6 w-6 text-stone-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                            </svg>
-                        </div>
-                        <div class="ml-4">
-                            <p class="text-sm font-medium text-stone-900 group-hover:text-stone-900 transition-colors">
-                                Captcha Configuration</p>
-                            <p class="text-sm text-stone-500">Bot protection and spam prevention</p>
-                        </div>
-                    </div>
-                    <svg class="h-5 w-5 text-stone-400 group-hover:text-stone-600 transition-colors" fill="none"
-                        stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                    </svg>
+        <form action="/admin/settings/password" method="post" class="space-y-5 p-5 sm:p-6">
+            <div>
+                <label for="current_password" class="field-label">Current password</label>
+                <input type="password" name="current_password" id="current_password" required autocomplete="current-password" class="field-input">
+            </div>
+            <div class="grid gap-5 sm:grid-cols-2">
+                <div>
+                    <label for="new_password" class="field-label">New password</label>
+                    <input type="password" name="new_password" id="new_password" required minlength="8" autocomplete="new-password" class="field-input">
+                    <p class="field-help">At least 8 characters.</p>
                 </div>
-            </a>
-        </div>
+                <div>
+                    <label for="confirm_password" class="field-label">New password again</label>
+                    <input type="password" name="confirm_password" id="confirm_password" required minlength="8" autocomplete="new-password" class="field-input"
+                        oninput="this.setCustomValidity(this.value && this.value !== document.getElementById('new_password').value ? 'The two passwords are not the same' : '')">
+                </div>
+            </div>
+            <p class="text-sm text-stone-500">A new password signs out every other device.</p>
+            <div class="flex justify-end">
+                <button type="submit" class="btn">Update password</button>
+            </div>
+        </form>
     </div>
 </div>
-
-<script>
-    // Client-side password matching validation
-    document.getElementById('confirm_password').addEventListener('input', function () {
-        const newPassword = document.getElementById('new_password').value;
-        const confirmPassword = this.value;
-
-        if (confirmPassword && newPassword !== confirmPassword) {
-            this.setCustomValidity('Passwords do not match');
-        } else {
-            this.setCustomValidity('');
-        }
-    });
-</script>
 {{ end }}

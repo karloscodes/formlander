@@ -1,218 +1,94 @@
 {{ define "admin/submissions/show/content" }}
-<div class="max-w-5xl mx-auto space-y-8">
-    <!-- Header -->
-    <div class="flex items-start justify-between">
-        <div>
-            <div class="flex items-center gap-3 mb-2">
-                <h1 class="text-3xl font-bold text-stone-900">Submission #{{ .Submission.ID }}</h1>
-                {{ if .Submission.IsSpam }}
-                <span
-                    class="inline-flex items-center rounded-full bg-red-50 px-3 py-1 text-xs font-medium text-red-700 ring-1 ring-inset ring-red-600/20">
-                    <svg class="mr-1 h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd"
-                            d="M13.477 14.89A6 6 0 015.11 6.524l8.367 8.368zm1.414-1.414L6.524 5.11a6 6 0 018.367 8.367zM18 10a8 8 0 11-16 0 8 8 0 0116 0z"
-                            clip-rule="evenodd" />
-                    </svg>
-                    Spam
-                </span>
-                {{ else }}
-                <span
-                    class="inline-flex items-center rounded-full bg-green-50 px-3 py-1 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-600/20">
-                    <svg class="mr-1 h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd"
-                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                            clip-rule="evenodd" />
-                    </svg>
-                    Valid
-                </span>
-                {{ end }}
+{{ $fields := details .Submission.DataJSON }}
+<div class="mx-auto max-w-2xl space-y-6">
+    <div>
+        {{ if .Submission.Form }}
+        <a href="/admin/forms/{{ .Submission.Form.ID }}" class="back">← {{ .Submission.Form.Name }}</a>
+        {{ else }}
+        <a href="/admin/submissions" class="back">← Submissions</a>
+        {{ end }}
+        <div class="mt-2 flex flex-wrap items-center justify-between gap-3">
+            <h1 class="page-title min-w-0 break-words">{{ if who .Submission.DataJSON }}{{ who .Submission.DataJSON }}{{ else }}Submission {{ .Submission.ID }}{{ end }}</h1>
+            <form method="post" action="/admin/submissions/{{ .Submission.ID }}/delete" hx-boost="false"
+                onsubmit="return confirm('Delete this submission{{ if .Submission.Files }} and its files{{ end }}? You cannot undo it.')">
+                <input type="hidden" name="return_to" value="{{ .ReturnTo }}">
+                <button type="submit" class="btn-danger">Delete</button>
+            </form>
+        </div>
+        <p class="page-note">
+            Received {{ .Submission.CreatedAt.Format "Jan 2, 2006" }} at {{ .Submission.CreatedAt.Format "15:04" }}
+            {{ if .Submission.IsSpam }}<span class="pill pill-warn ml-1">spam</span>{{ end }}
+        </p>
+    </div>
+
+    {{ if .Submission.IsSpam }}
+    <div class="notice notice-warn">A robot filled the hidden trap field, so Formlander marked this as spam. It sent no email and no webhook for it.</div>
+    {{ end }}
+
+    <!-- What the person sent -->
+    <div class="card overflow-hidden">
+        {{ if $fields }}
+        <dl class="divide-y divide-stone-100 text-sm">
+            {{ range $fields }}
+            <div class="gap-4 px-5 py-3 sm:grid sm:grid-cols-3 sm:px-6">
+                <dt class="break-words text-stone-500">{{ .Label }}</dt>
+                <dd class="mt-0.5 whitespace-pre-wrap break-words text-stone-900 sm:col-span-2 sm:mt-0">{{ if .Value }}{{ .Value }}{{ else }}<span class="text-stone-400">Empty</span>{{ end }}</dd>
             </div>
-            <p class="text-sm text-stone-600">Received {{ .Submission.CreatedAt.Format "Jan 2, 2006 at 3:04 PM" }}</p>
-        </div>
-        <a href="/admin/forms/{{ .Submission.FormID }}"
-            class="inline-flex items-center rounded-lg border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-700 shadow-sm transition-all hover:bg-stone-50 focus:outline-none focus:ring-2 focus:ring-stone-900 focus:ring-offset-2">
-            <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-            </svg>
-            Back to Form
-        </a>
+            {{ end }}
+        </dl>
+        {{ else }}
+        <p class="px-5 py-6 text-sm text-stone-500 sm:px-6">This submission has no fields.</p>
+        {{ end }}
+        <details class="border-t border-stone-100">
+            <summary class="cursor-pointer px-5 py-3 text-sm text-stone-500 hover:text-stone-900 sm:px-6">Show the raw JSON</summary>
+            <pre class="mono overflow-x-auto border-t border-stone-100 bg-stone-50 px-5 py-4 text-stone-900 sm:px-6" style="max-height: 480px;">{{ .JSON }}</pre>
+        </details>
     </div>
 
-    <!-- Payload -->
-    <div class="rounded-xl border border-stone-200 bg-white shadow-sm">
-        <div class="border-b border-stone-200 px-6 py-4">
-            <h2 class="text-lg font-semibold text-stone-900">Payload</h2>
-            <p class="text-sm text-stone-500">Form submission data</p>
+    {{ if .Submission.Files }}
+    <div class="card overflow-hidden">
+        <div class="card-head">
+            <h2 class="card-title">Files</h2>
+            <p class="card-note">{{ len .Submission.Files }} {{ if eq (len .Submission.Files) 1 }}file{{ else }}files{{ end }}</p>
         </div>
-        <div class="p-6">
-            <pre
-                class="max-h-96 overflow-auto rounded-lg border border-stone-200 bg-stone-50 px-4 py-3 text-sm text-stone-900 font-mono">{{ .JSON }}</pre>
-        </div>
-    </div>
-
-    <!-- Files -->
-    {{ if .HasFiles }}
-    <div class="rounded-xl border border-stone-200 bg-white shadow-sm">
-        <div class="border-b border-stone-200 px-6 py-4">
-            <h2 class="text-lg font-semibold text-stone-900">Uploaded Files</h2>
-            <p class="text-sm text-stone-500">{{ len .Submission.Files }} file{{ if ne (len .Submission.Files) 1 }}s{{ end }} attached</p>
-        </div>
-        <div class="divide-y divide-stone-200">
+        <ul class="divide-y divide-stone-100 text-sm">
             {{ range .Submission.Files }}
-            <div class="px-6 py-4 flex items-center justify-between">
-                <div class="flex items-center gap-3">
-                    <div class="flex-shrink-0 w-10 h-10 rounded-lg bg-stone-100 flex items-center justify-center">
-                        <svg class="h-5 w-5 text-stone-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                        </svg>
-                    </div>
-                    <div>
-                        <p class="text-sm font-medium text-stone-900">{{ .Filename }}</p>
-                        <p class="text-xs text-stone-500">{{ .FieldName }} · {{ .Size }} bytes · {{ .ContentType }}</p>
-                    </div>
-                </div>
-                <a href="/admin/submissions/{{ .SubmissionID }}/files/{{ .ID }}"
-                    class="inline-flex items-center rounded-lg border border-stone-300 bg-white px-3 py-1.5 text-xs font-medium text-stone-700 shadow-sm transition-all hover:bg-stone-50">
-                    <svg class="mr-1.5 h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                    </svg>
-                    Download
-                </a>
-            </div>
+            <li class="flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-3 sm:px-6">
+                <span class="min-w-0 flex-1">
+                    <span class="block break-all font-medium text-stone-900">{{ .Filename }}</span>
+                    <span class="block text-stone-500">{{ .FieldName }} · {{ fileSize .Size }}</span>
+                </span>
+                <a href="/admin/submissions/{{ .SubmissionID }}/files/{{ .ID }}" hx-boost="false" class="btn btn-small">Download</a>
+            </li>
             {{ end }}
-        </div>
+        </ul>
     </div>
     {{ end }}
 
-    <!-- Metadata -->
-    <div class="rounded-xl border border-stone-200 bg-white shadow-sm">
-        <div class="border-b border-stone-200 px-6 py-4">
-            <h2 class="text-lg font-semibold text-stone-900">Metadata</h2>
-            <p class="text-sm text-stone-500">Request information</p>
+    {{ if or .Submission.WebhookEvents .Submission.EmailEvents }}
+    <div class="card overflow-hidden">
+        <div class="card-head">
+            <h2 class="card-title">Who was told</h2>
         </div>
-        <div class="divide-y divide-stone-200">
-            <div class="grid grid-cols-1 gap-4 px-6 py-4 sm:grid-cols-3">
-                <div class="sm:col-span-1">
-                    <dt class="text-sm font-medium text-stone-500">User Agent</dt>
-                </div>
-                <div class="sm:col-span-2">
-                    <dd class="text-sm text-stone-900 break-words">{{ .Submission.UserAgent }}</dd>
-                </div>
-            </div>
-            <div class="grid grid-cols-1 gap-4 px-6 py-4 sm:grid-cols-3">
-                <div class="sm:col-span-1">
-                    <dt class="text-sm font-medium text-stone-500">Form</dt>
-                </div>
-                <div class="sm:col-span-2">
-                    <dd class="text-sm text-stone-900">
-                        {{ if .Submission.Form }}
-                        <a href="/admin/forms/{{ .Submission.Form.ID }}"
-                            class="text-stone-900 hover:text-stone-900 hover:underline">
-                            {{ .Submission.Form.Name }}
-                        </a>
-                        {{ else }}
-                        Unknown
-                        {{ end }}
-                    </dd>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Webhook Events -->
-    {{ if .Submission.WebhookEvents }}
-    <div class="rounded-xl border border-stone-200 bg-white shadow-sm">
-        <div class="border-b border-stone-200 px-6 py-4">
-            <h2 class="text-lg font-semibold text-stone-900">Webhook Deliveries</h2>
-            <p class="text-sm text-stone-500">Forwarding attempts to external endpoints</p>
-        </div>
-        <div class="divide-y divide-stone-200">
-            {{ range .Submission.WebhookEvents }}
-            <div class="px-6 py-4">
-                <div class="flex items-start justify-between mb-2">
-                    <div class="flex items-center gap-2">
-                        {{ if eq .Status "completed" }}
-                        <span
-                            class="inline-flex items-center rounded-full bg-green-50 px-2.5 py-0.5 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-600/20">
-                            ✓ Delivered
-                        </span>
-                        {{ else if eq .Status "failed" }}
-                        <span
-                            class="inline-flex items-center rounded-full bg-red-50 px-2.5 py-0.5 text-xs font-medium text-red-700 ring-1 ring-inset ring-red-600/20">
-                            × Failed
-                        </span>
-                        {{ else }}
-                        <span
-                            class="inline-flex items-center rounded-full bg-yellow-50 px-2.5 py-0.5 text-xs font-medium text-yellow-700 ring-1 ring-inset ring-yellow-600/20">
-                            ⟳ {{ .Status }}
-                        </span>
-                        {{ end }}
-                        <span class="text-sm text-stone-600">{{ .AttemptCount }} attempt{{ if ne .AttemptCount 1 }}s{{
-                            end }}</span>
-                    </div>
-                    {{ if .LastAttemptAt }}
-                    <span class="text-xs text-stone-500">{{ .LastAttemptAt.Format "Jan 2 at 3:04 PM" }}</span>
-                    {{ end }}
-                </div>
-                {{ if .LastAttemptErr }}
-                <div class="mt-2">
-                    <p class="text-xs font-medium text-stone-700 mb-1">Error:</p>
-                    <pre
-                        class="text-xs text-red-600 bg-red-50 rounded px-2 py-1 overflow-x-auto">{{ .LastAttemptErr }}</pre>
-                </div>
-                {{ end }}
-            </div>
-            {{ end }}
-        </div>
-    </div>
-    {{ end }}
-
-    <!-- Email Events -->
-    {{ if .Submission.EmailEvents }}
-    <div class="rounded-xl border border-stone-200 bg-white shadow-sm">
-        <div class="border-b border-stone-200 px-6 py-4">
-            <h2 class="text-lg font-semibold text-stone-900">Email Deliveries</h2>
-            <p class="text-sm text-stone-500">Notification emails sent for this submission</p>
-        </div>
-        <div class="divide-y divide-stone-200">
+        <ul class="divide-y divide-stone-100 text-sm">
             {{ range .Submission.EmailEvents }}
-            <div class="px-6 py-4">
-                <div class="flex items-start justify-between mb-2">
-                    <div class="flex items-center gap-2">
-                        {{ if eq .Status "completed" }}
-                        <span
-                            class="inline-flex items-center rounded-full bg-green-50 px-2.5 py-0.5 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-600/20">
-                            ✓ Sent
-                        </span>
-                        {{ else if eq .Status "failed" }}
-                        <span
-                            class="inline-flex items-center rounded-full bg-red-50 px-2.5 py-0.5 text-xs font-medium text-red-700 ring-1 ring-inset ring-red-600/20">
-                            × Failed
-                        </span>
-                        {{ else }}
-                        <span
-                            class="inline-flex items-center rounded-full bg-yellow-50 px-2.5 py-0.5 text-xs font-medium text-yellow-700 ring-1 ring-inset ring-yellow-600/20">
-                            ⟳ {{ .Status }}
-                        </span>
-                        {{ end }}
-                        <span class="text-sm text-stone-600">{{ .AttemptCount }} attempt{{ if ne .AttemptCount 1 }}s{{
-                            end }}</span>
-                    </div>
-                    {{ if .LastAttemptAt }}
-                    <span class="text-xs text-stone-500">{{ .LastAttemptAt.Format "Jan 2 at 3:04 PM" }}</span>
-                    {{ end }}
-                </div>
-                {{ if .LastAttemptErr }}
-                <div class="mt-2">
-                    <p class="text-xs font-medium text-stone-700 mb-1">Error:</p>
-                    <pre
-                        class="text-xs text-red-600 bg-red-50 rounded px-2 py-1 overflow-x-auto">{{ .LastAttemptErr }}</pre>
-                </div>
-                {{ end }}
-            </div>
+            <li class="flex flex-wrap items-center gap-x-4 gap-y-1 px-5 py-3 sm:px-6">
+                <span class="w-16 font-medium text-stone-900">Email</span>
+                {{ template "admin/deliveries/attempt" . }}
+            </li>
             {{ end }}
-        </div>
+            {{ range .Submission.WebhookEvents }}
+            <li class="flex flex-wrap items-center gap-x-4 gap-y-1 px-5 py-3 sm:px-6">
+                <span class="w-16 font-medium text-stone-900">Webhook</span>
+                {{ template "admin/deliveries/attempt" . }}
+            </li>
+            {{ end }}
+        </ul>
     </div>
+    {{ end }}
+
+    {{ if .Submission.UserAgent }}
+    <p class="break-words px-1 text-xs text-stone-400">Sent with {{ .Submission.UserAgent }}</p>
     {{ end }}
 </div>
 {{ end }}

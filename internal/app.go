@@ -14,6 +14,7 @@ import (
 	"formlander/internal/accounts"
 	"formlander/internal/config"
 	"formlander/internal/database"
+	"formlander/internal/forms"
 	httphandlers "formlander/internal/http"
 	"formlander/internal/jobs"
 	"formlander/internal/pkg/dbtxn"
@@ -65,6 +66,10 @@ func RunMigrations(app *App) error {
 
 	if err := ensureAdminUser(db, app.Config, app.Logger); err != nil {
 		return fmt.Errorf("ensure admin user: %w", err)
+	}
+
+	if err := forms.MigrateInlineWebhooks(app.Logger, db); err != nil {
+		return fmt.Errorf("migrate inline webhooks: %w", err)
 	}
 
 	if err := httphandlers.UpgradeOldStarterHTML(app.Logger, db); err != nil {

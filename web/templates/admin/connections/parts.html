@@ -1,0 +1,44 @@
+{{/* Parts that the pages of mailer, captcha, and webhook profiles share. */}}
+
+{{/* What a test or a refused delete found. It needs .Error and .Test. */}}
+{{ define "admin/connections/result" }}
+{{ if .Error }}
+<div class="notice notice-bad">{{ .Error }}</div>
+{{ end }}
+{{ if .Test }}
+<div class="notice {{ if .Test.OK }}notice-ok{{ else }}notice-bad{{ end }} break-words" id="test-result">{{ .Test.Message }}</div>
+{{ end }}
+{{ end }}
+
+{{/* The forms that use a profile. It needs .Forms. */}}
+{{ define "admin/connections/used-by" }}
+<div class="card overflow-hidden">
+    <div class="card-head">
+        <h2 class="card-title">Used by</h2>
+        <p class="card-note">{{ len .Forms }} {{ if eq (len .Forms) 1 }}form{{ else }}forms{{ end }}</p>
+    </div>
+    {{ if not .Forms }}
+    <p class="px-5 py-6 text-sm text-stone-500 sm:px-6">No form uses this profile. Pick it when you edit a form.</p>
+    {{ else }}
+    <ul class="divide-y divide-stone-100">
+        {{ range .Forms }}
+        <li><a href="/admin/forms/{{ .ID }}" class="block px-5 py-3 text-sm font-medium text-stone-900 transition hover:bg-stone-50 sm:px-6">{{ .Name }}</a></li>
+        {{ end }}
+    </ul>
+    {{ end }}
+</div>
+{{ end }}
+
+{{/* The way to delete a profile. It needs .Forms, .Profile, and .DeleteAction. */}}
+{{ define "admin/connections/delete" }}
+<div class="flex flex-wrap items-center justify-between gap-3 px-1">
+    {{ if .Forms }}
+    <p class="text-sm text-stone-500">You cannot delete this profile while a form uses it.</p>
+    {{ else }}
+    <p class="text-sm text-stone-500">No form uses this profile, so you can delete it.</p>
+    <form method="POST" action="{{ .DeleteAction }}" hx-boost="false" onsubmit="return confirm('Delete this profile? You cannot undo it.')">
+        <button type="submit" class="btn-danger btn-small">Delete</button>
+    </form>
+    {{ end }}
+</div>
+{{ end }}

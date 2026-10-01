@@ -30,10 +30,10 @@ type Form struct {
 	Name                 string                       `gorm:"size:255;not null"`
 	Slug                 string                       `gorm:"size:255;uniqueIndex;not null"`
 	Token                string                       `gorm:"size:64;uniqueIndex;not null"`
-	AllowedOrigins       string                       `gorm:"type:text"` // Required. Comma-separated domains (example.com,*.example.com) or * for all
+	AllowedOrigins       string                       `gorm:"type:text"`              // Required. Comma-separated domains (example.com,*.example.com) or * for all
 	UseSDK               bool                         `gorm:"not null;default:false"` // Include JavaScript SDK in form code
-	GeneratedHTML        string                       `gorm:"type:text"` // AI-generated form HTML (optional)
-	CaptchaProfileID     *uint                        `gorm:"index"`     // Foreign key to CaptchaProfile
+	GeneratedHTML        string                       `gorm:"type:text"`              // AI-generated form HTML (optional)
+	CaptchaProfileID     *uint                        `gorm:"index"`                  // Foreign key to CaptchaProfile
 	CaptchaProfile       *integrations.CaptchaProfile `gorm:"constraint:OnDelete:SET NULL"`
 	CaptchaOverridesJSON string                       `gorm:"type:text"` // JSON: {required, action, widget}
 	CreatedAt            time.Time
@@ -122,17 +122,28 @@ func Slugify(input string) string {
 	return slug
 }
 
-// WebhookDelivery captures webhook configuration for a form.
+// WebhookDelivery says whether a form sends its submissions to a webhook, and
+// to which webhook profile.
 type WebhookDelivery struct {
-	ID          uint   `gorm:"primaryKey"`
-	FormID      uint   `gorm:"uniqueIndex;not null"`
-	Form        *Form  `gorm:"constraint:OnDelete:CASCADE"`
-	Enabled     bool   `gorm:"not null;default:false"`
+	ID               uint                         `gorm:"primaryKey"`
+	FormID           uint                         `gorm:"uniqueIndex;not null"`
+	Form             *Form                        `gorm:"constraint:OnDelete:CASCADE"`
+	Enabled          bool                         `gorm:"not null;default:false"`
+	WebhookProfileID *uint                        `gorm:"index"` // Foreign key to WebhookProfile
+	WebhookProfile   *integrations.WebhookProfile `gorm:"constraint:OnDelete:SET NULL"`
+	// URL, Secret, and HeadersJSON held the webhook before webhook profiles
+	// existed. MigrateInlineWebhooks moves them to a profile. Nothing else
+	// reads them.
 	URL         string `gorm:"type:text"`
 	Secret      string `gorm:"size:255"`
 	HeadersJSON string `gorm:"type:text"`
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
+}
+
+// Delivers reports whether a submission of the form goes to a webhook.
+func (w *WebhookDelivery) Delivers() bool {
+	return w != nil && w.Enabled && w.WebhookProfileID != nil
 }
 
 // EmailDelivery captures email forwarding configuration for a form.

@@ -60,8 +60,11 @@
                 <div>
                     <dt class="text-stone-500">Who gets told</dt>
                     <dd class="mt-1 space-y-1">
-                        {{ if $emailOn }}<p class="break-all text-stone-900">Email to {{ if .EmailRecipient }}{{ .EmailRecipient }}{{ else }}the default address{{ end }}</p>{{ end }}
-                        {{ if $webhookOn }}<p class="mono break-all text-stone-900">{{ $webhookDelivery.URL }}</p>{{ end }}
+                        {{ if $emailOn }}<p class="break-all text-stone-900">Email to {{ if .EmailRecipient }}{{ .EmailRecipient }}{{ else }}<span class="text-red-700">nobody: the form has no recipient</span>{{ end }}</p>{{ end }}
+                        {{ if $webhookOn }}
+                        {{ if $webhookDelivery.WebhookProfile }}<p class="break-all text-stone-900">Webhook <a href="/admin/settings/webhooks/{{ $webhookDelivery.WebhookProfile.ID }}" class="link">{{ $webhookDelivery.WebhookProfile.Name }}</a></p>
+                        {{ else }}<p class="text-red-700">The webhook is on, but it has no profile.</p>{{ end }}
+                        {{ end }}
                         {{ if and (not $emailOn) (not $webhookOn) }}
                         <span class="pill">Nobody</span>
                         <p class="mt-1 text-stone-500">Submissions wait here until you look.</p>
@@ -81,19 +84,7 @@
         {{ if not .Submissions }}
         <p class="px-5 py-10 text-center text-sm text-stone-500 sm:px-6">Nothing has arrived. Paste the code below into your site and send a test.</p>
         {{ else }}
-        <ul class="divide-y divide-stone-100">
-            {{ range .Submissions }}
-            <li>
-                <a href="/admin/submissions/{{ .ID }}" class="flex items-baseline gap-4 px-5 py-3 transition hover:bg-stone-50 sm:px-6">
-                    <span class="min-w-0 flex-1">
-                        <span class="block truncate text-sm font-medium text-stone-900">{{ if who .DataJSON }}{{ who .DataJSON }}{{ else }}Someone{{ end }}{{ if .IsSpam }} <span class="pill pill-warn">spam</span>{{ end }}</span>
-                        <span class="block truncate text-sm text-stone-500">{{ gist .DataJSON }}</span>
-                    </span>
-                    <span class="whitespace-nowrap text-xs text-stone-400" title="{{ .CreatedAt.Format "Jan 2, 2006 15:04 MST" }}">{{ ago .CreatedAt }}</span>
-                </a>
-            </li>
-            {{ end }}
-        </ul>
+        {{ template "admin/submissions/list" . }}
         {{ end }}
     </div>
 
@@ -110,7 +101,7 @@
             </nav>
             <label for="include-sdk" class="flex items-center gap-2 py-2 text-sm text-stone-600">
                 <input type="checkbox" id="include-sdk" onchange="toggleSDK()" class="h-4 w-4 rounded border-stone-300 text-stone-900 focus:ring-stone-900" {{ if .Form.UseSDK }}checked{{ end }}>
-                Include JavaScript SDK <span class="text-stone-400">(retries, loading states)</span>
+                Include JavaScript SDK <span class="hidden text-stone-400 sm:inline">(retries, loading states)</span>
             </label>
         </div>
 
@@ -122,167 +113,103 @@
         </div>
 
         <div id="panel-preview" class="tab-panel hidden p-5 sm:p-6">
-            <p class="mb-3 text-sm text-stone-500">An example. Yours will look like your site.</p>
-            <div class="rounded-xl bg-stone-50 p-4 ring-1 ring-stone-200">
-                <iframe id="form-preview" sandbox="allow-scripts allow-same-origin" class="w-full border-0" style="min-height: 400px;" onload="resizePreview()"></iframe>
-            </div>
+            <p class="mb-3 text-sm text-stone-500">This is an example with a plain style, so you can see the fields. On your site, the form takes the fonts and colours of your site. The example cannot send.</p>
+            <iframe id="form-preview" title="Example of the form" sandbox="allow-scripts allow-same-origin" class="block w-full rounded-xl bg-white ring-1 ring-stone-200" style="height: 320px;"></iframe>
         </div>
     </div>
 
-    <script src="/assets/vendor/highlight.min.js"></script>
+    <script src="/assets/vendor/highlight.min.js" onload="window.showFormCode && showFormCode()"></script>
     <link rel="stylesheet" href="/assets/vendor/highlight-github-dark.min.css">
     <script>
-        // Store original code without SDK (captured on load)
-        let originalFormCode = '';
-        const sdkScriptTag = '\n\n<!-- Formlander SDK: adds automatic retry & loading states -->\n<script src="/assets/formlander.js"><\/script>';
+        // The page changes without a full reload, so this script can run more
+        // than once. Everything lives in one function and nothing waits for a
+        // load event.
+        (function () {
+            var codeElement = document.getElementById('form-code');
+            var checkbox = document.getElementById('include-sdk');
+            var iframe = document.getElementById('form-preview');
+            var originalFormCode = codeElement.textContent;
+            var sdkScriptTag = '\n\n<!-- Formlander SDK: adds automatic retry & loading states -->\n<script src="/assets/formlander.js"><\/script>';
 
-        // Initialize syntax highlighting
-        document.addEventListener('DOMContentLoaded', function () {
-            // Capture original code before any modifications
-            originalFormCode = document.getElementById('form-code').textContent;
-            hljs.highlightAll();
+            // A plain look for the example. :where() keeps these rules weak, so
+            // the styles of a starter template win over them.
+            var exampleStyles = `
+        body { margin: 0; padding: 24px; background: #fff; color: #1c1917; font: 15px/1.5 system-ui, -apple-system, sans-serif; }
+        :where(form) { display: grid; gap: 14px; max-width: 28rem; margin: 0 auto; }
+        :where(label) { display: grid; gap: 6px; font-size: 14px; font-weight: 500; }
+        :where(input:not([type=checkbox], [type=radio], [type=hidden], [type=submit]), textarea, select) { box-sizing: border-box; width: 100%; padding: 8px 10px; border: 1px solid #d6d3d1; border-radius: 8px; background: #fff; color: inherit; font: inherit; }
+        :where(button, input[type=submit]) { justify-self: start; padding: 8px 16px; border: 0; border-radius: 8px; background: #1c1917; color: #fff; font: inherit; font-weight: 500; }
+        .cf-turnstile { display: flex; align-items: center; justify-content: center; min-height: 65px; border: 1px dashed #a8a29e; border-radius: 8px; color: #78716c; font-size: 13px; }
+        .cf-turnstile::before { content: 'The captcha shows here'; }`;
 
-            // Apply SDK if checkbox is checked (persisted setting)
-            const checkbox = document.getElementById('include-sdk');
-            if (checkbox && checkbox.checked) {
-                toggleSDK();
-            }
-
-            loadPreview();
-        });
-
-        // Toggle SDK inclusion
-        function toggleSDK() {
-            const checkbox = document.getElementById('include-sdk');
-            const codeElement = document.getElementById('form-code');
-
-            if (checkbox.checked) {
-                codeElement.textContent = originalFormCode + sdkScriptTag;
-            } else {
-                codeElement.textContent = originalFormCode;
-            }
-
-            // Re-apply syntax highlighting
-            codeElement.removeAttribute('data-highlighted');
-            hljs.highlightElement(codeElement);
-
-            // Reload preview
-            loadPreview();
-        }
-
-        // Tab switching
-        function switchTab(tab) {
-            const tabs = ['source', 'preview'];
-            tabs.forEach(t => {
-                const button = document.getElementById('tab-' + t);
-                const panel = document.getElementById('panel-' + t);
-
-                if (t === tab) {
-                    button.classList.remove('border-transparent', 'text-stone-500');
-                    button.classList.add('border-stone-900', 'text-stone-900');
-                    panel.classList.remove('hidden');
-
-                    if (t === 'preview') {
-                        loadPreview();
-                    }
-                } else {
-                    button.classList.add('border-transparent', 'text-stone-500');
-                    button.classList.remove('border-stone-900', 'text-stone-900');
-                    panel.classList.add('hidden');
+            function showCode() {
+                codeElement.textContent = originalFormCode + (checkbox.checked ? sdkScriptTag : '');
+                // After a change of page without a reload, the highlighter can
+                // arrive after this script. It calls showFormCode when it is here.
+                if (window.hljs) {
+                    codeElement.removeAttribute('data-highlighted');
+                    hljs.highlightElement(codeElement);
                 }
-            });
-        }
-
-        // Load preview in iframe
-        function loadPreview() {
-            const codeElement = document.getElementById('form-code');
-            if (!codeElement) return;
-
-            const rawCode = codeElement.textContent;
-            const turnstileScriptPattern = /<script[^>]*https:\/\/challenges\.cloudflare\.com\/turnstile\/v0\/api\.js[^>]*><\/script>/gi;
-            const sanitizedCode = rawCode.replaceAll(turnstileScriptPattern, '');
-            const hasTurnstile = /cf-turnstile/.test(rawCode);
-
-            const iframe = document.getElementById('form-preview');
-            if (!iframe) return;
-
-            // Use DOMParser for safe HTML parsing
-            // Admin-only feature: parsing form HTML for preview in sandboxed iframe
-            // codeql[js/xss-through-dom]
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(sanitizedCode, 'text/html');
-            const extractedStyles = [];
-            doc.querySelectorAll('style').forEach(style => {
-                extractedStyles.push(style.textContent);
-                style.remove();
-            });
-            const inlineStyleBlock = extractedStyles.length ? `<style>${extractedStyles.join('\n')}</style>` : '';
-
-            const captchaStyles = hasTurnstile ? `
-        .cf-turnstile {
-            min-height: 92px;
-            border: 1px dashed #d4d8e2;
-            border-radius: 12px;
-            background: repeating-linear-gradient(135deg, rgba(226, 232, 240, 0.6), rgba(226, 232, 240, 0.6) 12px, rgba(241, 245, 249, 0.6) 12px, rgba(241, 245, 249, 0.6) 24px);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #475569;
-            font-size: 13px;
-            font-family: system-ui, -apple-system, sans-serif;
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
-        }
-        .cf-turnstile::before {
-            content: 'Captcha placeholder';
-        }
-        .formlander-captcha-block {
-            width: 100%;
-        }` : '';
-
-            const previewHTML = `<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <style>
-        body { margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; background: #f8fafc; }
-        ${captchaStyles}
-    </style>
-${inlineStyleBlock}
-</head>
-<body>
-${doc.body.innerHTML}
-</body>
-</html>`;
-
-            iframe.srcdoc = previewHTML;
-        }
-
-        // Auto-resize iframe to content
-        function resizePreview() {
-            const iframe = document.getElementById('form-preview');
-            try {
-                const height = iframe.contentWindow.document.body.scrollHeight;
-                iframe.style.height = Math.max(height + 40, 400) + 'px';
-            } catch (e) {
-                console.log('Cannot resize iframe:', e);
             }
-        }
+            window.showFormCode = showCode;
 
-        // Copy a text and say so on the button, for a moment.
-        function copyText(text, button) {
-            navigator.clipboard.writeText(text).then(() => {
-                const label = button.textContent;
-                button.textContent = 'Copied';
-                setTimeout(() => { button.textContent = label; }, 1500);
+            // The example is the form code inside an iframe that cannot send
+            // forms. The Turnstile script is left out: the captcha only works
+            // on the allowed sites.
+            function loadPreview() {
+                var turnstileScript = /<script[^>]*https:\/\/challenges\.cloudflare\.com\/turnstile\/v0\/api\.js[^>]*><\/script>/gi;
+                var doc = new DOMParser().parseFromString(codeElement.textContent.replaceAll(turnstileScript, ''), 'text/html');
+                var styles = '';
+                doc.querySelectorAll('style').forEach(function (style) {
+                    styles += style.textContent + '\n';
+                    style.remove();
+                });
+                iframe.srcdoc = '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">' +
+                    '<meta name="viewport" content="width=device-width, initial-scale=1.0">' +
+                    '<style>' + exampleStyles + '</style><style>' + styles + '</style></head><body>' +
+                    doc.body.innerHTML + '</body></html>';
+            }
+
+            // The iframe gets the height of its content, so it has no scrollbar
+            // of its own.
+            iframe.addEventListener('load', function () {
+                iframe.style.height = iframe.contentWindow.document.documentElement.scrollHeight + 'px';
             });
-        }
-        function copyCode(button) {
-            copyText(document.getElementById('form-code').textContent, button);
-        }
-    </script>
 
+            window.toggleSDK = function () {
+                showCode();
+                loadPreview();
+            };
+
+            window.switchTab = function (tab) {
+                ['source', 'preview'].forEach(function (name) {
+                    var button = document.getElementById('tab-' + name);
+                    var on = name === tab;
+                    button.classList.toggle('border-stone-900', on);
+                    button.classList.toggle('text-stone-900', on);
+                    button.classList.toggle('border-transparent', !on);
+                    button.classList.toggle('text-stone-500', !on);
+                    document.getElementById('panel-' + name).classList.toggle('hidden', !on);
+                });
+                // The iframe has no height while its panel is hidden.
+                if (tab === 'preview') loadPreview();
+            };
+
+            // Copy a text and say so on the button, for a moment.
+            window.copyText = function (text, button) {
+                navigator.clipboard.writeText(text).then(function () {
+                    var label = button.textContent;
+                    button.textContent = 'Copied';
+                    setTimeout(function () { button.textContent = label; }, 1500);
+                });
+            };
+            window.copyCode = function (button) {
+                window.copyText(codeElement.textContent, button);
+            };
+
+            showCode();
+        })();
+    </script>
 
     {{ if or $webhookOn .WebhookEvents }}
     <div class="card overflow-hidden">
@@ -295,14 +222,9 @@ ${doc.body.innerHTML}
         {{ else }}
         <ul class="divide-y divide-stone-100 text-sm">
             {{ range .WebhookEvents }}
-            <li class="px-5 py-3 sm:px-6">
-                <div class="flex flex-wrap items-center gap-x-4 gap-y-1">
-                    <a href="/admin/submissions/{{ .SubmissionID }}" class="link">Submission {{ .SubmissionID }}</a>
-                    <span class="pill {{ if eq .Status "success" }}pill-ok{{ else if eq .Status "failed" }}pill-bad{{ else }}pill-warn{{ end }}">{{ .Status }}</span>
-                    <span class="text-stone-500">{{ .AttemptCount }} {{ if eq .AttemptCount 1 }}attempt{{ else }}attempts{{ end }}</span>
-                    <span class="ml-auto text-xs text-stone-400">{{ if .LastAttemptAt }}{{ ago .LastAttemptAt }}{{ end }}</span>
-                </div>
-                {{ if .LastAttemptErr }}<p class="mt-1 break-all text-xs text-red-700">{{ .LastAttemptErr }}</p>{{ end }}
+            <li class="flex flex-wrap items-center gap-x-4 gap-y-1 px-5 py-3 sm:px-6">
+                <a href="/admin/submissions/{{ .SubmissionID }}" class="link">Submission {{ .SubmissionID }}</a>
+                {{ template "admin/deliveries/attempt" . }}
             </li>
             {{ end }}
         </ul>
@@ -321,14 +243,9 @@ ${doc.body.innerHTML}
         {{ else }}
         <ul class="divide-y divide-stone-100 text-sm">
             {{ range .EmailEvents }}
-            <li class="px-5 py-3 sm:px-6">
-                <div class="flex flex-wrap items-center gap-x-4 gap-y-1">
-                    <a href="/admin/submissions/{{ .SubmissionID }}" class="link">Submission {{ .SubmissionID }}</a>
-                    <span class="pill {{ if eq .Status "success" }}pill-ok{{ else if eq .Status "failed" }}pill-bad{{ else }}pill-warn{{ end }}">{{ .Status }}</span>
-                    <span class="text-stone-500">{{ .AttemptCount }} {{ if eq .AttemptCount 1 }}attempt{{ else }}attempts{{ end }}</span>
-                    <span class="ml-auto text-xs text-stone-400">{{ if .LastAttemptAt }}{{ ago .LastAttemptAt }}{{ end }}</span>
-                </div>
-                {{ if .LastAttemptErr }}<p class="mt-1 break-all text-xs text-red-700">{{ .LastAttemptErr }}</p>{{ end }}
+            <li class="flex flex-wrap items-center gap-x-4 gap-y-1 px-5 py-3 sm:px-6">
+                <a href="/admin/submissions/{{ .SubmissionID }}" class="link">Submission {{ .SubmissionID }}</a>
+                {{ template "admin/deliveries/attempt" . }}
             </li>
             {{ end }}
         </ul>

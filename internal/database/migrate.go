@@ -15,6 +15,7 @@ func Migrate(db *gorm.DB) error {
 		&accounts.Settings{},
 		&integrations.MailerProfile{},
 		&integrations.CaptchaProfile{},
+		&integrations.WebhookProfile{},
 		&forms.Form{},
 		&forms.WebhookDelivery{},
 		&forms.EmailDelivery{},

@@ -1,9 +1,13 @@
 {{ define "admin/captcha/new/content" }}
 <div class="mx-auto max-w-2xl space-y-6">
     <div>
-        <a href="/admin/settings/captcha" class="text-sm text-stone-500 hover:text-stone-900">← Captcha</a>
-        <h1 class="mt-2 text-2xl font-semibold tracking-tight text-stone-900">{{ if .IsEdit }}Edit{{ else }}New{{ end }} Captcha Profile</h1>
-        <p class="mt-1 text-sm text-stone-500">A captcha stops robots from filling your forms. One profile can protect many forms.</p>
+        {{ if .IsEdit }}
+        <a href="/admin/settings/captcha/{{ .Profile.ID }}" class="back">← {{ if .Profile.Name }}{{ .Profile.Name }}{{ else }}Captcha{{ end }}</a>
+        {{ else }}
+        <a href="/admin/settings/captcha" class="back">← Captchas</a>
+        {{ end }}
+        <h1 class="page-title mt-2">{{ if .IsEdit }}Edit{{ else }}New{{ end }} Captcha Profile</h1>
+        <p class="page-note">A captcha stops robots from filling your forms. One profile can protect many forms.</p>
     </div>
 
     {{ if .Error }}
@@ -30,7 +34,7 @@
             <div class="space-y-5 p-5 sm:p-6">
                 <div>
                     <label for="name" class="field-label">Profile Name</label>
-                    <input type="text" id="name" name="name" value="{{ if .Profile }}{{ .Profile.Name }}{{ end }}" required class="field-input" placeholder="My site">
+                    <input type="text" id="name" name="name" value="{{ .Profile.Name }}" required class="field-input" placeholder="My site">
                     <p class="field-help">Only you see it. It tells your profiles apart.</p>
                 </div>
 
@@ -50,32 +54,59 @@
             </div>
         </div>
 
-        <details class="card" {{ if or .SeveralKeys (and .Profile .Profile.PolicyJSON) }}open{{ end }}>
-            <summary class="cursor-pointer px-5 py-4 text-sm font-medium text-stone-900 sm:px-6">More options <span class="font-normal text-stone-500">: one key for each domain, the theme, the action</span></summary>
-            <div class="space-y-5 border-t border-stone-100 p-5 sm:p-6">
+        <details class="card" {{ if or .Host .MoreKeys (ne .Theme "auto") }}open{{ end }}>
+            <summary class="cursor-pointer px-5 py-4 text-sm font-medium text-stone-900 sm:px-6">More options <span class="font-normal text-stone-500">: the theme, one widget for each domain</span></summary>
+            <div class="space-y-6 border-t border-stone-100 p-5 sm:p-6">
                 <div>
-                    <label for="host_pattern" class="field-label">Domain of the Site Key</label>
-                    <input type="text" id="host_pattern" name="host_pattern" value="{{ .Host }}" class="field-input mono" placeholder="* (every site)">
-                    <p class="field-help">Leave empty when one widget covers all your sites.</p>
+                    <label for="theme" class="field-label">Theme</label>
+                    <select id="theme" name="theme" class="field-input">
+                        <option value="auto" {{ if eq .Theme "auto" }}selected{{ end }}>Follow the visitor's device</option>
+                        <option value="light" {{ if eq .Theme "light" }}selected{{ end }}>Light</option>
+                        <option value="dark" {{ if eq .Theme "dark" }}selected{{ end }}>Dark</option>
+                    </select>
+                    <p class="field-help">The colours of the captcha box on your site.</p>
                 </div>
+
                 <div>
-                    <label for="site_keys_json" class="field-label">Several Site Keys <span class="font-normal text-stone-500">(JSON)</span></label>
-                    <textarea id="site_keys_json" name="site_keys_json" rows="5" class="field-input mono" placeholder='[
-  {"host_pattern": "example.com", "site_key": "0x4A..."},
-  {"host_pattern": "*.example.org", "site_key": "0x4B..."}
-]'>{{ if .SeveralKeys }}{{ .Profile.SiteKeysJSON }}{{ end }}</textarea>
-                    <p class="field-help">Only for a profile with a different widget for each domain. When this is filled, it replaces the Site Key above.</p>
-                </div>
-                <div>
-                    <label for="policy_json" class="field-label">Widget Options <span class="font-normal text-stone-500">(JSON)</span></label>
-                    <textarea id="policy_json" name="policy_json" rows="3" class="field-input mono" placeholder='{"theme": "dark", "action": "submit"}'>{{ if .Profile }}{{ .Profile.PolicyJSON }}{{ end }}</textarea>
-                    <p class="field-help"><code class="mono">theme</code>: light, dark, or auto. <code class="mono">action</code>: a name that shows in Cloudflare's statistics.</p>
+                    <p class="field-label">One widget for each domain</p>
+                    <p class="field-help">Skip this when one widget covers all your sites. Use it when you have a different Site Key for each domain: say which domain the Site Key above is for, then add the other domains.</p>
+
+                    <div class="mt-4 space-y-3">
+                        <div>
+                            <label for="host_pattern" class="text-sm text-stone-700">Domain of the Site Key above</label>
+                            <input type="text" id="host_pattern" name="host_pattern" value="{{ .Host }}" class="field-input mono" placeholder="Every site">
+                        </div>
+
+                        {{ range .MoreKeys }}
+                        <div class="flex flex-wrap items-end gap-2" data-row>
+                            <label class="min-w-0 flex-1 basis-40 text-sm text-stone-700">Domain
+                                <input type="text" name="host_pattern" value="{{ .HostPattern }}" class="field-input mono" placeholder="example.org">
+                            </label>
+                            <label class="min-w-0 flex-1 basis-40 text-sm text-stone-700">Site Key
+                                <input type="text" name="site_key" value="{{ .SiteKey }}" class="field-input mono" placeholder="0x4AAAAAAA...">
+                            </label>
+                            <button type="button" class="btn btn-small mb-1" data-remove-row>Remove</button>
+                        </div>
+                        {{ end }}
+                        <template id="site-key-row">
+                            <div class="flex flex-wrap items-end gap-2" data-row>
+                                <label class="min-w-0 flex-1 basis-40 text-sm text-stone-700">Domain
+                                    <input type="text" name="host_pattern" class="field-input mono" placeholder="example.org">
+                                </label>
+                                <label class="min-w-0 flex-1 basis-40 text-sm text-stone-700">Site Key
+                                    <input type="text" name="site_key" class="field-input mono" placeholder="0x4AAAAAAA...">
+                                </label>
+                                <button type="button" class="btn btn-small mb-1" data-remove-row>Remove</button>
+                            </div>
+                        </template>
+                        <button type="button" class="btn btn-small" data-add-row="site-key-row">Add a domain</button>
+                    </div>
                 </div>
             </div>
         </details>
 
         <div class="flex justify-end gap-3">
-            <a href="/admin/settings/captcha" class="btn">Cancel</a>
+            <a href="{{ if .IsEdit }}/admin/settings/captcha/{{ .Profile.ID }}{{ else }}/admin/settings/captcha{{ end }}" class="btn">Cancel</a>
             <button type="submit" class="btn-primary">{{ if .IsEdit }}Save Changes{{ else }}Create Profile{{ end }}</button>
         </div>
     </form>

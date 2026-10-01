@@ -1,0 +1,34 @@
+{{/* A list of submissions that the owner can tick and delete. It needs
+     .Submissions and .ReturnTo, the page to come back to after a delete. */}}
+{{ define "admin/submissions/list" }}
+<form method="post" action="/admin/submissions/delete" hx-boost="false" data-select-rows>
+    <input type="hidden" name="return_to" value="{{ .ReturnTo }}">
+    <div class="flex flex-wrap items-center justify-between gap-3 border-b border-stone-100 bg-stone-50 px-5 py-2.5 sm:px-6">
+        <label class="flex items-center gap-3 text-sm text-stone-600">
+            <input type="checkbox" class="check" data-select-all>
+            Select all
+        </label>
+        <button type="submit" class="btn-danger btn-small" data-delete-selected disabled
+            onclick="return confirm('Delete the selected submissions and their files? You cannot undo it.')">Delete selected</button>
+    </div>
+    <ul class="divide-y divide-stone-100">
+        {{ range .Submissions }}
+        <li class="flex items-stretch transition hover:bg-stone-50">
+            <label class="flex items-center pl-5 pr-3 sm:pl-6">
+                <input type="checkbox" name="ids" value="{{ .ID }}" class="check" aria-label="Select this submission">
+            </label>
+            <a href="/admin/submissions/{{ .ID }}" class="flex min-w-0 flex-1 items-baseline gap-4 py-3 pr-5 sm:pr-6">
+                <span class="min-w-0 flex-1">
+                    <span class="block truncate text-sm font-medium text-stone-900">{{ if who .DataJSON }}{{ who .DataJSON }}{{ else }}Someone{{ end }}{{ if .IsSpam }} <span class="pill pill-warn">spam</span>{{ end }}</span>
+                    <span class="block truncate text-sm text-stone-500">{{ gist .DataJSON }}</span>
+                </span>
+                <span class="text-right text-xs text-stone-400">
+                    {{ if .Form }}<span class="block max-w-[9rem] truncate text-stone-500">{{ .Form.Name }}</span>{{ end }}
+                    <span class="block whitespace-nowrap" title="{{ .CreatedAt.Format "Jan 2, 2006 15:04 MST" }}">{{ ago .CreatedAt }}</span>
+                </span>
+            </a>
+        </li>
+        {{ end }}
+    </ul>
+</form>
+{{ end }}

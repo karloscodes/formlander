@@ -47,6 +47,7 @@ func mountTestServer(t *testing.T) *cartridgetestsupport.TestServer {
 		&forms.SubmissionFile{},
 		&integrations.MailerProfile{},
 		&integrations.CaptchaProfile{},
+		&integrations.WebhookProfile{},
 	}
 
 	flCfg := &config.Config{
@@ -149,6 +150,7 @@ const secFetchBlockedBody = "browser requests only"
 //	  - POST /admin/logout
 //	  - POST /admin/forms
 //	  - POST /admin/settings/password
+//	  - the deletes and the "Send a test" actions
 //
 // If a new state-changing admin route is added, add it to the protected
 // group below to prevent it from being accidentally exposed.
@@ -175,6 +177,13 @@ func TestRoutesSecFetchSiteBoundary(t *testing.T) {
 		{"POST /admin/logout", "/admin/logout", ""},
 		{"POST /admin/forms", "/admin/forms", "name=test"},
 		{"POST /admin/settings/password", "/admin/settings/password", ""},
+		{"POST /admin/submissions/:id/delete", "/admin/submissions/1/delete", ""},
+		{"POST /admin/submissions/delete", "/admin/submissions/delete", "ids=1"},
+		{"POST /admin/settings/webhooks", "/admin/settings/webhooks", "name=test"},
+		{"POST /admin/settings/webhooks/:id/delete", "/admin/settings/webhooks/1/delete", ""},
+		{"POST /admin/settings/webhooks/:id/test", "/admin/settings/webhooks/1/test", ""},
+		{"POST /admin/settings/mailers/:id/test", "/admin/settings/mailers/1/test", ""},
+		{"POST /admin/settings/captcha/:id/test", "/admin/settings/captcha/1/test", ""},
 	}
 
 	t.Run("OPEN: accept POST without Sec-Fetch-Site", func(t *testing.T) {
@@ -423,4 +432,298 @@ func TestSessionsEndAfterPasswordChange(t *testing.T) {
 
 		assert.True(t, signedIn(t, ts, cookies))
 	})
+}
+
+// signIn logs the admin in and returns a function that posts a form as that
+// admin, the way the admin pages do.
+func signIn(t *testing.T, ts *cartridgetestsupport.TestServer) func(path, body string) *http.Response {
+	t.Helper()
+	seedAdmin(t, ts, "admin@example.com", "a-good-password")
+	req := httptest.NewRequest("POST", "/admin/login", strings.NewReader("email=admin@example.com&password=a-good-password"))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	resp, err := ts.App.Test(req, -1)
+	require.NoError(t, err)
+	require.Equal(t, 302, resp.StatusCode)
+	cookies := resp.Cookies()
+
+	return func(path, body string) *http.Response {
+		t.Helper()
+		req := httptest.NewRequest("POST", path, strings.NewReader(body))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		req.Header.Set("Sec-Fetch-Site", "same-origin")
+		for _, c := range cookies {
+			req.AddCookie(c)
+		}
+		resp, err := ts.App.Test(req, -1)
+		require.NoError(t, err)
+		return resp
+	}
+}
+
+func TestAdminDeletesSubmissions(t *testing.T) {
+	prev := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
+	t.Cleanup(func() { slog.SetDefault(prev) })
+
+	// seed makes a form with two real submissions and one spam submission.
+	seed := func(t *testing.T, ts *cartridgetestsupport.TestServer) (real []forms.Submission) {
+		t.Helper()
+		db := ts.DB.GetConnection()
+		form := &forms.Form{Name: "Contact", Slug: "contact", AllowedOrigins: "example.com"}
+		require.NoError(t, db.Create(form).Error)
+		for _, payload := range []map[string]any{
+			{"name": "Ada"},
+			{"name": "Grace"},
+			{"name": "Bot", forms.HoneypotField: "filled"},
+		} {
+			_, err := forms.CreateSubmission(slog.Default(), db, form, payload, "test")
+			require.NoError(t, err)
+		}
+		require.NoError(t, db.Where("is_spam = ?", false).Order("id").Find(&real).Error)
+		return real
+	}
+	remaining := func(t *testing.T, ts *cartridgetestsupport.TestServer) (ids []uint) {
+		t.Helper()
+		require.NoError(t, ts.DB.GetConnection().Model(&forms.Submission{}).Order("id").Pluck("id", &ids).Error)
+		return ids
+	}
+
+	t.Run("deletes one submission and goes back to the list the owner was on", func(t *testing.T) {
+		ts := mountTestServer(t)
+		real := seed(t, ts)
+		post := signIn(t, ts)
+
+		resp := post(fmt.Sprintf("/admin/submissions/%d/delete", real[0].ID), "return_to=%2Fadmin%2Fsubmissions%3Fpage%3D2")
+
+		assert.Equal(t, 302, resp.StatusCode)
+		assert.Equal(t, "/admin/submissions?page=2", resp.Header.Get("Location"))
+		assert.NotContains(t, remaining(t, ts), real[0].ID)
+		assert.Len(t, remaining(t, ts), 2)
+	})
+
+	t.Run("does not follow a return address outside the admin", func(t *testing.T) {
+		ts := mountTestServer(t)
+		real := seed(t, ts)
+		post := signIn(t, ts)
+
+		resp := post(fmt.Sprintf("/admin/submissions/%d/delete", real[0].ID), "return_to=https%3A%2F%2Fevil.example%2F")
+
+		assert.Equal(t, "/admin/submissions", resp.Header.Get("Location"))
+	})
+
+	t.Run("answers 404 for a submission that does not exist", func(t *testing.T) {
+		ts := mountTestServer(t)
+		post := signIn(t, ts)
+
+		resp := post("/admin/submissions/999/delete", "")
+
+		assert.Equal(t, 404, resp.StatusCode)
+	})
+
+	t.Run("deletes the submissions that were ticked", func(t *testing.T) {
+		ts := mountTestServer(t)
+		real := seed(t, ts)
+		post := signIn(t, ts)
+
+		resp := post("/admin/submissions/delete", fmt.Sprintf("ids=%d&ids=%d&return_to=%%2Fadmin%%2Fforms%%2F1", real[0].ID, real[1].ID))
+
+		assert.Equal(t, "/admin/forms/1", resp.Header.Get("Location"))
+		assert.Len(t, remaining(t, ts), 1, "only the spam is left")
+	})
+
+	t.Run("deletes all spam and keeps the rest", func(t *testing.T) {
+		ts := mountTestServer(t)
+		real := seed(t, ts)
+		post := signIn(t, ts)
+
+		resp := post("/admin/submissions/delete", "spam=1")
+
+		assert.Equal(t, 302, resp.StatusCode)
+		assert.Equal(t, []uint{real[0].ID, real[1].ID}, remaining(t, ts))
+	})
+
+	t.Run("refuses a visitor who is not signed in", func(t *testing.T) {
+		ts := mountTestServer(t)
+		real := seed(t, ts)
+
+		status, _ := formPost(t, ts, fmt.Sprintf("/admin/submissions/%d/delete", real[0].ID), "",
+			map[string]string{"Sec-Fetch-Site": "same-origin"})
+
+		assert.Equal(t, 302, status)
+		assert.Len(t, remaining(t, ts), 3)
+	})
+}
+
+func TestAdminWebhookProfiles(t *testing.T) {
+	prev := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
+	t.Cleanup(func() { slog.SetDefault(prev) })
+
+	t.Run("saves the header rows of the form as the headers of the profile", func(t *testing.T) {
+		ts := mountTestServer(t)
+		post := signIn(t, ts)
+
+		resp := post("/admin/settings/webhooks",
+			"name=Zapier&url=https%3A%2F%2Fhooks.example.com%2Fin&secret=s3cret"+
+				"&header_name=Authorization&header_value=Bearer+token"+
+				"&header_name=&header_value="+
+				"&header_name=X-Team&header_value=sales")
+
+		assert.Equal(t, 302, resp.StatusCode)
+		profiles, err := integrations.ListWebhookProfiles(ts.DB.GetConnection())
+		require.NoError(t, err)
+		require.Len(t, profiles, 1)
+		assert.Equal(t, "/admin/settings/webhooks/"+fmt.Sprint(profiles[0].ID), resp.Header.Get("Location"))
+		assert.Equal(t, []integrations.WebhookHeader{
+			{Name: "Authorization", Value: "Bearer token"},
+			{Name: "X-Team", Value: "sales"},
+		}, profiles[0].Headers())
+	})
+
+	t.Run("deletes a profile that no form uses", func(t *testing.T) {
+		ts := mountTestServer(t)
+		db := ts.DB.GetConnection()
+		profile := &integrations.WebhookProfile{Name: "Zapier", URL: "https://hooks.example.com/in"}
+		require.NoError(t, db.Create(profile).Error)
+		post := signIn(t, ts)
+
+		resp := post(fmt.Sprintf("/admin/settings/webhooks/%d/delete", profile.ID), "")
+
+		assert.Equal(t, "/admin/settings/webhooks", resp.Header.Get("Location"))
+		profiles, err := integrations.ListWebhookProfiles(db)
+		require.NoError(t, err)
+		assert.Empty(t, profiles)
+	})
+
+	t.Run("keeps a profile that a form uses", func(t *testing.T) {
+		ts := mountTestServer(t)
+		db := ts.DB.GetConnection()
+		profile := &integrations.WebhookProfile{Name: "Zapier", URL: "https://hooks.example.com/in"}
+		require.NoError(t, db.Create(profile).Error)
+		form := &forms.Form{Name: "Contact", Slug: "contact"}
+		require.NoError(t, db.Create(form).Error)
+		require.NoError(t, db.Create(&forms.WebhookDelivery{FormID: form.ID, Enabled: true, WebhookProfileID: &profile.ID}).Error)
+		post := signIn(t, ts)
+
+		resp := post(fmt.Sprintf("/admin/settings/webhooks/%d/delete", profile.ID), "")
+
+		assert.NotEqual(t, 302, resp.StatusCode)
+		profiles, err := integrations.ListWebhookProfiles(db)
+		require.NoError(t, err)
+		assert.Len(t, profiles, 1)
+	})
+
+	t.Run("a form picks a webhook profile", func(t *testing.T) {
+		ts := mountTestServer(t)
+		db := ts.DB.GetConnection()
+		profile := &integrations.WebhookProfile{Name: "Zapier", URL: "https://hooks.example.com/in"}
+		require.NoError(t, db.Create(profile).Error)
+		post := signIn(t, ts)
+
+		resp := post("/admin/forms", fmt.Sprintf("name=Contact&slug=contact&allowed_origins=mysite.test&webhook_enabled=on&webhook_profile_id=%d", profile.ID))
+
+		require.Equal(t, 302, resp.StatusCode)
+		form, err := forms.GetBySlug(db, "contact")
+		require.NoError(t, err)
+		assert.True(t, form.WebhookDelivery.Delivers())
+		assert.Equal(t, "Zapier", form.WebhookDelivery.WebhookProfile.Name)
+	})
+}
+
+func TestAdminCaptchaProfileFields(t *testing.T) {
+	prev := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
+	t.Cleanup(func() { slog.SetDefault(prev) })
+
+	onlyProfile := func(t *testing.T, ts *cartridgetestsupport.TestServer) integrations.CaptchaProfile {
+		t.Helper()
+		profiles, err := integrations.ListCaptchaProfiles(ts.DB.GetConnection())
+		require.NoError(t, err)
+		require.Len(t, profiles, 1)
+		return profiles[0]
+	}
+
+	t.Run("one site key covers every site", func(t *testing.T) {
+		ts := mountTestServer(t)
+		post := signIn(t, ts)
+
+		resp := post("/admin/settings/captcha", "name=Site&provider=turnstile&secret_key=secret&site_key=0xMAIN&host_pattern=&theme=auto")
+
+		require.Equal(t, 302, resp.StatusCode)
+		profile := onlyProfile(t, ts)
+		assert.JSONEq(t, `[{"host_pattern":"*","site_key":"0xMAIN"}]`, profile.SiteKeysJSON)
+		assert.Empty(t, profile.PolicyJSON)
+	})
+
+	t.Run("rows give one site key for each domain, and the theme is saved", func(t *testing.T) {
+		ts := mountTestServer(t)
+		post := signIn(t, ts)
+
+		resp := post("/admin/settings/captcha", "name=Sites&provider=turnstile&secret_key=secret"+
+			"&site_key=0xMAIN&host_pattern=example.com"+
+			"&host_pattern=*.example.org&site_key=0xORG"+
+			"&host_pattern=&site_key="+
+			"&theme=dark")
+
+		require.Equal(t, 302, resp.StatusCode)
+		profile := onlyProfile(t, ts)
+		assert.JSONEq(t, `[{"host_pattern":"example.com","site_key":"0xMAIN"},{"host_pattern":"*.example.org","site_key":"0xORG"}]`, profile.SiteKeysJSON)
+		assert.JSONEq(t, `{"theme":"dark"}`, profile.PolicyJSON)
+	})
+
+	t.Run("an update keeps the saved secret and the options the form does not show", func(t *testing.T) {
+		ts := mountTestServer(t)
+		db := ts.DB.GetConnection()
+		saved := &integrations.CaptchaProfile{Name: "Site", Provider: "turnstile", SecretKey: "secret", PolicyJSON: `{"action":"signup","theme":"dark"}`}
+		require.NoError(t, db.Create(saved).Error)
+		post := signIn(t, ts)
+
+		resp := post(fmt.Sprintf("/admin/settings/captcha/%d", saved.ID), "name=Site&provider=turnstile&secret_key=&site_key=0xMAIN&host_pattern=&theme=light")
+
+		require.Equal(t, 302, resp.StatusCode)
+		profile := onlyProfile(t, ts)
+		assert.Equal(t, "secret", profile.SecretKey)
+		assert.JSONEq(t, `{"action":"signup","theme":"light"}`, profile.PolicyJSON)
+	})
+
+	t.Run("still takes the JSON fields of the old form", func(t *testing.T) {
+		ts := mountTestServer(t)
+		post := signIn(t, ts)
+
+		resp := post("/admin/settings/captcha", "name=Old&provider=turnstile&secret_key=secret"+
+			"&site_keys_json=%5B%7B%22host_pattern%22%3A%22a.com%22%2C%22site_key%22%3A%220xA%22%7D%5D"+
+			"&policy_json=%7B%22theme%22%3A%22dark%22%7D")
+
+		require.Equal(t, 302, resp.StatusCode)
+		profile := onlyProfile(t, ts)
+		assert.JSONEq(t, `[{"host_pattern":"a.com","site_key":"0xA"}]`, profile.SiteKeysJSON)
+		assert.JSONEq(t, `{"theme":"dark"}`, profile.PolicyJSON)
+	})
+}
+
+func TestAdminMailerProfileKeepsSecrets(t *testing.T) {
+	prev := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
+	t.Cleanup(func() { slog.SetDefault(prev) })
+
+	ts := mountTestServer(t)
+	db := ts.DB.GetConnection()
+	saved := &integrations.MailerProfile{
+		Name: "Relay", Provider: "smtp", DefaultFromEmail: "forms@example.com",
+		SMTPHost: "smtp.example.com", SMTPPort: 587, SMTPUsername: "user", SMTPPassword: "pass",
+		DefaultsJSON: `{"tags":["a"]}`,
+	}
+	require.NoError(t, db.Create(saved).Error)
+	post := signIn(t, ts)
+
+	resp := post(fmt.Sprintf("/admin/settings/mailers/%d", saved.ID),
+		"name=Relay&provider=smtp&default_from_email=new%40example.com&smtp_host=smtp.example.com&smtp_port=465&smtp_username=user&smtp_password=&api_key=")
+
+	require.Equal(t, 302, resp.StatusCode)
+	profile, err := integrations.GetMailerProfileByID(db, saved.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "new@example.com", profile.DefaultFromEmail)
+	assert.Equal(t, 465, profile.SMTPPort)
+	assert.Equal(t, "pass", profile.SMTPPassword, "an empty password field keeps the saved password")
+	assert.Equal(t, `{"tags":["a"]}`, profile.DefaultsJSON)
 }

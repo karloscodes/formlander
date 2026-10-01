@@ -8,6 +8,7 @@ import (
 	"github.com/karloscodes/cartridge"
 
 	"formlander/internal/accounts"
+	"formlander/internal/integrations"
 )
 
 // AdminSettingsPage renders the settings page.
@@ -25,13 +26,24 @@ func AdminSettingsPage(ctx *cartridge.Context) error {
 		return fiber.ErrInternalServerError
 	}
 
-	// Base template data
-	data := fiber.Map{
-		"Title":       "Settings",
-		"ContentView": "admin/settings/content",
-		"User":        user,
-	}
+	return renderSettings(ctx, user, fiber.Map{})
+}
 
+// renderSettings shows the settings page: the account, and the connections
+// with how many profiles each kind has.
+func renderSettings(ctx *cartridge.Context, user *accounts.User, data fiber.Map) error {
+	db := ctx.DB()
+	var mailers, captchas, webhooks int64
+	db.Model(&integrations.MailerProfile{}).Count(&mailers)
+	db.Model(&integrations.CaptchaProfile{}).Count(&captchas)
+	db.Model(&integrations.WebhookProfile{}).Count(&webhooks)
+
+	data["Title"] = "Settings"
+	data["ContentView"] = "admin/settings/content"
+	data["User"] = user
+	data["MailerCount"] = mailers
+	data["CaptchaCount"] = captchas
+	data["WebhookCount"] = webhooks
 	return ctx.Render("layouts/base", data, "")
 }
 
@@ -134,29 +146,13 @@ func AdminSettingsUpdateTurnstile(ctx *cartridge.Context) error {
 }
 
 func renderSettingsError(ctx *cartridge.Context, message string) error {
-	db := ctx.DB()
 	userID, _ := GetSession(ctx).GetUserID(ctx.Ctx)
-
-	user, _ := accounts.FindByID(db, userID)
-
-	return ctx.Render("layouts/base", fiber.Map{
-		"Title":       "Settings",
-		"Error":       message,
-		"ContentView": "admin/settings/content",
-		"User":        user,
-	}, "")
+	user, _ := accounts.FindByID(ctx.DB(), userID)
+	return renderSettings(ctx, user, fiber.Map{"Error": message})
 }
 
 func renderSettingsSuccess(ctx *cartridge.Context, message string) error {
-	db := ctx.DB()
 	userID, _ := GetSession(ctx).GetUserID(ctx.Ctx)
-
-	user, _ := accounts.FindByID(db, userID)
-
-	return ctx.Render("layouts/base", fiber.Map{
-		"Title":       "Settings",
-		"Success":     message,
-		"ContentView": "admin/settings/content",
-		"User":        user,
-	}, "")
+	user, _ := accounts.FindByID(ctx.DB(), userID)
+	return renderSettings(ctx, user, fiber.Map{"Success": message})
 }

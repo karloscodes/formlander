@@ -1,84 +1,34 @@
 {{ define "admin/mailers/index" }}
-<div class="mx-auto max-w-7xl space-y-8 px-4 py-8 sm:px-6 lg:px-8">
-    <!-- Header -->
-    <div class="flex items-center justify-between">
-        <div>
-            <h1 class="text-3xl font-bold tracking-tight text-stone-900">Mailer Profiles</h1>
-            <p class="mt-2 text-sm text-stone-600">Manage email provider configurations for your forms</p>
+<div class="mx-auto max-w-2xl space-y-6">
+    <div>
+        <a href="/admin/settings" class="back">← Settings</a>
+        <div class="mt-2 flex flex-wrap items-center justify-between gap-3">
+            <h1 class="page-title">Mailer Profiles</h1>
+            <a href="/admin/settings/mailers/new" class="btn-primary">New Profile</a>
         </div>
-        <a href="/admin/settings/mailers/new"
-            class="inline-flex items-center rounded-lg bg-stone-900 px-4 py-2 text-sm font-medium text-white shadow-sm transition-all hover:bg-stone-700 focus:outline-none focus:ring-2 focus:ring-stone-900 focus:ring-offset-2">
-            <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-            </svg>
-            New Profile
-        </a>
+        <p class="page-note">A mailer profile is an email account that Formlander sends from. A form uses one to send you its submissions.</p>
     </div>
 
     {{ if not .Profiles }}
-    <!-- Empty State -->
-    <div class="rounded-xl border-2 border-dashed border-stone-300 bg-white p-12 text-center">
-        <svg class="mx-auto h-12 w-12 text-stone-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-        </svg>
-        <h3 class="mt-4 text-lg font-medium text-stone-900">No mailer profiles</h3>
-        <p class="mt-2 text-sm text-stone-500">Get started by creating a new mailer profile.</p>
-        <a href="/admin/settings/mailers/new"
-            class="mt-6 inline-flex items-center rounded-lg bg-stone-900 px-4 py-2 text-sm font-medium text-white hover:bg-stone-700">
-            <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-            </svg>
-            Create Profile
-        </a>
+    <div class="card px-6 py-12 text-center">
+        <p class="text-base font-medium text-stone-900">No mailer profiles yet</p>
+        <p class="mt-1 text-sm text-stone-500">Without one, no form can send email. You need the SMTP settings of your email service, or a Mailgun API key.</p>
     </div>
     {{ else }}
-    <!-- Profiles List -->
-    <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {{ range .Profiles }}
-        <div
-            class="group relative rounded-xl border border-stone-200 bg-white p-6 shadow-sm transition-all hover:shadow-md min-w-0">
-            <div class="min-w-0">
-                <div class="flex items-center gap-3 mb-4">
-                    <div
-                        class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-purple-100 text-stone-900">
-                        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                        </svg>
-                    </div>
-                    <div class="min-w-0 flex-1">
-                        <h3 class="font-semibold text-stone-900 truncate">{{ .Name }}</h3>
-                        <p class="text-xs text-stone-500 capitalize">{{ .Provider }}</p>
-                    </div>
-                </div>
-
-                <div class="space-y-3 min-w-0">
-                    <div class="min-w-0">
-                        <span class="block text-xs font-medium text-stone-500 mb-1">Domain</span>
-                        <p class="font-mono text-xs text-stone-900 truncate break-all" title="{{ .Domain }}">{{ if
-                            .Domain }}{{ .Domain }}{{ else }}-{{ end }}</p>
-                    </div>
-                    <div class="min-w-0">
-                        <span class="block text-xs font-medium text-stone-500 mb-1">From</span>
-                        <p class="text-xs text-stone-900 truncate break-all" title="{{ .DefaultFromEmail }}">{{ if
-                            .DefaultFromEmail }}{{ .DefaultFromEmail }}{{ else }}-{{ end }}</p>
-                    </div>
-                </div>
-            </div>
-
-            <div class="mt-6 flex items-center gap-2">
-                <a href="/admin/settings/mailers/{{ .ID }}"
-                    class="flex-1 rounded-lg border border-stone-300 bg-white px-3 py-2 text-center text-xs font-medium text-stone-700 transition-colors hover:bg-stone-50">
-                    View
+    <div class="card overflow-hidden">
+        <ul class="divide-y divide-stone-100">
+            {{ range .Profiles }}
+            <li>
+                <a href="/admin/settings/mailers/{{ .ID }}" class="flex items-baseline gap-4 px-5 py-4 transition hover:bg-stone-50 sm:px-6">
+                    <span class="min-w-0 flex-1">
+                        <span class="block truncate text-sm font-medium text-stone-900">{{ .Name }}</span>
+                        <span class="block truncate text-sm text-stone-500">{{ if .DefaultFromEmail }}From {{ .DefaultFromEmail }}{{ else }}No From address{{ end }}</span>
+                    </span>
+                    <span class="whitespace-nowrap text-sm text-stone-500">{{ if eq .Provider "mailgun" }}Mailgun{{ else }}SMTP{{ end }}</span>
                 </a>
-                <a href="/admin/settings/mailers/{{ .ID }}/edit"
-                    class="flex-1 rounded-lg border border-stone-900 bg-stone-900 px-3 py-2 text-center text-xs font-medium text-white transition-colors hover:bg-stone-700">
-                    Edit
-                </a>
-            </div>
-        </div>
-        {{ end }}
+            </li>
+            {{ end }}
+        </ul>
     </div>
     {{ end }}
 </div>

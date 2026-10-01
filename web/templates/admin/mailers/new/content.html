@@ -1,171 +1,123 @@
 {{ define "admin/mailers/new/content" }}
-<div class="mx-auto max-w-3xl space-y-8 px-4 py-8 sm:px-6 lg:px-8">
-    <!-- Header -->
+{{ $mailgun := eq .Profile.Provider "mailgun" }}
+<div class="mx-auto max-w-2xl space-y-6">
     <div>
-        <h1 class="text-3xl font-bold tracking-tight text-stone-900">{{ if .IsEdit }}Edit{{ else }}New{{ end }} Mailer Profile</h1>
-        <p class="mt-2 text-sm text-stone-600">Configure email provider settings for form submissions</p>
+        {{ if .IsEdit }}
+        <a href="/admin/settings/mailers/{{ .Profile.ID }}" class="back">← {{ if .Profile.Name }}{{ .Profile.Name }}{{ else }}Mailer{{ end }}</a>
+        {{ else }}
+        <a href="/admin/settings/mailers" class="back">← Mailers</a>
+        {{ end }}
+        <h1 class="page-title mt-2">{{ if .IsEdit }}Edit{{ else }}New{{ end }} Mailer Profile</h1>
+        <p class="page-note">An email account that Formlander sends from. One profile can serve many forms.</p>
     </div>
 
     {{ if .Error }}
-    <div class="rounded-lg border-2 border-rose-500 bg-rose-50 px-4 py-3">
-        <p class="text-sm font-medium text-rose-900">✗ {{ .Error }}</p>
-    </div>
+    <div class="notice notice-bad">{{ .Error }}</div>
     {{ end }}
 
     <form method="POST" action="{{ if .IsEdit }}/admin/settings/mailers/{{ .Profile.ID }}{{ else }}/admin/settings/mailers{{ end }}" class="space-y-6">
-        <!-- Basic Info -->
-        <div class="rounded-xl border border-stone-200 bg-white shadow-sm">
-            <div class="border-b border-stone-200 px-6 py-4">
-                <h2 class="text-lg font-semibold text-stone-900">Basic Information</h2>
-            </div>
-            <div class="space-y-6 p-6">
+        <div class="card">
+            <div class="space-y-5 p-5 sm:p-6">
                 <div>
-                    <label for="name" class="block text-sm font-medium text-stone-700">Profile Name</label>
-                    <input type="text" id="name" name="name" value="{{ if .Profile }}{{ .Profile.Name }}{{ end }}" required
-                        class="mt-1 block w-full rounded-lg border border-stone-300 bg-white px-4 py-2.5 shadow-sm transition-colors focus:border-stone-900 focus:outline-none focus:ring-2 focus:ring-stone-900/20">
-                    <p class="mt-1 text-xs text-stone-500">Unique identifier for this profile (e.g., "support_mailgun")</p>
+                    <label for="name" class="field-label">Profile Name</label>
+                    <input type="text" id="name" name="name" value="{{ .Profile.Name }}" required class="field-input" placeholder="My email service">
+                    <p class="field-help">Only you see it. It tells your profiles apart.</p>
                 </div>
-
                 <div>
-                    <label for="provider" class="block text-sm font-medium text-stone-700">Provider</label>
-                    <select id="provider" name="provider" required
-                        class="mt-1 block w-full rounded-lg border border-stone-300 bg-white px-4 py-2.5 shadow-sm transition-colors focus:border-stone-900 focus:outline-none focus:ring-2 focus:ring-stone-900/20">
-                        <option value="smtp" {{ if or (not .Profile) (eq .Profile.Provider "smtp") }}selected{{ end }}>SMTP</option>
-                        <option value="mailgun" {{ if and .Profile (eq .Profile.Provider "mailgun") }}selected{{ end }}>Mailgun</option>
+                    <label for="provider" class="field-label">How to send</label>
+                    <select id="provider" name="provider" required class="field-input" data-chooses="provider">
+                        <option value="smtp" {{ if not $mailgun }}selected{{ end }}>SMTP</option>
+                        <option value="mailgun" {{ if $mailgun }}selected{{ end }}>Mailgun</option>
                     </select>
+                    <p class="field-help">Almost every email service has SMTP. Pick Mailgun to send through its API with an API key.</p>
                 </div>
             </div>
         </div>
 
-        <!-- Provider Configuration -->
-        <div class="rounded-xl border border-stone-200 bg-white shadow-sm">
-            <div class="border-b border-stone-200 px-6 py-4">
-                <h2 class="text-lg font-semibold text-stone-900">Provider Configuration</h2>
-                <p class="mt-1 text-sm text-stone-600">API credentials and domain settings</p>
+        <!-- SMTP -->
+        <div class="card" data-provider="smtp" {{ if $mailgun }}hidden{{ end }}>
+            <div class="card-head">
+                <h2 class="card-title">SMTP</h2>
+                <p class="card-note">Your email service shows these under "SMTP settings".</p>
             </div>
-            <!-- Mailgun fields -->
-            <div data-config="mailgun" class="space-y-6 p-6">
+            <div class="space-y-5 p-5 sm:p-6">
                 <div>
-                    <label for="api_key" class="block text-sm font-medium text-stone-700">API Key</label>
-                    <input type="password" id="api_key" name="api_key" value="{{ if .Profile }}{{ .Profile.APIKey }}{{ end }}"
-                        class="mt-1 block w-full rounded-lg border border-stone-300 bg-white px-4 py-2.5 font-mono text-sm shadow-sm transition-colors focus:border-stone-900 focus:outline-none focus:ring-2 focus:ring-stone-900/20"
-                        placeholder="key-xxxxxxxxxxxxxxxxxxxxxxxx">
+                    <label for="smtp_host" class="field-label">Host</label>
+                    <input type="text" id="smtp_host" name="smtp_host" value="{{ .Profile.SMTPHost }}" class="field-input mono" placeholder="smtp.example.com">
+                    <p class="field-help">The server name of your email service.</p>
                 </div>
-
-                <div>
-                    <label for="domain" class="block text-sm font-medium text-stone-700">Domain</label>
-                    <input type="text" id="domain" name="domain" value="{{ if .Profile }}{{ .Profile.Domain }}{{ end }}"
-                        class="mt-1 block w-full rounded-lg border border-stone-300 bg-white px-4 py-2.5 shadow-sm transition-colors focus:border-stone-900 focus:outline-none focus:ring-2 focus:ring-stone-900/20"
-                        placeholder="mg.example.com">
+                <div class="grid gap-5 sm:grid-cols-2">
+                    <div>
+                        <label for="smtp_port" class="field-label">Port</label>
+                        <input type="number" id="smtp_port" name="smtp_port" value="{{ if .Profile.SMTPPort }}{{ .Profile.SMTPPort }}{{ else }}587{{ end }}" class="field-input mono" placeholder="587">
+                        <p class="field-help">Most services use 587.</p>
+                    </div>
+                    <div>
+                        <label for="smtp_encryption" class="field-label">Encryption</label>
+                        <select id="smtp_encryption" name="smtp_encryption" class="field-input">
+                            <option value="starttls" {{ if eq .Profile.SMTPEncryption "starttls" }}selected{{ end }}>STARTTLS (port 587)</option>
+                            <option value="tls" {{ if eq .Profile.SMTPEncryption "tls" }}selected{{ end }}>TLS (port 465)</option>
+                            <option value="none" {{ if eq .Profile.SMTPEncryption "none" }}selected{{ end }}>None (port 25)</option>
+                        </select>
+                        <p class="field-help">It goes with the port.</p>
+                    </div>
                 </div>
-            </div>
-
-            <!-- SMTP fields -->
-            <div data-config="smtp" class="space-y-6 p-6">
                 <div>
-                    <label for="smtp_host" class="block text-sm font-medium text-stone-700">SMTP Host</label>
-                    <input type="text" id="smtp_host" name="smtp_host" value="{{ if .Profile }}{{ .Profile.SMTPHost }}{{ end }}"
-                        class="mt-1 block w-full rounded-lg border border-stone-300 bg-white px-4 py-2.5 shadow-sm transition-colors focus:border-stone-900 focus:outline-none focus:ring-2 focus:ring-stone-900/20"
-                        placeholder="smtp.example.com">
+                    <label for="smtp_username" class="field-label">Username</label>
+                    <input type="text" id="smtp_username" name="smtp_username" value="{{ .Profile.SMTPUsername }}" autocomplete="off" class="field-input" placeholder="user@example.com">
+                    <p class="field-help">Leave it empty when the server asks for no login.</p>
                 </div>
-
                 <div>
-                    <label for="smtp_port" class="block text-sm font-medium text-stone-700">Port</label>
-                    <input type="number" id="smtp_port" name="smtp_port" value="{{ if and .Profile .Profile.SMTPPort }}{{ .Profile.SMTPPort }}{{ else }}587{{ end }}"
-                        class="mt-1 block w-full rounded-lg border border-stone-300 bg-white px-4 py-2.5 shadow-sm transition-colors focus:border-stone-900 focus:outline-none focus:ring-2 focus:ring-stone-900/20"
-                        placeholder="587">
-                    <p class="mt-1 text-xs text-stone-500">587 (STARTTLS), 465 (TLS), or 25 (none)</p>
-                </div>
-
-                <div>
-                    <label for="smtp_encryption" class="block text-sm font-medium text-stone-700">Encryption</label>
-                    <select id="smtp_encryption" name="smtp_encryption"
-                        class="mt-1 block w-full rounded-lg border border-stone-300 bg-white px-4 py-2.5 shadow-sm transition-colors focus:border-stone-900 focus:outline-none focus:ring-2 focus:ring-stone-900/20">
-                        <option value="starttls" {{ if and .Profile (eq .Profile.SMTPEncryption "starttls") }}selected{{ end }}>STARTTLS</option>
-                        <option value="tls" {{ if and .Profile (eq .Profile.SMTPEncryption "tls") }}selected{{ end }}>TLS (implicit)</option>
-                        <option value="none" {{ if and .Profile (eq .Profile.SMTPEncryption "none") }}selected{{ end }}>None</option>
-                    </select>
-                </div>
-
-                <div>
-                    <label for="smtp_username" class="block text-sm font-medium text-stone-700">Username</label>
-                    <input type="text" id="smtp_username" name="smtp_username" value="{{ if .Profile }}{{ .Profile.SMTPUsername }}{{ end }}"
-                        class="mt-1 block w-full rounded-lg border border-stone-300 bg-white px-4 py-2.5 shadow-sm transition-colors focus:border-stone-900 focus:outline-none focus:ring-2 focus:ring-stone-900/20"
-                        placeholder="user@example.com">
-                    <p class="mt-1 text-xs text-stone-500">Leave blank for an unauthenticated relay</p>
-                </div>
-
-                <div>
-                    <label for="smtp_password" class="block text-sm font-medium text-stone-700">Password</label>
-                    <input type="password" id="smtp_password" name="smtp_password" value="{{ if .Profile }}{{ .Profile.SMTPPassword }}{{ end }}"
-                        class="mt-1 block w-full rounded-lg border border-stone-300 bg-white px-4 py-2.5 font-mono text-sm shadow-sm transition-colors focus:border-stone-900 focus:outline-none focus:ring-2 focus:ring-stone-900/20"
-                        placeholder="••••••••">
+                    <label for="smtp_password" class="field-label">Password</label>
+                    <input type="password" id="smtp_password" name="smtp_password" autocomplete="new-password" class="field-input" {{ if .IsEdit }}placeholder="Leave empty to keep the saved password"{{ end }}>
+                    <p class="field-help">Many services give a separate SMTP password or an API key for this. Formlander never shows it again.</p>
                 </div>
             </div>
         </div>
 
-        <!-- Default Settings -->
-        <div class="rounded-xl border border-stone-200 bg-white shadow-sm">
-            <div class="border-b border-stone-200 px-6 py-4">
-                <h2 class="text-lg font-semibold text-stone-900">Default Email Settings</h2>
-                <p class="mt-1 text-sm text-stone-600">Default sender information for emails</p>
+        <!-- Mailgun -->
+        <div class="card" data-provider="mailgun" {{ if not $mailgun }}hidden{{ end }}>
+            <div class="card-head">
+                <h2 class="card-title">Mailgun</h2>
+                <p class="card-note">Both values are in your Mailgun dashboard.</p>
             </div>
-            <div class="space-y-6 p-6">
+            <div class="space-y-5 p-5 sm:p-6">
                 <div>
-                    <label for="default_from_name" class="block text-sm font-medium text-stone-700">From Name</label>
-                    <input type="text" id="default_from_name" name="default_from_name" value="{{ if .Profile }}{{ .Profile.DefaultFromName }}{{ end }}"
-                        class="mt-1 block w-full rounded-lg border border-stone-300 bg-white px-4 py-2.5 shadow-sm transition-colors focus:border-stone-900 focus:outline-none focus:ring-2 focus:ring-stone-900/20"
-                        placeholder="Formlander">
+                    <label for="api_key" class="field-label">API Key</label>
+                    <input type="password" id="api_key" name="api_key" autocomplete="new-password" class="field-input mono" placeholder="{{ if .IsEdit }}Leave empty to keep the saved key{{ else }}key-...{{ end }}">
+                    <p class="field-help">In Mailgun: Sending, Domain settings, Sending keys. Formlander never shows it again.</p>
                 </div>
-
                 <div>
-                    <label for="default_from_email" class="block text-sm font-medium text-stone-700">From Email</label>
-                    <input type="email" id="default_from_email" name="default_from_email" value="{{ if .Profile }}{{ .Profile.DefaultFromEmail }}{{ end }}"
-                        class="mt-1 block w-full rounded-lg border border-stone-300 bg-white px-4 py-2.5 shadow-sm transition-colors focus:border-stone-900 focus:outline-none focus:ring-2 focus:ring-stone-900/20"
-                        placeholder="no-reply@example.com">
-                </div>
-
-                <div>
-                    <label for="defaults_json" class="block text-sm font-medium text-stone-700">
-                        Additional Defaults <span class="font-mono text-xs text-stone-500">{ JSON }</span>
-                    </label>
-                    <textarea id="defaults_json" name="defaults_json" rows="4"
-                        class="mt-1 block w-full rounded-lg border border-stone-300 bg-white px-4 py-2.5 font-mono text-sm shadow-sm transition-colors focus:border-stone-900 focus:outline-none focus:ring-2 focus:ring-stone-900/20"
-                        placeholder='{"tags": ["form-submission"], "headers": {"X-Custom": "value"}}'>{{ if .Profile }}{{ .Profile.DefaultsJSON }}{{ end }}</textarea>
-                    <p class="mt-1 text-xs text-stone-500">Optional: JSON object for tags, headers, or other provider-specific settings</p>
+                    <label for="domain" class="field-label">Sending Domain</label>
+                    <input type="text" id="domain" name="domain" value="{{ .Profile.Domain }}" class="field-input mono" placeholder="mg.example.com">
+                    <p class="field-help">The domain you added in Mailgun: Sending, Domains.</p>
                 </div>
             </div>
         </div>
 
-        <!-- Actions -->
+        <div class="card">
+            <div class="card-head">
+                <h2 class="card-title">Sender</h2>
+                <p class="card-note">Who the emails come from.</p>
+            </div>
+            <div class="space-y-5 p-5 sm:p-6">
+                <div>
+                    <label for="default_from_email" class="field-label">From Email</label>
+                    <input type="email" id="default_from_email" name="default_from_email" value="{{ .Profile.DefaultFromEmail }}" class="field-input" placeholder="forms@example.com">
+                    <p class="field-help">Use an address on a domain that your email service may send for. Without it, no email goes out.</p>
+                </div>
+                <div>
+                    <label for="default_from_name" class="field-label">From Name</label>
+                    <input type="text" id="default_from_name" name="default_from_name" value="{{ .Profile.DefaultFromName }}" class="field-input" placeholder="Formlander">
+                    <p class="field-help">The name the inbox shows next to the address. You can leave it empty.</p>
+                </div>
+            </div>
+        </div>
+
         <div class="flex justify-end gap-3">
-            <a href="/admin/settings/mailers"
-                class="inline-flex items-center rounded-lg border border-stone-300 bg-white px-5 py-2.5 text-sm font-medium text-stone-700 shadow-sm transition-all hover:bg-stone-50 focus:outline-none focus:ring-2 focus:ring-stone-900 focus:ring-offset-2">
-                Cancel
-            </a>
-            <button type="submit"
-                class="inline-flex items-center rounded-lg border border-transparent bg-stone-900 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition-all hover:bg-stone-700 hover:shadow focus:outline-none focus:ring-2 focus:ring-stone-900 focus:ring-offset-2">
-                <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-                </svg>
-                {{ if .IsEdit }}Save Changes{{ else }}Create Profile{{ end }}
-            </button>
+            <a href="{{ if .IsEdit }}/admin/settings/mailers/{{ .Profile.ID }}{{ else }}/admin/settings/mailers{{ end }}" class="btn">Cancel</a>
+            <button type="submit" class="btn-primary">{{ if .IsEdit }}Save Changes{{ else }}Create Profile{{ end }}</button>
         </div>
     </form>
 </div>
-
-<script>
-(function () {
-    var sel = document.getElementById("provider");
-    if (!sel) return;
-    var groups = document.querySelectorAll("[data-config]");
-    function sync() {
-        groups.forEach(function (g) {
-            g.style.display = g.getAttribute("data-config") === sel.value ? "" : "none";
-        });
-    }
-    sel.addEventListener("change", sync);
-    sync();
-})();
-</script>
 {{ end }}

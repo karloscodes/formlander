@@ -1,0 +1,52 @@
+{{ define "admin/webhooks/show/content" }}
+<div class="mx-auto max-w-2xl space-y-6">
+    <div>
+        <a href="/admin/settings/webhooks" class="back">← Webhooks</a>
+        <div class="mt-2 flex flex-wrap items-center justify-between gap-3">
+            <h1 class="page-title">{{ .Profile.Name }}</h1>
+            <a href="/admin/settings/webhooks/{{ .Profile.ID }}/edit" class="btn">Edit</a>
+        </div>
+    </div>
+
+    {{ template "admin/connections/result" . }}
+
+    <div class="card">
+        <dl class="space-y-4 p-5 text-sm sm:p-6">
+            <div>
+                <dt class="text-stone-500">URL</dt>
+                <dd class="mono mt-1 break-all text-stone-900">{{ .Profile.URL }}</dd>
+            </div>
+            <div>
+                <dt class="text-stone-500">Signing secret</dt>
+                <dd class="mt-1 text-stone-900">{{ if .Profile.Secret }}Saved. Each request has an <code class="mono">{{ .SignedBy }}</code> header.{{ else }}None. The requests are not signed.{{ end }}</dd>
+            </div>
+            <div>
+                <dt class="text-stone-500">Headers</dt>
+                <dd class="mt-1 text-stone-900">
+                    {{ if .Headers }}
+                    {{ range .Headers }}<span class="mono mr-3 inline-block break-all">{{ .Name }}</span>{{ end }}
+                    <p class="mt-1 text-stone-500">Formlander shows the values only when you edit the profile.</p>
+                    {{ else }}None{{ end }}
+                </dd>
+            </div>
+        </dl>
+    </div>
+
+    <div class="card">
+        <div class="card-head">
+            <h2 class="card-title">Test</h2>
+            <p class="card-note">Formlander posts one sample submission to the URL.</p>
+        </div>
+        <div class="space-y-4 p-5 sm:p-6">
+            <p class="text-sm text-stone-600">The sample goes out like a real submission, with the headers and the signature of this profile. Its body has <code class="mono">"test": true</code>, so your receiver can tell it apart. You see the status that the URL answers.</p>
+            <form method="POST" action="/admin/settings/webhooks/{{ .Profile.ID }}/test">
+                <button type="submit" class="btn">Send a test</button>
+            </form>
+        </div>
+    </div>
+
+    {{ template "admin/connections/used-by" . }}
+
+    {{ template "admin/connections/delete" . }}
+</div>
+{{ end }}

@@ -41,13 +41,62 @@
     </footer>
     <script src="/assets/vendor/htmx.min.js?v={{ assetVersion }}"></script>
     <script>
-        // A thin bar at the top while a page loads.
-        document.body.addEventListener('htmx:beforeRequest', function () {
-            document.getElementById('page-loader').style.opacity = '1';
-        });
-        document.body.addEventListener('htmx:afterRequest', function () {
-            setTimeout(function () { document.getElementById('page-loader').style.opacity = '0'; }, 300);
-        });
+        // The page changes without a full reload, so this script runs again
+        // with each page. The listeners go on once.
+        if (!window.formlanderAdmin) {
+            window.formlanderAdmin = true;
+
+            // A thin bar at the top while a page loads.
+            document.body.addEventListener('htmx:beforeRequest', function () {
+                document.getElementById('page-loader').style.opacity = '1';
+            });
+            document.body.addEventListener('htmx:afterRequest', function () {
+                setTimeout(function () { document.getElementById('page-loader').style.opacity = '0'; }, 300);
+            });
+
+            // "Add a row" copies the <template> that the button names, and puts
+            // the copy before it. "Remove" takes its row away.
+            document.addEventListener('click', function (event) {
+                var add = event.target.closest('[data-add-row]');
+                if (add) {
+                    var template = document.getElementById(add.getAttribute('data-add-row'));
+                    template.parentNode.insertBefore(template.content.cloneNode(true), template);
+                    template.previousElementSibling.querySelector('input').focus();
+                }
+                var remove = event.target.closest('[data-remove-row]');
+                if (remove) remove.closest('[data-row]').remove();
+            });
+
+            // A list with checkboxes: "Select all" ticks every row, and "Delete
+            // selected" works when a row is ticked.
+            document.addEventListener('change', function (event) {
+                var list = event.target.closest('form[data-select-rows]');
+                if (!list) return;
+                var boxes = list.querySelectorAll('input[name="ids"]');
+                if (event.target.matches('[data-select-all]')) {
+                    boxes.forEach(function (box) { box.checked = event.target.checked; });
+                }
+                var ticked = list.querySelectorAll('input[name="ids"]:checked').length;
+                var button = list.querySelector('[data-delete-selected]');
+                button.disabled = ticked === 0;
+                button.textContent = ticked ? 'Delete ' + ticked + ' selected' : 'Delete selected';
+                list.querySelector('[data-select-all]').checked = ticked === boxes.length;
+            });
+
+            // A checkbox with data-reveals shows a part of the form while it is
+            // on. A select with data-chooses shows the part for its value.
+            document.addEventListener('change', function (event) {
+                var box = event.target.closest('input[data-reveals]');
+                if (box) document.getElementById(box.getAttribute('data-reveals')).hidden = !box.checked;
+
+                var select = event.target.closest('select[data-chooses]');
+                if (select) {
+                    document.querySelectorAll('[data-' + select.getAttribute('data-chooses') + ']').forEach(function (part) {
+                        part.hidden = part.getAttribute('data-' + select.getAttribute('data-chooses')) !== select.value;
+                    });
+                }
+            });
+        }
     </script>
 </body>
 

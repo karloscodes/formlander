@@ -1,17 +1,17 @@
 package http
 
 import (
-	"strings"
 	"encoding/json"
 	"fmt"
 	"log/slog"
 	"strconv"
+	"strings"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/karloscodes/cartridge"
 
-	"formlander/internal/forms"
 	"formlander/internal/integrations"
+	"formlander/internal/middleware"
 )
 
 type siteKeyEntry struct {
@@ -20,41 +20,148 @@ type siteKeyEntry struct {
 }
 
 // siteKeysFromForm returns the site keys of a profile as the JSON the model
-// keeps. Most profiles have one site key: the form has a field for it, and a
-// field for its domain. The JSON field is for a profile with several domains,
-// and it wins when it is filled.
+// keeps. The form sends one site_key and one host_pattern for each row: the
+// first row is the Site Key field, the others are the rows under "One key
+// for each domain". A key without a domain covers every site.
+//
+// An older version of the form sent site_keys_json. It still wins when a
+// request has it.
 func siteKeysFromForm(ctx *cartridge.Context) string {
 	if raw := strings.TrimSpace(ctx.FormValue("site_keys_json")); raw != "" {
 		return raw
 	}
-	siteKey := strings.TrimSpace(ctx.FormValue("site_key"))
-	if siteKey == "" {
+	hosts := postedValues(ctx, "host_pattern")
+	var entries []siteKeyEntry
+	for i, siteKey := range postedValues(ctx, "site_key") {
+		siteKey = strings.TrimSpace(siteKey)
+		if siteKey == "" {
+			continue
+		}
+		host := ""
+		if i < len(hosts) {
+			host = strings.TrimSpace(hosts[i])
+		}
+		if host == "" {
+			host = "*"
+		}
+		entries = append(entries, siteKeyEntry{HostPattern: host, SiteKey: siteKey})
+	}
+	if len(entries) == 0 {
 		return ""
 	}
-	host := strings.TrimSpace(ctx.FormValue("host_pattern"))
-	if host == "" {
-		host = "*"
-	}
-	data, _ := json.Marshal([]siteKeyEntry{{HostPattern: host, SiteKey: siteKey}})
+	data, _ := json.Marshal(entries)
 	return string(data)
 }
 
-// firstSiteKey returns the site key and the domain of a profile for the
-// simple fields of the form, and whether the profile has more than one.
-func firstSiteKey(raw string) (siteKey, host string, several bool) {
-	var entries []siteKeyEntry
-	if json.Unmarshal([]byte(raw), &entries) != nil || len(entries) == 0 {
-		return "", "", false
+// captchaThemes are the looks of the Turnstile widget. "auto" follows the
+// visitor's system and is what Cloudflare does when nothing is set.
+var captchaThemes = []string{"auto", "light", "dark"}
+
+// policyFromForm returns the widget options of a profile as the JSON the
+// model keeps. The form has one option, the theme. saved is the policy the
+// profile has now: its other options stay.
+//
+// An older version of the form sent policy_json. It still wins when a
+// request has it.
+func policyFromForm(ctx *cartridge.Context, saved string) string {
+	if raw := strings.TrimSpace(ctx.FormValue("policy_json")); raw != "" {
+		return raw
 	}
-	return entries[0].SiteKey, entries[0].HostPattern, len(entries) > 1
+	policy := map[string]any{}
+	_ = json.Unmarshal([]byte(saved), &policy)
+	delete(policy, "theme")
+	if theme := ctx.FormValue("theme"); theme == "light" || theme == "dark" {
+		policy["theme"] = theme
+	}
+	if len(policy) == 0 {
+		return ""
+	}
+	data, _ := json.Marshal(policy)
+	return string(data)
+}
+
+// siteKeys returns the site keys of a profile, one for each domain. Entries
+// without a key are left out.
+func siteKeys(raw string) []siteKeyEntry {
+	var saved, entries []siteKeyEntry
+	_ = json.Unmarshal([]byte(raw), &saved)
+	for _, entry := range saved {
+		if strings.TrimSpace(entry.SiteKey) != "" {
+			entries = append(entries, entry)
+		}
+	}
+	return entries
+}
+
+// captchaTheme returns the theme of a profile, or "auto".
+func captchaTheme(policyJSON string) string {
+	return parseCaptchaPolicy(policyJSON, "").Theme
+}
+
+// renderCaptchaForm shows the new or edit screen with what the owner typed.
+// It never puts the secret key in the page.
+func renderCaptchaForm(ctx *cartridge.Context, id uint, params integrations.CaptchaProfileParams, message string) error {
+	title := "New Captcha Profile"
+	if id != 0 {
+		title = "Edit Captcha Profile"
+	}
+	keys := siteKeys(params.SiteKeysJSON)
+	first := siteKeyEntry{}
+	if len(keys) > 0 {
+		first, keys = keys[0], keys[1:]
+	}
+	if first.HostPattern == "*" {
+		first.HostPattern = ""
+	}
+	return ctx.Render("layouts/base", fiber.Map{
+		"Title":       title,
+		"IsEdit":      id != 0,
+		"Profile":     integrations.CaptchaProfile{ID: id, Name: params.Name},
+		"SiteKey":     first.SiteKey,
+		"Host":        first.HostPattern,
+		"MoreKeys":    keys,
+		"Theme":       captchaTheme(params.PolicyJSON),
+		"Themes":      captchaThemes,
+		"Error":       message,
+		"ContentView": "admin/captcha/new/content",
+	}, "")
+}
+
+// renderCaptchaProfile shows one profile, with the result of a test or the
+// reason a delete was refused.
+func renderCaptchaProfile(ctx *cartridge.Context, profile *integrations.CaptchaProfile, extra fiber.Map) error {
+	data := fiber.Map{
+		"Title":        profile.Name,
+		"Profile":      profile,
+		"SiteKeys":     siteKeys(profile.SiteKeysJSON),
+		"Theme":        captchaTheme(profile.PolicyJSON),
+		"Forms":        formsUsingCaptcha(ctx.DB(), profile.ID),
+		"DeleteAction": "/admin/settings/captcha/" + fmt.Sprint(profile.ID) + "/delete",
+		"ContentView":  "admin/captcha/show/content",
+	}
+	for key, value := range extra {
+		data[key] = value
+	}
+	return ctx.Render("layouts/base", data, "")
+}
+
+// captchaProfileFromPath loads the profile that the :id of the route names.
+func captchaProfileFromPath(ctx *cartridge.Context) (*integrations.CaptchaProfile, error) {
+	id, err := strconv.ParseUint(ctx.Params("id"), 10, 32)
+	if err != nil {
+		return nil, fiber.ErrNotFound
+	}
+	profile, err := integrations.GetCaptchaProfileByID(ctx.DB(), uint(id))
+	if err != nil {
+		return nil, fiber.ErrNotFound
+	}
+	return profile, nil
 }
 
 // CaptchaProfileList shows all captcha profiles.
 func CaptchaProfileList(ctx *cartridge.Context) error {
-	db := ctx.DB()
-
-	var profiles []integrations.CaptchaProfile
-	if err := db.Order("created_at DESC").Find(&profiles).Error; err != nil {
+	profiles, err := integrations.ListCaptchaProfiles(ctx.DB())
+	if err != nil {
 		return fiber.ErrInternalServerError
 	}
 
@@ -63,19 +170,9 @@ func CaptchaProfileList(ctx *cartridge.Context) error {
 		integrations.CaptchaProfile
 		SiteKeyCount int
 	}
-	var profilesWithCount []profileWithCount
-	for _, p := range profiles {
-		var siteKeys []siteKeyEntry
-		count := 0
-		if p.SiteKeysJSON != "" {
-			if err := json.Unmarshal([]byte(p.SiteKeysJSON), &siteKeys); err == nil {
-				count = len(siteKeys)
-			}
-		}
-		profilesWithCount = append(profilesWithCount, profileWithCount{
-			CaptchaProfile: p,
-			SiteKeyCount:   count,
-		})
+	profilesWithCount := make([]profileWithCount, len(profiles))
+	for i, profile := range profiles {
+		profilesWithCount[i] = profileWithCount{CaptchaProfile: profile, SiteKeyCount: len(siteKeys(profile.SiteKeysJSON))}
 	}
 
 	return ctx.Render("layouts/base", fiber.Map{
@@ -87,38 +184,21 @@ func CaptchaProfileList(ctx *cartridge.Context) error {
 
 // CaptchaProfileNew shows the create form.
 func CaptchaProfileNew(ctx *cartridge.Context) error {
-	return ctx.Render("layouts/base", fiber.Map{
-		"Title":       "New Captcha Profile",
-		"ContentView": "admin/captcha/new/content",
-	}, "")
+	return renderCaptchaForm(ctx, 0, integrations.CaptchaProfileParams{}, "")
 }
 
 // CaptchaProfileCreate handles profile creation.
 func CaptchaProfileCreate(ctx *cartridge.Context) error {
-	db := ctx.DB()
-
-	logger := ctx.Logger
 	params := integrations.CaptchaProfileParams{
 		Name:         ctx.FormValue("name"),
 		Provider:     ctx.FormValue("provider"),
 		SecretKey:    ctx.FormValue("secret_key"),
 		SiteKeysJSON: siteKeysFromForm(ctx),
-		PolicyJSON:   ctx.FormValue("policy_json"),
+		PolicyJSON:   policyFromForm(ctx, ""),
 	}
 
-	_, err := integrations.CreateCaptchaProfile(logger, db, params)
-	if err != nil {
-		var errMsg string
-		if valErr, ok := err.(*integrations.ValidationError); ok {
-			errMsg = valErr.Message
-		} else {
-			errMsg = err.Error()
-		}
-		return ctx.Render("layouts/base", fiber.Map{
-			"Title":       "New Captcha Profile",
-			"Error":       errMsg,
-			"ContentView": "admin/captcha/new/content",
-		}, "")
+	if _, err := integrations.CreateCaptchaProfile(ctx.Logger, ctx.DB(), params); err != nil {
+		return renderCaptchaForm(ctx, 0, params, errorMessage(err))
 	}
 
 	return ctx.Redirect("/admin/settings/captcha")
@@ -126,124 +206,91 @@ func CaptchaProfileCreate(ctx *cartridge.Context) error {
 
 // CaptchaProfileShow displays a single profile.
 func CaptchaProfileShow(ctx *cartridge.Context) error {
-	db := ctx.DB()
-
-	id := ctx.Params("id")
-	var profile integrations.CaptchaProfile
-	if err := db.First(&profile, id).Error; err != nil {
-		return fiber.ErrNotFound
+	profile, err := captchaProfileFromPath(ctx)
+	if err != nil {
+		return err
 	}
-
-	// Parse site keys for display
-	var siteKeys []siteKeyEntry
-	if profile.SiteKeysJSON != "" {
-		json.Unmarshal([]byte(profile.SiteKeysJSON), &siteKeys)
-	}
-
-	// Count forms using this profile
-	var usageCount int64
-	db.Model(&forms.Form{}).Where("captcha_profile_id = ?", profile.ID).Count(&usageCount)
-
-	return ctx.Render("layouts/base", fiber.Map{
-		"Title":       "Captcha Profile: " + profile.Name,
-		"Profile":     profile,
-		"SiteKeys":    siteKeys,
-		"UsageCount":  usageCount,
-		"ContentView": "admin/captcha/show/content",
-	}, "")
+	return renderCaptchaProfile(ctx, profile, nil)
 }
 
 // CaptchaProfileEdit shows the edit form.
 func CaptchaProfileEdit(ctx *cartridge.Context) error {
-	db := ctx.DB()
-
-	id := ctx.Params("id")
-	var profile integrations.CaptchaProfile
-	if err := db.First(&profile, id).Error; err != nil {
-		return fiber.ErrNotFound
+	profile, err := captchaProfileFromPath(ctx)
+	if err != nil {
+		return err
 	}
-
-	siteKey, host, several := firstSiteKey(profile.SiteKeysJSON)
-	return ctx.Render("layouts/base", fiber.Map{
-		"Title":       "Edit Captcha Profile",
-		"Profile":     profile,
-		"SiteKey":     siteKey,
-		"Host":        host,
-		"SeveralKeys": several,
-		"IsEdit":      true,
-		"ContentView": "admin/captcha/new/content",
+	return renderCaptchaForm(ctx, profile.ID, integrations.CaptchaProfileParams{
+		Name:         profile.Name,
+		SiteKeysJSON: profile.SiteKeysJSON,
+		PolicyJSON:   profile.PolicyJSON,
 	}, "")
 }
 
 // CaptchaProfileUpdate handles profile updates.
 func CaptchaProfileUpdate(ctx *cartridge.Context) error {
-	db := ctx.DB()
-
-	id := ctx.Params("id")
-	profileID, err := strconv.ParseUint(id, 10, 32)
+	existing, err := captchaProfileFromPath(ctx)
 	if err != nil {
-		return fiber.ErrNotFound
+		return err
 	}
 
-	logger := ctx.Logger
 	params := integrations.CaptchaProfileParams{
 		Name:         ctx.FormValue("name"),
 		Provider:     ctx.FormValue("provider"),
 		SecretKey:    ctx.FormValue("secret_key"),
 		SiteKeysJSON: siteKeysFromForm(ctx),
-		PolicyJSON:   ctx.FormValue("policy_json"),
+		PolicyJSON:   policyFromForm(ctx, existing.PolicyJSON),
 	}
 	// An empty secret means "keep the one that is saved": the form never shows it.
 	if strings.TrimSpace(params.SecretKey) == "" {
-		if existing, err := integrations.GetCaptchaProfileByID(db, uint(profileID)); err == nil {
-			params.SecretKey = existing.SecretKey
-		}
+		params.SecretKey = existing.SecretKey
 	}
 
-	profile, err := integrations.UpdateCaptchaProfile(logger, db, uint(profileID), params)
+	profile, err := integrations.UpdateCaptchaProfile(ctx.Logger, ctx.DB(), existing.ID, params)
 	if err != nil {
-		// Get profile for error display
-		existingProfile, _ := integrations.GetCaptchaProfileByID(db, uint(profileID))
-		var errMsg string
-		if valErr, ok := err.(*integrations.ValidationError); ok {
-			errMsg = valErr.Message
-		} else {
-			errMsg = err.Error()
-		}
-		return ctx.Render("layouts/base", fiber.Map{
-			"Title":       "Edit Captcha Profile",
-			"Profile":     existingProfile,
-			"Error":       errMsg,
-			"IsEdit":      true,
-			"ContentView": "admin/captcha/new/content",
-		}, "")
+		return renderCaptchaForm(ctx, existing.ID, params, errorMessage(err))
 	}
 
 	return ctx.Redirect("/admin/settings/captcha/" + fmt.Sprint(profile.ID))
 }
 
-// CaptchaProfileDelete removes a profile.
+// CaptchaProfileDelete removes a profile that no form uses.
 func CaptchaProfileDelete(ctx *cartridge.Context) error {
-	db := ctx.DB()
-
-	id := ctx.Params("id")
-	profileID, err := strconv.ParseUint(id, 10, 32)
+	profile, err := captchaProfileFromPath(ctx)
 	if err != nil {
-		return fiber.ErrNotFound
+		return err
 	}
 
-	// Check if any forms are using this profile
-	var count int64
-	db.Model(&forms.Form{}).Where("captcha_profile_id = ?", profileID).Count(&count)
-	if count > 0 {
-		return ctx.Status(400).SendString("Cannot delete profile: it is being used by forms")
+	if len(formsUsingCaptcha(ctx.DB(), profile.ID)) > 0 {
+		ctx.Status(fiber.StatusBadRequest)
+		return renderCaptchaProfile(ctx, profile, fiber.Map{
+			"Error": "A form uses this profile. Remove it from the form first.",
+		})
 	}
 
-	logger := ctx.Logger
-	if err := integrations.DeleteCaptchaProfile(logger, db, uint(profileID)); err != nil {
-		logger.Error("failed to delete captcha profile", slog.Any("error", err), slog.Uint64("profile_id", uint64(profileID)))
+	if err := integrations.DeleteCaptchaProfile(ctx.Logger, ctx.DB(), profile.ID); err != nil {
+		ctx.Logger.Error("failed to delete captcha profile", slog.Any("error", err), slog.Uint64("profile_id", uint64(profile.ID)))
 		return fiber.ErrInternalServerError
 	}
 
 	return ctx.Redirect("/admin/settings/captcha")
+}
+
+// CaptchaProfileTest asks Cloudflare whether it knows the secret key of the
+// profile. It cannot test the site key or the widget: only a browser can
+// solve a captcha.
+func CaptchaProfileTest(ctx *cartridge.Context) error {
+	profile, err := captchaProfileFromPath(ctx)
+	if err != nil {
+		return err
+	}
+
+	result := testResult{OK: true, Message: "Cloudflare accepted the Secret Key."}
+	accepted, err := middleware.CheckTurnstileSecret(profile.SecretKey)
+	switch {
+	case err != nil:
+		result = testResult{Message: "Formlander could not ask Cloudflare: " + err.Error()}
+	case !accepted:
+		result = testResult{Message: "Cloudflare rejected the Secret Key. Copy it again from your Turnstile widget in the Cloudflare dashboard."}
+	}
+	return renderCaptchaProfile(ctx, profile, fiber.Map{"Test": result})
 }

@@ -2,6 +2,8 @@ package http
 
 import (
 	"encoding/json"
+	"fmt"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -12,11 +14,6 @@ import (
 
 	"formlander/internal/forms"
 )
-
-type submissionWithPreview struct {
-	forms.Submission
-	DataJSONPreview string
-}
 
 // SubmissionList shows all submissions with pagination and filters.
 func SubmissionList(ctx *cartridge.Context) error {
@@ -79,20 +76,14 @@ func SubmissionList(ctx *cartridge.Context) error {
 		return fiber.ErrInternalServerError
 	}
 
-	// Add previews
-	submissionsWithPreview := make([]submissionWithPreview, len(submissions))
-	for i, sub := range submissions {
-		preview := sub.DataJSON
-		if len(preview) > 100 {
-			preview = preview[:100] + "..."
-		}
-		// Clean up for display
-		preview = strings.ReplaceAll(preview, "\n", " ")
-		submissionsWithPreview[i] = submissionWithPreview{
-			Submission:      sub,
-			DataJSONPreview: preview,
-		}
+	// Count the spam that "Delete spam" removes: all of it, or that of the
+	// chosen form.
+	spamQuery := db.Model(&forms.Submission{}).Where("is_spam = ?", true)
+	if formID != "" {
+		spamQuery = spamQuery.Where("form_id = ?", formID)
 	}
+	var spamCount int64
+	spamQuery.Count(&spamCount)
 
 	// Get all forms for filter dropdown
 	var forms []forms.Form
@@ -107,7 +98,9 @@ func SubmissionList(ctx *cartridge.Context) error {
 
 	return ctx.Render("layouts/base", fiber.Map{
 		"Title":       "Submissions",
-		"Submissions": submissionsWithPreview,
+		"Submissions": submissions,
+		"SpamCount":   spamCount,
+		"ReturnTo":    ctx.OriginalURL(),
 		"Forms":       forms,
 		"Page":        page,
 		"NextPage":    nextPage,
@@ -155,7 +148,7 @@ func AdminSubmissionShow(ctx *cartridge.Context) error {
 		"Title":       "Submission",
 		"Submission":  submission,
 		"JSON":        prettyJSON,
-		"HasFiles":    len(submission.Files) > 0,
+		"ReturnTo":    cameFrom(ctx, fmt.Sprintf("/admin/forms/%d", submission.FormID)),
 		"ContentView": "admin/submissions/show/content",
 	}, "")
 }
@@ -192,4 +185,77 @@ func AdminSubmissionFileDownload(ctx *cartridge.Context) error {
 	}
 
 	return ctx.SendFile(filePath)
+}
+
+// cameFrom returns the admin page that linked to this one, or fallback. After
+// a delete, the owner goes back there.
+func cameFrom(ctx *cartridge.Context, fallback string) string {
+	referer, err := url.Parse(ctx.Get("Referer"))
+	if err != nil || referer.Host != ctx.Hostname() {
+		return fallback
+	}
+	if !isAdminPath(referer.Path) || referer.Path == ctx.Path() {
+		return fallback
+	}
+	return referer.RequestURI()
+}
+
+// isAdminPath reports whether a path is a page of the admin.
+func isAdminPath(path string) bool {
+	return path == "/admin" || strings.HasPrefix(path, "/admin/")
+}
+
+// returnPath is where the owner goes after a delete: the admin page that the
+// form names, or fallback. Only paths inside the admin are followed, so the
+// field cannot send a person to another site.
+func returnPath(ctx *cartridge.Context, fallback string) string {
+	path := ctx.FormValue("return_to")
+	if target, err := url.Parse(path); err == nil && target.Host == "" && target.Scheme == "" && isAdminPath(target.Path) {
+		return path
+	}
+	return fallback
+}
+
+// AdminSubmissionDelete removes one submission and its files.
+func AdminSubmissionDelete(ctx *cartridge.Context) error {
+	id, err := strconv.ParseUint(ctx.Params("id"), 10, 32)
+	if err != nil {
+		return fiber.ErrNotFound
+	}
+
+	deleted, err := forms.DeleteSubmissions(ctx.Logger, ctx.DB(), GetAppConfig(ctx).DataDirectory, []uint{uint(id)})
+	if err != nil {
+		return fiber.ErrInternalServerError
+	}
+	if deleted == 0 {
+		return fiber.ErrNotFound
+	}
+
+	return ctx.Redirect(returnPath(ctx, "/admin/submissions"))
+}
+
+// AdminSubmissionsDelete removes the submissions that the owner ticked in a
+// list (the "ids" fields), or all spam when the "spam" button sent the form.
+func AdminSubmissionsDelete(ctx *cartridge.Context) error {
+	db := ctx.DB()
+	dataDir := GetAppConfig(ctx).DataDirectory
+
+	var err error
+	if ctx.FormValue("spam") != "" {
+		formID, _ := strconv.ParseUint(ctx.FormValue("form_id"), 10, 32)
+		_, err = forms.DeleteSpam(ctx.Logger, db, dataDir, uint(formID))
+	} else {
+		var ids []uint
+		for _, value := range postedValues(ctx, "ids") {
+			if id, parseErr := strconv.ParseUint(value, 10, 32); parseErr == nil {
+				ids = append(ids, uint(id))
+			}
+		}
+		_, err = forms.DeleteSubmissions(ctx.Logger, db, dataDir, ids)
+	}
+	if err != nil {
+		return fiber.ErrInternalServerError
+	}
+
+	return ctx.Redirect(returnPath(ctx, "/admin/submissions"))
 }

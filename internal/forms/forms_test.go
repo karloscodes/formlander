@@ -3,18 +3,34 @@ package forms_test
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
+	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"formlander/internal/forms"
+	"formlander/internal/integrations"
 	"formlander/internal/pkg/testsupport"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"io"
-	"log/slog"
+	"gorm.io/gorm"
 )
+
+// webhookProfile makes a webhook profile and returns its ID, for a delivery
+// to use.
+func webhookProfile(t *testing.T, db *gorm.DB) *uint {
+	t.Helper()
+	profile := &integrations.WebhookProfile{
+		Name: fmt.Sprintf("Hook %d", time.Now().UnixNano()),
+		URL:  "https://example.com/webhook",
+	}
+	require.NoError(t, db.Create(profile).Error)
+	return &profile.ID
+}
 
 func TestCreateSubmission(t *testing.T) {
 	db := testsupport.SetupTestDB(t)
@@ -58,7 +74,7 @@ func TestCreateSubmission(t *testing.T) {
 
 		webhook := &forms.WebhookDelivery{
 			FormID:  form.ID,
-			URL:     "https://example.com/webhook",
+			WebhookProfileID: webhookProfile(t, db2),
 			Enabled: true,
 		}
 		require.NoError(t, db2.Create(webhook).Error)
@@ -88,7 +104,7 @@ func TestCreateSubmission(t *testing.T) {
 
 		webhook := &forms.WebhookDelivery{
 			FormID:  form.ID,
-			URL:     "https://example.com/webhook",
+			WebhookProfileID: webhookProfile(t, db3),
 			Enabled: false, // Disabled
 		}
 		require.NoError(t, db3.Create(webhook).Error)
@@ -173,7 +189,7 @@ func TestCreateSubmission(t *testing.T) {
 
 		webhook := &forms.WebhookDelivery{
 			FormID:  form.ID,
-			URL:     "https://example.com/webhook",
+			WebhookProfileID: webhookProfile(t, db6),
 			Enabled: true,
 		}
 		require.NoError(t, db6.Create(webhook).Error)
@@ -270,7 +286,7 @@ func TestCreateSubmission(t *testing.T) {
 		require.NoError(t, db9.Create(&forms.WebhookDelivery{
 			FormID:  form.ID,
 			Enabled: true,
-			URL:     "https://example.com/hook",
+			WebhookProfileID: webhookProfile(t, db9),
 		}).Error)
 		require.NoError(t, db9.Create(&forms.EmailDelivery{
 			FormID:        form.ID,
@@ -434,7 +450,7 @@ func TestEnsureDeliveryRecords(t *testing.T) {
 		webhook := &forms.WebhookDelivery{
 			FormID:  form.ID,
 			Enabled: true,
-			URL:     "https://example.com",
+			WebhookProfileID: webhookProfile(t, db2),
 		}
 		require.NoError(t, db2.Create(webhook).Error)
 
@@ -507,9 +523,8 @@ func TestUpdate(t *testing.T) {
 			EmailEnabled:    true,
 			MailerProfileID: &mailerID,
 			EmailRecipient:  "test@example.com",
-			WebhookEnabled:  true,
-			WebhookURL:      "https://webhook.example.com",
-			WebhookSecret:   "secret123",
+			WebhookEnabled:   true,
+			WebhookProfileID: webhookProfile(t, db),
 		}
 
 		updated, err := forms.Update(logger, db, params)
@@ -562,12 +577,11 @@ func TestUpdate(t *testing.T) {
 		webhook := &forms.WebhookDelivery{FormID: form.ID}
 		require.NoError(t, db.Create(webhook).Error)
 
-		// Enable webhook without URL
+		// Enable webhook without a profile
 		params := forms.UpdateParams{
 			ID:             form.ID,
 			Name:           "Test",
 			WebhookEnabled: true,
-			// Missing WebhookURL
 		}
 
 		_, err := forms.Update(logger, db, params)
@@ -575,28 +589,6 @@ func TestUpdate(t *testing.T) {
 		valErr, ok := err.(*forms.ValidationError)
 		require.True(t, ok)
 		assert.Equal(t, "webhook", valErr.Field)
-	})
-
-	t.Run("validates webhook headers JSON", func(t *testing.T) {
-		form := &forms.Form{Name: "Test", Slug: "test-json"}
-		require.NoError(t, db.Create(form).Error)
-
-		webhook := &forms.WebhookDelivery{FormID: form.ID}
-		require.NoError(t, db.Create(webhook).Error)
-
-		params := forms.UpdateParams{
-			ID:                 form.ID,
-			Name:               "Test",
-			WebhookEnabled:     true,
-			WebhookURL:         "https://example.com",
-			WebhookHeadersJSON: `{invalid json}`,
-		}
-
-		_, err := forms.Update(logger, db, params)
-		require.Error(t, err)
-		valErr, ok := err.(*forms.ValidationError)
-		require.True(t, ok)
-		assert.Contains(t, valErr.Message, "JSON")
 	})
 
 	t.Run("updates email delivery settings", func(t *testing.T) {
@@ -627,32 +619,24 @@ func TestUpdate(t *testing.T) {
 		assert.Contains(t, emailDelivery.OverridesJSON, "updated@example.com")
 	})
 
-	t.Run("updates webhook delivery settings", func(t *testing.T) {
+	t.Run("links the form to the webhook profile that was picked", func(t *testing.T) {
 		form := &forms.Form{Name: "Test", Slug: "test-webhook-update"}
 		require.NoError(t, db.Create(form).Error)
+		require.NoError(t, db.Create(&forms.WebhookDelivery{FormID: form.ID, URL: "https://old.example.com/hook"}).Error)
+		profileID := webhookProfile(t, db)
 
-		webhook := &forms.WebhookDelivery{FormID: form.ID, Enabled: false}
-		require.NoError(t, db.Create(webhook).Error)
+		updated, err := forms.Update(logger, db, forms.UpdateParams{
+			ID:               form.ID,
+			Name:             "Test",
+			WebhookEnabled:   true,
+			WebhookProfileID: profileID,
+		})
 
-		params := forms.UpdateParams{
-			ID:                 form.ID,
-			Name:               "Test",
-			WebhookEnabled:     true,
-			WebhookURL:         "https://new.example.com/webhook",
-			WebhookSecret:      "newsecret",
-			WebhookHeadersJSON: `{"Authorization": "Bearer token"}`,
-		}
-
-		updated, err := forms.Update(logger, db, params)
 		require.NoError(t, err)
-
-		// Reload webhook delivery
-		var webhookDelivery forms.WebhookDelivery
-		require.NoError(t, db.Where("form_id = ?", updated.ID).First(&webhookDelivery).Error)
-		assert.True(t, webhookDelivery.Enabled)
-		assert.Equal(t, "https://new.example.com/webhook", webhookDelivery.URL)
-		assert.Equal(t, "newsecret", webhookDelivery.Secret)
-		assert.Contains(t, webhookDelivery.HeadersJSON, "Bearer token")
+		require.NotNil(t, updated.WebhookDelivery.WebhookProfile)
+		assert.True(t, updated.WebhookDelivery.Delivers())
+		assert.Equal(t, *profileID, updated.WebhookDelivery.WebhookProfile.ID)
+		assert.Empty(t, updated.WebhookDelivery.URL, "the old inline URL is emptied")
 	})
 
 	t.Run("returns error for non-existent form", func(t *testing.T) {

@@ -34,6 +34,7 @@ func SetupTestDB(t *testing.T) *gorm.DB {
 		// Integrations
 		&integrations.MailerProfile{},
 		&integrations.CaptchaProfile{},
+		&integrations.WebhookProfile{},
 	)
 	require.NoError(t, err, "failed to migrate test database")
 

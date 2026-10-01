@@ -1,0 +1,32 @@
+{{ define "admin/webhooks/index/content" }}
+<div class="mx-auto max-w-2xl space-y-6">
+    <div>
+        <a href="/admin/settings" class="back">← Settings</a>
+        <div class="mt-2 flex flex-wrap items-center justify-between gap-3">
+            <h1 class="page-title">Webhook Profiles</h1>
+            <a href="/admin/settings/webhooks/new" class="btn-primary">New Webhook Profile</a>
+        </div>
+        <p class="page-note">A webhook profile is a URL that receives submissions. A form uses one to post each submission to your server or to another service.</p>
+    </div>
+
+    {{ if not .Profiles }}
+    <div class="card px-6 py-12 text-center">
+        <p class="text-base font-medium text-stone-900">No webhook profiles yet</p>
+        <p class="mt-1 text-sm text-stone-500">Your forms work without one. Add one when another program must get each submission.</p>
+    </div>
+    {{ else }}
+    <div class="card overflow-hidden">
+        <ul class="divide-y divide-stone-100">
+            {{ range .Profiles }}
+            <li>
+                <a href="/admin/settings/webhooks/{{ .ID }}" class="block px-5 py-4 transition hover:bg-stone-50 sm:px-6">
+                    <span class="block truncate text-sm font-medium text-stone-900">{{ .Name }}</span>
+                    <span class="mono block truncate text-stone-500">{{ .URL }}</span>
+                </a>
+            </li>
+            {{ end }}
+        </ul>
+    </div>
+    {{ end }}
+</div>
+{{ end }}

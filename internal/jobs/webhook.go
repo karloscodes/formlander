@@ -2,6 +2,7 @@ package jobs
 
 import (
 	"bytes"
+	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
@@ -16,6 +17,7 @@ import (
 
 	"formlander/internal/config"
 	"formlander/internal/forms"
+	"formlander/internal/integrations"
 )
 
 // WebhookDispatcher asynchronously delivers webhook events.
@@ -42,7 +44,7 @@ func (d *WebhookDispatcher) ProcessBatch(ctx *JobContext) error {
 	var events []forms.WebhookEvent
 	if err := db.
 		Preload("Submission").
-		Preload("Submission.Form.WebhookDelivery").
+		Preload("Submission.Form.WebhookDelivery.WebhookProfile").
 		Where("status IN ? AND (next_attempt_at IS NULL OR next_attempt_at <= ?)", []string{forms.WebhookStatusPending, forms.WebhookStatusRetrying}, now).
 		Order("created_at ASC").
 		Limit(10).
@@ -74,9 +76,8 @@ func (d *WebhookDispatcher) handleEvent(ctx *JobContext, db *gorm.DB, event *for
 		}
 	}
 
-	form := event.Submission.Form
-	webhookDelivery := form.WebhookDelivery
-	if webhookDelivery == nil || !webhookDelivery.Enabled || webhookDelivery.URL == "" {
+	delivery := event.Submission.Form.WebhookDelivery
+	if !delivery.Delivers() || delivery.WebhookProfile == nil {
 		// Disable further attempts.
 		MarkWebhookAsFinal(ctx, db, event, forms.WebhookStatusFailed, "webhooks disabled for form")
 		return
@@ -88,34 +89,14 @@ func (d *WebhookDispatcher) handleEvent(ctx *JobContext, db *gorm.DB, event *for
 		return
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, webhookDelivery.URL, bytes.NewReader(body))
-	if err != nil {
-		MarkWebhookAsRetry(ctx, db, event, d.retry, err)
-		return
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("User-Agent", "Formlander/1.0")
-
-	for key, value := range d.resolveHeaders(ctx, webhookDelivery) {
-		req.Header.Set(key, value)
-	}
-
-	if webhookDelivery.Secret != "" {
-		signature := computeSignature(body, webhookDelivery.Secret)
-		req.Header.Set(d.cfg.Webhook.SignatureHeader, signature)
-	}
-
 	start := time.Now()
-	resp, err := d.http.Do(req)
+	status, err := d.post(ctx, delivery.WebhookProfile, body)
 	if err != nil {
 		MarkWebhookAsRetry(ctx, db, event, d.retry, err)
 		return
 	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		MarkWebhookAsRetry(ctx, db, event, d.retry, fmt.Errorf("unexpected status %d", resp.StatusCode))
+	if status < 200 || status >= 300 {
+		MarkWebhookAsRetry(ctx, db, event, d.retry, fmt.Errorf("unexpected status %d", status))
 		return
 	}
 
@@ -159,16 +140,59 @@ func (d *WebhookDispatcher) buildPayload(event *forms.WebhookEvent) ([]byte, err
 	return json.Marshal(payload)
 }
 
-func (d *WebhookDispatcher) resolveHeaders(ctx *JobContext, webhookDelivery *forms.WebhookDelivery) map[string]string {
-	if webhookDelivery == nil || webhookDelivery.HeadersJSON == "" {
-		return map[string]string{}
+// post sends one JSON body to the URL of a webhook profile, with the headers
+// and the signature of the profile. It returns the HTTP status of the answer.
+func (d *WebhookDispatcher) post(ctx context.Context, profile *integrations.WebhookProfile, body []byte) (int, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, profile.URL, bytes.NewReader(body))
+	if err != nil {
+		return 0, err
 	}
-	var headers map[string]string
-	if err := json.Unmarshal([]byte(webhookDelivery.HeadersJSON), &headers); err != nil {
-		ctx.Logger.Warn("invalid webhook headers JSON", slog.Uint64("form_id", uint64(webhookDelivery.FormID)), slog.Any("error", err))
-		return map[string]string{}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("User-Agent", "Formlander/1.0")
+	for _, header := range profile.Headers() {
+		req.Header.Set(header.Name, header.Value)
 	}
-	return headers
+	if profile.Secret != "" {
+		req.Header.Set(d.cfg.Webhook.SignatureHeader, computeSignature(body, profile.Secret))
+	}
+
+	resp, err := d.http.Do(req)
+	if err != nil {
+		return 0, err
+	}
+	defer resp.Body.Close()
+	return resp.StatusCode, nil
+}
+
+// SendTest posts a sample submission to a webhook profile, the same way a
+// real submission goes out, and returns the HTTP status of the answer.
+func (d *WebhookDispatcher) SendTest(ctx context.Context, profile *integrations.WebhookProfile) (int, error) {
+	now := time.Now().UTC()
+	body, err := json.Marshal(map[string]any{
+		"test": true,
+		"form": map[string]any{
+			"id":         0,
+			"public_id":  "test",
+			"name":       "Test from Formlander",
+			"slug":       "test",
+			"created_at": now,
+		},
+		"submission": map[string]any{
+			"id": 0,
+			"data": map[string]any{
+				"name":    "Ada Lovelace",
+				"email":   "ada@example.com",
+				"message": "This is a test from Formlander. No person sent it.",
+			},
+			"received_at": now,
+			"user_agent":  "Formlander/1.0",
+		},
+	})
+	if err != nil {
+		return 0, err
+	}
+	return d.post(ctx, profile, body)
 }
 
 func computeSignature(payload []byte, secret string) string {

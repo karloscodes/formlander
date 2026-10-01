@@ -127,6 +127,8 @@ func MountRoutes(s *cartridge.Server, cfg *config.Config) {
 	s.Post("/admin/forms/:id", httphandlers.AdminFormsUpdate, authConfig)
 	s.Get("/admin/submissions/:id", httphandlers.AdminSubmissionShow, authConfig)
 	s.Get("/admin/submissions/:id/files/:file_id", httphandlers.AdminSubmissionFileDownload, authConfig)
+	s.Post("/admin/submissions/delete", httphandlers.AdminSubmissionsDelete, authConfig)
+	s.Post("/admin/submissions/:id/delete", httphandlers.AdminSubmissionDelete, authConfig)
 
 	// Settings routes
 	s.Get("/admin/settings", httphandlers.AdminSettingsPage, authConfig)
@@ -143,6 +145,7 @@ func MountRoutes(s *cartridge.Server, cfg *config.Config) {
 	s.Get("/admin/settings/mailers/:id/edit", httphandlers.MailerProfileEdit, authConfig)
 	s.Post("/admin/settings/mailers/:id", httphandlers.MailerProfileUpdate, authConfig)
 	s.Post("/admin/settings/mailers/:id/delete", httphandlers.MailerProfileDelete, authConfig)
+	s.Post("/admin/settings/mailers/:id/test", httphandlers.MailerProfileTest, authConfig)
 
 	// Captcha Profile routes
 	s.Get("/admin/settings/captcha", httphandlers.CaptchaProfileList, authConfig)
@@ -152,6 +155,17 @@ func MountRoutes(s *cartridge.Server, cfg *config.Config) {
 	s.Get("/admin/settings/captcha/:id/edit", httphandlers.CaptchaProfileEdit, authConfig)
 	s.Post("/admin/settings/captcha/:id", httphandlers.CaptchaProfileUpdate, authConfig)
 	s.Post("/admin/settings/captcha/:id/delete", httphandlers.CaptchaProfileDelete, authConfig)
+	s.Post("/admin/settings/captcha/:id/test", httphandlers.CaptchaProfileTest, authConfig)
+
+	// Webhook Profile routes
+	s.Get("/admin/settings/webhooks", httphandlers.WebhookProfileList, authConfig)
+	s.Get("/admin/settings/webhooks/new", httphandlers.WebhookProfileNew, authConfig)
+	s.Post("/admin/settings/webhooks", httphandlers.WebhookProfileCreate, authConfig)
+	s.Get("/admin/settings/webhooks/:id", httphandlers.WebhookProfileShow, authConfig)
+	s.Get("/admin/settings/webhooks/:id/edit", httphandlers.WebhookProfileEdit, authConfig)
+	s.Post("/admin/settings/webhooks/:id", httphandlers.WebhookProfileUpdate, authConfig)
+	s.Post("/admin/settings/webhooks/:id/delete", httphandlers.WebhookProfileDelete, authConfig)
+	s.Post("/admin/settings/webhooks/:id/test", httphandlers.WebhookProfileTest, authConfig)
 
 	// Submissions routes
 	s.Get("/admin/submissions", httphandlers.SubmissionList, authConfig)
