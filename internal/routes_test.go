@@ -779,6 +779,19 @@ func TestAdminExportsSubmissions(t *testing.T) {
 		assert.Equal(t, `'=HYPERLINK("http://evil")`, rows[1][3])
 	})
 
+	t.Run("the spam choice keeps the spam, or leaves it out", func(t *testing.T) {
+		require.NoError(t, db.Model(&forms.Submission{}).Where("data_json LIKE ?", "%cy@example.com%").Update("is_spam", true).Error)
+
+		only, err := csv.NewReader(get("/admin/submissions/export.csv?spam=only").Body).ReadAll()
+		require.NoError(t, err)
+		without, err := csv.NewReader(get("/admin/submissions/export.csv?spam=no").Body).ReadAll()
+		require.NoError(t, err)
+
+		require.Len(t, only, 2)
+		assert.Equal(t, "yes", only[1][2])
+		assert.Len(t, without, 3)
+	})
+
 	t.Run("needs a login", func(t *testing.T) {
 		resp, err := ts.App.Test(httptest.NewRequest("GET", "/admin/submissions/export.csv", nil), -1)
 
