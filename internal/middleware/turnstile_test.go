@@ -160,3 +160,59 @@ func TestVerifyTurnstileToken(t *testing.T) {
 		assert.Equal(t, int32(maxRetries), attempts, "should have exhausted all retries")
 	})
 }
+
+func TestCheckTurnstileSecret(t *testing.T) {
+	// cloudflare answers every check with the given error codes.
+	cloudflare := func(t *testing.T, status int, codes ...string) {
+		t.Helper()
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			var req turnstileVerifyRequest
+			require.NoError(t, json.NewDecoder(r.Body).Decode(&req))
+			assert.Equal(t, "the-secret", req.Secret)
+			assert.NotEmpty(t, req.Response, "Cloudflare needs a token to answer about the secret")
+			w.WriteHeader(status)
+			json.NewEncoder(w).Encode(turnstileVerifyResponse{ErrorCodes: codes})
+		}))
+		originalURL := turnstileVerifyURL
+		turnstileVerifyURL = server.URL
+		t.Cleanup(func() {
+			turnstileVerifyURL = originalURL
+			server.Close()
+		})
+	}
+
+	t.Run("accepts a secret when Cloudflare rejects only the token", func(t *testing.T) {
+		cloudflare(t, http.StatusOK, "invalid-input-response")
+
+		accepted, err := CheckTurnstileSecret("the-secret")
+
+		require.NoError(t, err)
+		assert.True(t, accepted)
+	})
+
+	t.Run("rejects a secret that Cloudflare does not know", func(t *testing.T) {
+		// Cloudflare answers a wrong secret with status 400.
+		cloudflare(t, http.StatusBadRequest, "invalid-input-secret")
+
+		accepted, err := CheckTurnstileSecret("the-secret")
+
+		require.NoError(t, err)
+		assert.False(t, accepted)
+	})
+
+	t.Run("returns an error when Cloudflare refuses the request for another reason", func(t *testing.T) {
+		cloudflare(t, http.StatusBadRequest, "bad-request")
+
+		_, err := CheckTurnstileSecret("the-secret")
+
+		assert.ErrorContains(t, err, "bad-request")
+	})
+
+	t.Run("returns an error when Cloudflare does not answer", func(t *testing.T) {
+		cloudflare(t, http.StatusServiceUnavailable)
+
+		_, err := CheckTurnstileSecret("the-secret")
+
+		assert.ErrorIs(t, err, ErrTurnstileUnavailable)
+	})
+}
