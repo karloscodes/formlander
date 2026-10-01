@@ -1,5 +1,5 @@
 {{ define "admin/captcha/new/content" }}
-<div class="max-w-2xl space-y-6">
+<div class="mx-auto max-w-2xl space-y-6">
     <div>
         {{ if .IsEdit }}
         <a href="/admin/settings/captcha/{{ .Profile.ID }}" class="back">← {{ if .Profile.Name }}{{ .Profile.Name }}{{ else }}Captcha{{ end }}</a>

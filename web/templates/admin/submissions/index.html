@@ -18,21 +18,20 @@
     </div>
 
     <form method="GET" action="/admin/submissions" class="flex flex-wrap items-center gap-2">
-        <input type="search" name="q" value="{{ .Search }}" placeholder="Search the submissions" aria-label="Search the submissions"
-            class="field-input mt-0 min-w-0 flex-1 basis-48 text-sm">
-        <select name="form_id" aria-label="Form" onchange="this.form.submit()" class="field-input mt-0 w-auto max-w-full text-sm">
+        <input type="search" name="q" value="{{ .Search }}" placeholder="Search, then press Enter" aria-label="Search the submissions"
+            class="field-compact min-w-0 flex-1 basis-56 sm:max-w-sm">
+        <select name="form_id" aria-label="Form" onchange="this.form.submit()" class="field-compact max-w-full">
             <option value="">All forms</option>
             {{ range .Forms }}
             <option value="{{ .ID }}" {{ if eq $.FormID (printf "%d" .ID) }}selected{{ end }}>{{ .Name }}</option>
             {{ end }}
         </select>
-        <select name="range" aria-label="Time" onchange="this.form.submit()" class="field-input mt-0 w-auto text-sm">
+        <select name="range" aria-label="Time" onchange="this.form.submit()" class="field-compact">
             <option value="all" {{ if or (eq .Range "all") (eq .Range "") }}selected{{ end }}>All time</option>
             <option value="7d" {{ if eq .Range "7d" }}selected{{ end }}>Last 7 days</option>
             <option value="30d" {{ if eq .Range "30d" }}selected{{ end }}>Last 30 days</option>
             <option value="90d" {{ if eq .Range "90d" }}selected{{ end }}>Last 90 days</option>
         </select>
-        <button type="submit" class="btn">Search</button>
         {{ if $filtered }}
         <a href="/admin/submissions" class="back px-2">Clear</a>
         {{ end }}

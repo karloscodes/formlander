@@ -79,19 +79,6 @@
         </div>
     </div>
 
-    <!-- Submissions: what the form is for -->
-    <div class="card overflow-hidden">
-        <div class="card-head">
-            <h2 class="card-title">Submissions</h2>
-            <p class="card-note">{{ if .Submissions }}The newest {{ len .Submissions }}{{ else }}None yet{{ end }}</p>
-        </div>
-        {{ if not .Submissions }}
-        <p class="px-5 py-10 text-center text-sm text-stone-500 sm:px-6">Nothing has arrived. Paste the code below into your site and send a test.</p>
-        {{ else }}
-        {{ template "admin/submissions/list" . }}
-        {{ end }}
-    </div>
-
     <!-- The code to paste -->
     <div class="card">
         <div class="card-head">
@@ -214,6 +201,19 @@
             showCode();
         })();
     </script>
+
+    <!-- Submissions -->
+    <div class="card overflow-hidden">
+        <div class="card-head">
+            <h2 class="card-title">Submissions</h2>
+            <p class="card-note">{{ if .Submissions }}The newest {{ len .Submissions }}{{ else }}None yet{{ end }}</p>
+        </div>
+        {{ if not .Submissions }}
+        <p class="px-5 py-10 text-center text-sm text-stone-500 sm:px-6">Nothing has arrived. Paste the code above into your site and send a test.</p>
+        {{ else }}
+        {{ template "admin/submissions/list" . }}
+        {{ end }}
+    </div>
 
     {{ if or $webhookOn .WebhookEvents }}
     <div class="card overflow-hidden">

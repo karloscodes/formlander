@@ -1,6 +1,6 @@
 {{ define "admin/submissions/show/content" }}
 {{ $fields := details .Submission.DataJSON }}
-<div class="max-w-2xl space-y-6">
+<div class="mx-auto max-w-2xl space-y-6">
     <div>
         {{ if .Submission.Form }}
         <a href="/admin/forms/{{ .Submission.Form.ID }}" class="back">← {{ .Submission.Form.Name }}</a>

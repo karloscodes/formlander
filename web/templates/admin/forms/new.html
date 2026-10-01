@@ -1,6 +1,6 @@
 {{ define "admin/forms/new/content" }}
 {{ $in := .Input }}
-<div class="max-w-2xl space-y-6">
+<div class="mx-auto max-w-2xl space-y-6">
     <div>
         {{ if .IsEdit }}
         <a href="/admin/forms/{{ .Form.ID }}" class="back">← {{ .Form.Name }}</a>

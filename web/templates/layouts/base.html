@@ -79,7 +79,7 @@
                 }
                 var ticked = list.querySelectorAll('input[name="ids"]:checked').length;
                 var button = list.querySelector('[data-delete-selected]');
-                button.disabled = ticked === 0;
+                button.hidden = ticked === 0;
                 button.textContent = ticked ? 'Delete ' + ticked + ' selected' : 'Delete selected';
                 list.querySelector('[data-select-all]').checked = ticked === boxes.length;
             });
