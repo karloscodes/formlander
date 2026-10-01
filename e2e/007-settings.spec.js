@@ -86,12 +86,10 @@ test.describe("Settings Management", () => {
     const captchaName = `test-turnstile-${Date.now()}`;
     const siteKey = `0xTEST-${Date.now()}`;
 
-    // Fill out the new captcha form manually (select fields need special handling)
+    // The form asks for the two keys that Cloudflare shows. The rest is optional.
     await page.fill('input[name="name"]', captchaName);
-    await page.selectOption('select[name="provider"]', "turnstile");
+    await page.fill('input[name="site_key"]', siteKey);
     await page.fill('input[name="secret_key"]', "1x0000000000000000000000000000000AA");
-    await page.fill('textarea[name="site_keys_json"]', JSON.stringify([{ host_pattern: "*", site_key: siteKey }], null, 2));
-    await page.fill('textarea[name="policy_json"]', JSON.stringify({ required: true, action: "submit" }, null, 2));
 
     await page.click('form[action="/admin/settings/captcha"] button[type="submit"]');
     await page.waitForURL("**/admin/settings/captcha");

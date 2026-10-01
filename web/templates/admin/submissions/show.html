@@ -4,7 +4,7 @@
     <div class="flex items-start justify-between">
         <div>
             <div class="flex items-center gap-3 mb-2">
-                <h1 class="text-3xl font-bold text-gray-900">Submission #{{ .Submission.ID }}</h1>
+                <h1 class="text-3xl font-bold text-stone-900">Submission #{{ .Submission.ID }}</h1>
                 {{ if .Submission.IsSpam }}
                 <span
                     class="inline-flex items-center rounded-full bg-red-50 px-3 py-1 text-xs font-medium text-red-700 ring-1 ring-inset ring-red-600/20">
@@ -27,10 +27,10 @@
                 </span>
                 {{ end }}
             </div>
-            <p class="text-sm text-gray-600">Received {{ .Submission.CreatedAt.Format "Jan 2, 2006 at 3:04 PM" }}</p>
+            <p class="text-sm text-stone-600">Received {{ .Submission.CreatedAt.Format "Jan 2, 2006 at 3:04 PM" }}</p>
         </div>
         <a href="/admin/forms/{{ .Submission.FormID }}"
-            class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition-all hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+            class="inline-flex items-center rounded-lg border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-700 shadow-sm transition-all hover:bg-stone-50 focus:outline-none focus:ring-2 focus:ring-stone-900 focus:ring-offset-2">
             <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
             </svg>
@@ -39,40 +39,40 @@
     </div>
 
     <!-- Payload -->
-    <div class="rounded-xl border border-gray-200 bg-white shadow-sm">
-        <div class="border-b border-gray-200 px-6 py-4">
-            <h2 class="text-lg font-semibold text-gray-900">Payload</h2>
-            <p class="text-sm text-gray-500">Form submission data</p>
+    <div class="rounded-xl border border-stone-200 bg-white shadow-sm">
+        <div class="border-b border-stone-200 px-6 py-4">
+            <h2 class="text-lg font-semibold text-stone-900">Payload</h2>
+            <p class="text-sm text-stone-500">Form submission data</p>
         </div>
         <div class="p-6">
             <pre
-                class="max-h-96 overflow-auto rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-900 font-mono">{{ .JSON }}</pre>
+                class="max-h-96 overflow-auto rounded-lg border border-stone-200 bg-stone-50 px-4 py-3 text-sm text-stone-900 font-mono">{{ .JSON }}</pre>
         </div>
     </div>
 
     <!-- Files -->
     {{ if .HasFiles }}
-    <div class="rounded-xl border border-gray-200 bg-white shadow-sm">
-        <div class="border-b border-gray-200 px-6 py-4">
-            <h2 class="text-lg font-semibold text-gray-900">Uploaded Files</h2>
-            <p class="text-sm text-gray-500">{{ len .Submission.Files }} file{{ if ne (len .Submission.Files) 1 }}s{{ end }} attached</p>
+    <div class="rounded-xl border border-stone-200 bg-white shadow-sm">
+        <div class="border-b border-stone-200 px-6 py-4">
+            <h2 class="text-lg font-semibold text-stone-900">Uploaded Files</h2>
+            <p class="text-sm text-stone-500">{{ len .Submission.Files }} file{{ if ne (len .Submission.Files) 1 }}s{{ end }} attached</p>
         </div>
-        <div class="divide-y divide-gray-200">
+        <div class="divide-y divide-stone-200">
             {{ range .Submission.Files }}
             <div class="px-6 py-4 flex items-center justify-between">
                 <div class="flex items-center gap-3">
-                    <div class="flex-shrink-0 w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center">
-                        <svg class="h-5 w-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div class="flex-shrink-0 w-10 h-10 rounded-lg bg-stone-100 flex items-center justify-center">
+                        <svg class="h-5 w-5 text-stone-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                         </svg>
                     </div>
                     <div>
-                        <p class="text-sm font-medium text-gray-900">{{ .Filename }}</p>
-                        <p class="text-xs text-gray-500">{{ .FieldName }} · {{ .Size }} bytes · {{ .ContentType }}</p>
+                        <p class="text-sm font-medium text-stone-900">{{ .Filename }}</p>
+                        <p class="text-xs text-stone-500">{{ .FieldName }} · {{ .Size }} bytes · {{ .ContentType }}</p>
                     </div>
                 </div>
                 <a href="/admin/submissions/{{ .SubmissionID }}/files/{{ .ID }}"
-                    class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 shadow-sm transition-all hover:bg-gray-50">
+                    class="inline-flex items-center rounded-lg border border-stone-300 bg-white px-3 py-1.5 text-xs font-medium text-stone-700 shadow-sm transition-all hover:bg-stone-50">
                     <svg class="mr-1.5 h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                     </svg>
@@ -85,29 +85,29 @@
     {{ end }}
 
     <!-- Metadata -->
-    <div class="rounded-xl border border-gray-200 bg-white shadow-sm">
-        <div class="border-b border-gray-200 px-6 py-4">
-            <h2 class="text-lg font-semibold text-gray-900">Metadata</h2>
-            <p class="text-sm text-gray-500">Request information</p>
+    <div class="rounded-xl border border-stone-200 bg-white shadow-sm">
+        <div class="border-b border-stone-200 px-6 py-4">
+            <h2 class="text-lg font-semibold text-stone-900">Metadata</h2>
+            <p class="text-sm text-stone-500">Request information</p>
         </div>
-        <div class="divide-y divide-gray-200">
+        <div class="divide-y divide-stone-200">
             <div class="grid grid-cols-1 gap-4 px-6 py-4 sm:grid-cols-3">
                 <div class="sm:col-span-1">
-                    <dt class="text-sm font-medium text-gray-500">User Agent</dt>
+                    <dt class="text-sm font-medium text-stone-500">User Agent</dt>
                 </div>
                 <div class="sm:col-span-2">
-                    <dd class="text-sm text-gray-900 break-words">{{ .Submission.UserAgent }}</dd>
+                    <dd class="text-sm text-stone-900 break-words">{{ .Submission.UserAgent }}</dd>
                 </div>
             </div>
             <div class="grid grid-cols-1 gap-4 px-6 py-4 sm:grid-cols-3">
                 <div class="sm:col-span-1">
-                    <dt class="text-sm font-medium text-gray-500">Form</dt>
+                    <dt class="text-sm font-medium text-stone-500">Form</dt>
                 </div>
                 <div class="sm:col-span-2">
-                    <dd class="text-sm text-gray-900">
+                    <dd class="text-sm text-stone-900">
                         {{ if .Submission.Form }}
                         <a href="/admin/forms/{{ .Submission.Form.ID }}"
-                            class="text-blue-600 hover:text-blue-700 hover:underline">
+                            class="text-stone-900 hover:text-stone-900 hover:underline">
                             {{ .Submission.Form.Name }}
                         </a>
                         {{ else }}
@@ -121,12 +121,12 @@
 
     <!-- Webhook Events -->
     {{ if .Submission.WebhookEvents }}
-    <div class="rounded-xl border border-gray-200 bg-white shadow-sm">
-        <div class="border-b border-gray-200 px-6 py-4">
-            <h2 class="text-lg font-semibold text-gray-900">Webhook Deliveries</h2>
-            <p class="text-sm text-gray-500">Forwarding attempts to external endpoints</p>
+    <div class="rounded-xl border border-stone-200 bg-white shadow-sm">
+        <div class="border-b border-stone-200 px-6 py-4">
+            <h2 class="text-lg font-semibold text-stone-900">Webhook Deliveries</h2>
+            <p class="text-sm text-stone-500">Forwarding attempts to external endpoints</p>
         </div>
-        <div class="divide-y divide-gray-200">
+        <div class="divide-y divide-stone-200">
             {{ range .Submission.WebhookEvents }}
             <div class="px-6 py-4">
                 <div class="flex items-start justify-between mb-2">
@@ -147,16 +147,16 @@
                             ⟳ {{ .Status }}
                         </span>
                         {{ end }}
-                        <span class="text-sm text-gray-600">{{ .AttemptCount }} attempt{{ if ne .AttemptCount 1 }}s{{
+                        <span class="text-sm text-stone-600">{{ .AttemptCount }} attempt{{ if ne .AttemptCount 1 }}s{{
                             end }}</span>
                     </div>
                     {{ if .LastAttemptAt }}
-                    <span class="text-xs text-gray-500">{{ .LastAttemptAt.Format "Jan 2 at 3:04 PM" }}</span>
+                    <span class="text-xs text-stone-500">{{ .LastAttemptAt.Format "Jan 2 at 3:04 PM" }}</span>
                     {{ end }}
                 </div>
                 {{ if .LastAttemptErr }}
                 <div class="mt-2">
-                    <p class="text-xs font-medium text-gray-700 mb-1">Error:</p>
+                    <p class="text-xs font-medium text-stone-700 mb-1">Error:</p>
                     <pre
                         class="text-xs text-red-600 bg-red-50 rounded px-2 py-1 overflow-x-auto">{{ .LastAttemptErr }}</pre>
                 </div>
@@ -169,12 +169,12 @@
 
     <!-- Email Events -->
     {{ if .Submission.EmailEvents }}
-    <div class="rounded-xl border border-gray-200 bg-white shadow-sm">
-        <div class="border-b border-gray-200 px-6 py-4">
-            <h2 class="text-lg font-semibold text-gray-900">Email Deliveries</h2>
-            <p class="text-sm text-gray-500">Notification emails sent for this submission</p>
+    <div class="rounded-xl border border-stone-200 bg-white shadow-sm">
+        <div class="border-b border-stone-200 px-6 py-4">
+            <h2 class="text-lg font-semibold text-stone-900">Email Deliveries</h2>
+            <p class="text-sm text-stone-500">Notification emails sent for this submission</p>
         </div>
-        <div class="divide-y divide-gray-200">
+        <div class="divide-y divide-stone-200">
             {{ range .Submission.EmailEvents }}
             <div class="px-6 py-4">
                 <div class="flex items-start justify-between mb-2">
@@ -195,16 +195,16 @@
                             ⟳ {{ .Status }}
                         </span>
                         {{ end }}
-                        <span class="text-sm text-gray-600">{{ .AttemptCount }} attempt{{ if ne .AttemptCount 1 }}s{{
+                        <span class="text-sm text-stone-600">{{ .AttemptCount }} attempt{{ if ne .AttemptCount 1 }}s{{
                             end }}</span>
                     </div>
                     {{ if .LastAttemptAt }}
-                    <span class="text-xs text-gray-500">{{ .LastAttemptAt.Format "Jan 2 at 3:04 PM" }}</span>
+                    <span class="text-xs text-stone-500">{{ .LastAttemptAt.Format "Jan 2 at 3:04 PM" }}</span>
                     {{ end }}
                 </div>
                 {{ if .LastAttemptErr }}
                 <div class="mt-2">
-                    <p class="text-xs font-medium text-gray-700 mb-1">Error:</p>
+                    <p class="text-xs font-medium text-stone-700 mb-1">Error:</p>
                     <pre
                         class="text-xs text-red-600 bg-red-50 rounded px-2 py-1 overflow-x-auto">{{ .LastAttemptErr }}</pre>
                 </div>

@@ -1,6 +1,7 @@
 package http
 
 import (
+	"strings"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -16,6 +17,36 @@ import (
 type siteKeyEntry struct {
 	HostPattern string `json:"host_pattern"`
 	SiteKey     string `json:"site_key"`
+}
+
+// siteKeysFromForm returns the site keys of a profile as the JSON the model
+// keeps. Most profiles have one site key: the form has a field for it, and a
+// field for its domain. The JSON field is for a profile with several domains,
+// and it wins when it is filled.
+func siteKeysFromForm(ctx *cartridge.Context) string {
+	if raw := strings.TrimSpace(ctx.FormValue("site_keys_json")); raw != "" {
+		return raw
+	}
+	siteKey := strings.TrimSpace(ctx.FormValue("site_key"))
+	if siteKey == "" {
+		return ""
+	}
+	host := strings.TrimSpace(ctx.FormValue("host_pattern"))
+	if host == "" {
+		host = "*"
+	}
+	data, _ := json.Marshal([]siteKeyEntry{{HostPattern: host, SiteKey: siteKey}})
+	return string(data)
+}
+
+// firstSiteKey returns the site key and the domain of a profile for the
+// simple fields of the form, and whether the profile has more than one.
+func firstSiteKey(raw string) (siteKey, host string, several bool) {
+	var entries []siteKeyEntry
+	if json.Unmarshal([]byte(raw), &entries) != nil || len(entries) == 0 {
+		return "", "", false
+	}
+	return entries[0].SiteKey, entries[0].HostPattern, len(entries) > 1
 }
 
 // CaptchaProfileList shows all captcha profiles.
@@ -71,7 +102,7 @@ func CaptchaProfileCreate(ctx *cartridge.Context) error {
 		Name:         ctx.FormValue("name"),
 		Provider:     ctx.FormValue("provider"),
 		SecretKey:    ctx.FormValue("secret_key"),
-		SiteKeysJSON: ctx.FormValue("site_keys_json"),
+		SiteKeysJSON: siteKeysFromForm(ctx),
 		PolicyJSON:   ctx.FormValue("policy_json"),
 	}
 
@@ -132,9 +163,13 @@ func CaptchaProfileEdit(ctx *cartridge.Context) error {
 		return fiber.ErrNotFound
 	}
 
+	siteKey, host, several := firstSiteKey(profile.SiteKeysJSON)
 	return ctx.Render("layouts/base", fiber.Map{
 		"Title":       "Edit Captcha Profile",
 		"Profile":     profile,
+		"SiteKey":     siteKey,
+		"Host":        host,
+		"SeveralKeys": several,
 		"IsEdit":      true,
 		"ContentView": "admin/captcha/new/content",
 	}, "")
@@ -155,8 +190,14 @@ func CaptchaProfileUpdate(ctx *cartridge.Context) error {
 		Name:         ctx.FormValue("name"),
 		Provider:     ctx.FormValue("provider"),
 		SecretKey:    ctx.FormValue("secret_key"),
-		SiteKeysJSON: ctx.FormValue("site_keys_json"),
+		SiteKeysJSON: siteKeysFromForm(ctx),
 		PolicyJSON:   ctx.FormValue("policy_json"),
+	}
+	// An empty secret means "keep the one that is saved": the form never shows it.
+	if strings.TrimSpace(params.SecretKey) == "" {
+		if existing, err := integrations.GetCaptchaProfileByID(db, uint(profileID)); err == nil {
+			params.SecretKey = existing.SecretKey
+		}
 	}
 
 	profile, err := integrations.UpdateCaptchaProfile(logger, db, uint(profileID), params)

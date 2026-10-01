@@ -10,93 +10,43 @@
     <link rel="stylesheet" href="/assets/app.built.css?v={{ assetVersion }}">
 </head>
 
-<body hx-boost="true" class="min-h-screen bg-gray-50 text-gray-900 flex flex-col">
-    <!-- Loading indicator -->
+<body hx-boost="true" class="flex min-h-screen flex-col bg-stone-100 text-stone-900 antialiased">
     <div id="page-loader"></div>
 
-    <header class="bg-gradient-to-r from-gray-900 to-gray-800 text-white border-b border-gray-700 shadow-lg">
-        <div class="mx-auto w-full max-w-5xl px-6">
-            <div class="flex items-center justify-between py-6">
-                <div>
-                    <a href="/admin" class="flex items-center gap-2.5 text-2xl font-bold tracking-tight">
-                        <img src="/assets/favicon.svg" alt="" width="28" height="28" class="h-7 w-7">
-                        Formlander
-                    </a>
-                    <p class="mt-1 text-xs text-gray-400">Self-hosted form backend</p>
-                </div>
-                {{ if not .HideHeaderActions }}
-                <div class="flex items-center gap-6">
-                    <nav class="flex items-center gap-1">
-                        <a href="/admin"
-                            class="rounded-lg px-3 py-2 text-sm font-medium text-gray-300 transition-colors hover:bg-white/10 hover:text-white">
-                            Dashboard
-                        </a>
-                        <a href="/admin/forms"
-                            class="rounded-lg px-3 py-2 text-sm font-medium text-gray-300 transition-colors hover:bg-white/10 hover:text-white">
-                            Forms
-                        </a>
-                        <a href="/admin/submissions"
-                            class="rounded-lg px-3 py-2 text-sm font-medium text-gray-300 transition-colors hover:bg-white/10 hover:text-white">
-                            Submissions
-                        </a>
-                        <a href="/admin/settings/mailers"
-                            class="rounded-lg px-3 py-2 text-sm font-medium text-gray-300 transition-colors hover:bg-white/10 hover:text-white">
-                            Mailers
-                        </a>
-                        <a href="/admin/settings/captcha"
-                            class="rounded-lg px-3 py-2 text-sm font-medium text-gray-300 transition-colors hover:bg-white/10 hover:text-white">
-                            Captcha
-                        </a>
-                        <a href="/admin/settings"
-                            class="rounded-lg px-3 py-2 text-sm font-medium text-gray-300 transition-colors hover:bg-white/10 hover:text-white">
-                            Settings
-                        </a>
-                    </nav>
-                    <div class="h-6 w-px bg-gray-700"></div>
-                    <form action="/admin/logout" method="post">
-                        <button type="submit"
-                            class="rounded-lg border border-gray-600 bg-gray-700 px-4 py-2 text-sm font-medium text-white transition-all hover:bg-gray-600 hover:shadow focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900">
-                            Sign out
-                        </button>
-                    </form>
-                </div>
-                {{ end }}
-            </div>
+    <header class="border-b border-stone-200 bg-white">
+        <div class="mx-auto flex w-full max-w-5xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3 sm:px-6">
+            <a href="/admin" class="flex items-center gap-2 text-base font-semibold tracking-tight">
+                <img src="/assets/favicon.svg" alt="" width="24" height="24" class="h-6 w-6">
+                Formlander
+            </a>
+            {{ if not .HideHeaderActions }}
+            <nav class="order-last flex w-full items-center gap-1 text-sm sm:order-none sm:w-auto" aria-label="Main">
+                <a href="/admin/forms" class="rounded-lg px-3 py-1.5 font-medium text-stone-600 hover:bg-stone-100 hover:text-stone-900">Forms</a>
+                <a href="/admin/submissions" class="rounded-lg px-3 py-1.5 font-medium text-stone-600 hover:bg-stone-100 hover:text-stone-900">Submissions</a>
+                <a href="/admin/settings" class="rounded-lg px-3 py-1.5 font-medium text-stone-600 hover:bg-stone-100 hover:text-stone-900">Settings</a>
+            </nav>
+            <form action="/admin/logout" method="post" class="ml-auto">
+                <button type="submit" class="rounded-lg px-3 py-1.5 text-sm font-medium text-stone-500 hover:bg-stone-100 hover:text-stone-900">Sign out</button>
+            </form>
+            {{ end }}
         </div>
     </header>
-    <main class="flex-1 w-full max-w-5xl mx-auto px-6 py-12 space-y-10">
+    <main class="mx-auto w-full max-w-5xl flex-1 space-y-8 px-4 py-8 sm:px-6 sm:py-10">
         {{ if .ContentView }}
         {{ render .ContentView . }}
         {{ end }}
     </main>
-    <footer class="border-t border-gray-200 bg-white py-4 text-center text-xs text-gray-500">
-        <span class="font-mono">{ self-hosted }</span> · Made with ❤️ by <a href="https://x.com/karloscodes"
-            target="_blank" class="text-blue-600 hover:text-blue-700">@karloscodes</a>
+    <footer class="py-6 text-center text-xs text-stone-400">
+        Formlander, by <a href="https://x.com/karloscodes" target="_blank" rel="noopener" class="hover:text-stone-600">@karloscodes</a>
     </footer>
     <script src="/assets/vendor/htmx.min.js?v={{ assetVersion }}"></script>
     <script>
-        // Debug: Force show loader and add event listeners
-        console.log('HTMX loaded:', typeof htmx !== 'undefined');
-        console.log('Loader element:', document.getElementById('page-loader'));
-
-        // Show loader on any htmx request
+        // A thin bar at the top while a page loads.
         document.body.addEventListener('htmx:beforeRequest', function () {
-            console.log('HTMX request starting');
-            const loader = document.getElementById('page-loader');
-            if (loader) {
-                loader.style.opacity = '1';
-                loader.style.background = '#10b981';
-            }
+            document.getElementById('page-loader').style.opacity = '1';
         });
-
         document.body.addEventListener('htmx:afterRequest', function () {
-            console.log('HTMX request complete');
-            const loader = document.getElementById('page-loader');
-            if (loader) {
-                setTimeout(() => {
-                    loader.style.opacity = '0';
-                }, 300);
-            }
+            setTimeout(function () { document.getElementById('page-loader').style.opacity = '0'; }, 300);
         });
     </script>
 </body>

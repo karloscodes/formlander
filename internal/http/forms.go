@@ -249,6 +249,8 @@ func AdminFormShow(ctx *cartridge.Context) error {
 		"Form":             form,
 		"Submissions":      submissions,
 		"Endpoint":         endpoint,
+		"ActionURL":        actionURL,
+		"CaptchaSiteKey":   captchaSiteKey(form),
 		"Token":            form.Token,
 		"WebhookEvents":    webhookEvents,
 		"EmailEvents":      emailEvents,
@@ -728,14 +730,23 @@ func buildCaptchaEmbed(form *forms.Form) *captchaEmbed {
 	}
 }
 
+// captchaSiteKey returns the public site key that the captcha of a form uses
+// on its allowed sites, or "" when the form has no captcha or no key fits.
+func captchaSiteKey(form *forms.Form) string {
+	if form == nil || form.CaptchaProfile == nil {
+		return ""
+	}
+	policy := parseCaptchaPolicy(form.CaptchaProfile.PolicyJSON, form.CaptchaOverridesJSON)
+	if key := strings.TrimSpace(policy.SiteKey); key != "" {
+		return key
+	}
+	return selectCaptchaSiteKey(form, parseCaptchaSiteKeys(form.CaptchaProfile.SiteKeysJSON))
+}
+
 func buildTurnstileEmbed(form *forms.Form) *captchaEmbed {
 	profile := form.CaptchaProfile
 	policy := parseCaptchaPolicy(profile.PolicyJSON, form.CaptchaOverridesJSON)
-	siteKey := strings.TrimSpace(policy.SiteKey)
-	if siteKey == "" {
-		siteKeys := parseCaptchaSiteKeys(profile.SiteKeysJSON)
-		siteKey = selectCaptchaSiteKey(form, siteKeys)
-	}
+	siteKey := captchaSiteKey(form)
 	if siteKey == "" {
 		siteKey = "YOUR_TURNSTILE_SITE_KEY"
 	}

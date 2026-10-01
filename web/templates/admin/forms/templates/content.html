@@ -3,8 +3,8 @@
     <!-- Header -->
     <div class="flex items-center justify-between">
         <div>
-            <h1 class="text-3xl font-bold text-gray-900">Pick a starting point</h1>
-            <p class="mt-1 max-w-2xl text-sm text-gray-600">A template is just HTML to copy into your site. Formlander saves whatever fields your form sends, so add, rename, or remove fields any time. There is no schema to update.</p>
+            <h1 class="text-3xl font-bold text-stone-900">Pick a starting point</h1>
+            <p class="mt-1 max-w-2xl text-sm text-stone-600">A template is just HTML to copy into your site. Formlander saves whatever fields your form sends, so add, rename, or remove fields any time. There is no schema to update.</p>
         </div>
     </div>
 
@@ -14,7 +14,7 @@
         {{ if .ComingSoon }}
         <!-- Coming Soon Template -->
         <div
-            class="group relative rounded-xl border-2 border-gray-200 bg-gray-50 p-6 shadow-sm cursor-not-allowed opacity-75">
+            class="group relative rounded-xl border-2 border-stone-200 bg-stone-50 p-6 shadow-sm cursor-not-allowed opacity-75">
             <!-- Coming Soon Badge -->
             <div
                 class="absolute -top-2 -right-2 bg-indigo-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">
@@ -28,17 +28,17 @@
 
             <!-- Content -->
             <div class="space-y-2">
-                <h3 class="text-lg font-semibold text-gray-700">
+                <h3 class="text-lg font-semibold text-stone-700">
                     {{ .Name }}
                 </h3>
-                <p class="text-sm text-gray-500 leading-relaxed">
+                <p class="text-sm text-stone-500 leading-relaxed">
                     {{ .Description }}
                 </p>
             </div>
 
             {{ if .EmailDelivery }}{{ if .EmailDelivery.Enabled }}
             <div
-                class="mt-4 inline-flex items-center gap-1 rounded-full bg-gray-200 px-3 py-1 text-xs font-medium text-gray-600">
+                class="mt-4 inline-flex items-center gap-1 rounded-full bg-stone-200 px-3 py-1 text-xs font-medium text-stone-600">
                 <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                         d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
@@ -50,7 +50,7 @@
         {{ else }}
         <!-- Regular Template -->
         <a href="/admin/forms/new?template={{ .ID }}"
-            class="group relative rounded-xl border-2 border-gray-200 bg-white p-6 shadow-sm transition-all hover:border-{{ .Color }}-500 hover:shadow-lg hover:-translate-y-1">
+            class="group relative rounded-xl border-2 border-stone-200 bg-white p-6 shadow-sm transition-all hover:border-{{ .Color }}-500 hover:shadow-lg hover:-translate-y-1">
             
             {{ if .WIP }}
             <!-- WIP Badge -->
@@ -67,10 +67,10 @@
 
             <!-- Content -->
             <div class="space-y-2">
-                <h3 class="text-lg font-semibold text-gray-900 group-hover:text-{{ .Color }}-600 transition-colors">
+                <h3 class="text-lg font-semibold text-stone-900 group-hover:text-{{ .Color }}-600 transition-colors">
                     {{ .Name }}
                 </h3>
-                <p class="text-sm text-gray-600 leading-relaxed">
+                <p class="text-sm text-stone-600 leading-relaxed">
                     {{ .Description }}
                 </p>
             </div>
@@ -85,7 +85,7 @@
 
             {{ if .EmailDelivery }}{{ if .EmailDelivery.Enabled }}
             <div
-                class="mt-4 inline-flex items-center gap-1 rounded-full bg-purple-50 px-3 py-1 text-xs font-medium text-purple-700">
+                class="mt-4 inline-flex items-center gap-1 rounded-full bg-purple-50 px-3 py-1 text-xs font-medium text-stone-900">
                 <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                         d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
@@ -101,7 +101,7 @@
     <!-- Back Button -->
     <div class="flex justify-center pt-4">
         <a href="/admin/forms"
-            class="inline-flex items-center text-sm text-gray-600 hover:text-gray-900 transition-colors">
+            class="inline-flex items-center text-sm text-stone-600 hover:text-stone-900 transition-colors">
             <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
             </svg>
@@ -112,11 +112,11 @@
 
 <style>
     /* Tailwind's JIT doesn't generate dynamic classes, so we need to add them explicitly */
-    .hover\:border-blue-500:hover {
+    .hover\:border-stone-900:hover {
         border-color: rgb(59 130 246);
     }
 
-    .hover\:text-blue-600:hover {
+    .hover\:text-stone-900:hover {
         color: rgb(37 99 235);
     }
 
@@ -132,7 +132,7 @@
         border-color: rgb(168 85 247);
     }
 
-    .hover\:text-purple-600:hover {
+    .hover\:text-stone-900:hover {
         color: rgb(147 51 234);
     }
 
@@ -192,19 +192,19 @@
         background-color: rgb(254 249 195);
     }
 
-    .hover\:border-gray-500:hover {
+    .hover\:border-stone-500:hover {
         border-color: rgb(107 114 128);
     }
 
-    .hover\:text-gray-600:hover {
+    .hover\:text-stone-600:hover {
         color: rgb(75 85 99);
     }
 
-    .text-gray-500 {
+    .text-stone-500 {
         color: rgb(107 114 128);
     }
 
-    .bg-gray-100 {
+    .bg-stone-100 {
         background-color: rgb(243 244 246);
     }
 
@@ -212,7 +212,7 @@
         border-color: rgb(99 102 241);
     }
 
-    .hover\:text-indigo-600:hover {
+    .hover\:text-stone-900:hover {
         color: rgb(79 70 229);
     }
 

@@ -1,233 +1,130 @@
 {{ define "admin/forms/show/content" }}
 {{ $webhookDelivery := .Form.WebhookDelivery }}
 {{ $emailDelivery := .Form.EmailDelivery }}
-<div class="mx-auto max-w-7xl space-y-8 px-4 py-8 sm:px-6 lg:px-8">
-    <!-- Header -->
-    <div class="flex items-center justify-between">
-        <div>
-            <h1 class="text-3xl font-bold tracking-tight text-gray-900">{{ .Form.Name }}</h1>
-            <p class="mt-2 text-sm text-gray-600">Form details and configuration</p>
-        </div>
-        <div class="flex gap-2">
-            <a href="/admin/forms/{{ .Form.ID }}/edit"
-                class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition-all hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
-                <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                </svg>
-                Edit Form
-            </a>
-            <a href="/admin/forms"
-                class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition-all hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
-                <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                </svg>
-                Back to Forms
-            </a>
+{{ $webhookOn := and $webhookDelivery $webhookDelivery.Enabled }}
+{{ $emailOn := and $emailDelivery $emailDelivery.Enabled }}
+<div class="space-y-6">
+    <div>
+        <a href="/admin/forms" class="text-sm text-stone-500 hover:text-stone-900">← Forms</a>
+        <div class="mt-2 flex flex-wrap items-center justify-between gap-3">
+            <h1 class="text-2xl font-semibold tracking-tight text-stone-900">{{ .Form.Name }}</h1>
+            <a href="/admin/forms/{{ .Form.ID }}/edit" class="btn">Edit Form</a>
         </div>
     </div>
 
-    <!-- Form Info -->
-    <div class="rounded-xl border border-gray-200 bg-white shadow-sm">
-        <div class="border-b border-gray-200 px-6 py-4">
-            <h2 class="text-lg font-semibold text-gray-900">Form Information</h2>
+    {{ if not .Form.AllowedOrigins }}
+    <div class="notice notice-bad">
+        <b>No site can submit to this form yet.</b> Add your domain under Allowed sites, or every submission gets "origin not allowed".
+        <a href="/admin/forms/{{ .Form.ID }}/edit" class="link">Add it</a>
+    </div>
+    {{ end }}
+
+    <!-- The one thing to copy -->
+    <div class="card">
+        <div class="card-head">
+            <h2 class="card-title">Endpoint</h2>
+            <p class="card-note">Your form posts here.</p>
         </div>
-        <div class="grid gap-6 p-6 sm:grid-cols-2">
-            <div>
-                <dt class="text-sm font-medium text-gray-500">Slug</dt>
-                <dd class="mt-1 text-base font-mono text-gray-900">{{ .Form.Slug }}</dd>
+        <div class="space-y-5 p-5 sm:p-6">
+            <div class="flex flex-wrap items-center gap-2">
+                <code id="endpoint" class="mono min-w-0 flex-1 break-all rounded-lg bg-stone-100 px-3 py-2 text-stone-900">{{ .ActionURL }}</code>
+                <button type="button" class="btn btn-small" onclick="copyText(document.getElementById('endpoint').textContent, this)">Copy</button>
             </div>
-            <div>
-                <dt class="text-sm font-medium text-gray-500">Form ID</dt>
-                <dd class="mt-1 flex items-center gap-2">
-                    <code class="text-sm font-mono text-gray-900">{{ .Form.PublicID }}</code>
-                    <span class="text-xs text-gray-500">#{{ .Form.ID }}</span>
-                </dd>
-            </div>
-            <div>
-                <dt class="text-sm font-medium text-gray-500">Token</dt>
-                <dd class="mt-1">
-                    <code class="text-sm font-mono text-gray-900">{{ .Token }}</code>
-                </dd>
-            </div>
-            <div>
-                <dt class="text-sm font-medium text-gray-500">Captcha Protection</dt>
-                <dd class="mt-1">
-                    {{ if .Form.CaptchaProfileID }}
-                    <span
-                        class="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-800">
-                        <svg class="mr-1 h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
-                            <path fill-rule="evenodd"
-                                d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                                clip-rule="evenodd" />
-                        </svg>
-                        Enabled
-                    </span>
-                    {{ else }}
-                    <span
-                        class="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-800">
-                        Disabled
-                    </span>
-                    {{ end }}
-                </dd>
-            </div>
-            <div>
-                <dt class="text-sm font-medium text-gray-500">Allowed Origins</dt>
-                <dd class="mt-1">
-                    {{ if .Form.AllowedOrigins }}
-                    <code class="text-sm font-mono text-gray-900">{{ .Form.AllowedOrigins }}</code>
-                    {{ else }}
-                    <span
-                        class="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-800">
-                        <svg class="mr-1 h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
-                            <path fill-rule="evenodd"
-                                d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
-                                clip-rule="evenodd" />
-                        </svg>
-                        All Origins (Not Recommended)
-                    </span>
-                    {{ end }}
-                </dd>
-            </div>
-            <div class="sm:col-span-2">
-                <dt class="text-sm font-medium text-gray-500">Endpoint</dt>
-                <dd class="mt-1 flex items-center gap-2">
-                    <code
-                        class="flex-1 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 font-mono text-sm text-gray-900">POST {{ .Endpoint }}?token={{ .Token }}</code>
-                </dd>
-            </div>
+
+            <dl class="grid gap-x-8 gap-y-4 text-sm sm:grid-cols-3">
+                <div>
+                    <dt class="text-stone-500">Allowed sites</dt>
+                    <dd class="mt-1">
+                        {{ if eq .Form.AllowedOrigins "*" }}
+                        <span class="pill pill-warn">Any site</span>
+                        <p class="mt-1 text-stone-500">Safer: name your domain.</p>
+                        {{ else if .Form.AllowedOrigins }}
+                        <span class="mono break-all text-stone-900">{{ .Form.AllowedOrigins }}</span>
+                        {{ else }}
+                        <span class="pill pill-bad">None</span>
+                        {{ end }}
+                    </dd>
+                </div>
+                <div>
+                    <dt class="text-stone-500">Captcha</dt>
+                    <dd class="mt-1">
+                        {{ if .Form.CaptchaProfile }}
+                        <span class="pill pill-ok">On</span> <span class="text-stone-900">{{ .Form.CaptchaProfile.Name }}</span>
+                        {{ if .CaptchaSiteKey }}<p class="mono mt-1 break-all text-stone-500">site key {{ .CaptchaSiteKey }}</p>
+                        {{ else }}<p class="mt-1 text-red-700">This profile has no site key for the allowed sites.</p>{{ end }}
+                        {{ else }}
+                        <span class="pill">Off</span>
+                        {{ end }}
+                    </dd>
+                </div>
+                <div>
+                    <dt class="text-stone-500">Who gets told</dt>
+                    <dd class="mt-1 space-y-1">
+                        {{ if $emailOn }}<p class="break-all text-stone-900">Email to {{ if .EmailRecipient }}{{ .EmailRecipient }}{{ else }}the default address{{ end }}</p>{{ end }}
+                        {{ if $webhookOn }}<p class="mono break-all text-stone-900">{{ $webhookDelivery.URL }}</p>{{ end }}
+                        {{ if and (not $emailOn) (not $webhookOn) }}
+                        <span class="pill">Nobody</span>
+                        <p class="mt-1 text-stone-500">Submissions wait here until you look.</p>
+                        {{ end }}
+                    </dd>
+                </div>
+            </dl>
         </div>
     </div>
 
-    <!-- Delivery Configuration -->
-    <div class="rounded-xl border border-gray-200 bg-white shadow-sm">
-        <div class="border-b border-gray-200 px-6 py-4">
-            <h2 class="text-lg font-semibold text-gray-900">Delivery Configuration</h2>
+    <!-- Submissions: what the form is for -->
+    <div class="card overflow-hidden">
+        <div class="card-head">
+            <h2 class="card-title">Submissions</h2>
+            <p class="card-note">{{ if .Submissions }}The newest {{ len .Submissions }}{{ else }}None yet{{ end }}</p>
         </div>
-        <div class="grid gap-6 p-6 sm:grid-cols-2">
-            <div>
-                <dt class="text-sm font-medium text-gray-500">Webhook Delivery</dt>
-                <dd class="mt-2">
-                    {{ if and $webhookDelivery $webhookDelivery.Enabled }}
-                    <div class="space-y-2">
-                        <span
-                            class="inline-flex items-center rounded-full bg-indigo-100 px-2.5 py-0.5 text-xs font-medium text-indigo-800">
-                            <svg class="mr-1 h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd"
-                                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                                    clip-rule="evenodd" />
-                            </svg>
-                            Enabled
-                        </span>
-                        <p class="text-sm font-mono text-gray-900 break-all">{{ $webhookDelivery.URL }}</p>
-                    </div>
-                    {{ else }}
-                    <span
-                        class="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-800">
-                        Disabled
+        {{ if not .Submissions }}
+        <p class="px-5 py-10 text-center text-sm text-stone-500 sm:px-6">Nothing has arrived. Paste the code below into your site and send a test.</p>
+        {{ else }}
+        <ul class="divide-y divide-stone-100">
+            {{ range .Submissions }}
+            <li>
+                <a href="/admin/submissions/{{ .ID }}" class="flex items-baseline gap-4 px-5 py-3 transition hover:bg-stone-50 sm:px-6">
+                    <span class="min-w-0 flex-1">
+                        <span class="block truncate text-sm font-medium text-stone-900">{{ if who .DataJSON }}{{ who .DataJSON }}{{ else }}Someone{{ end }}{{ if .IsSpam }} <span class="pill pill-warn">spam</span>{{ end }}</span>
+                        <span class="block truncate text-sm text-stone-500">{{ gist .DataJSON }}</span>
                     </span>
-                    {{ end }}
-                </dd>
-            </div>
-            <div>
-                <dt class="text-sm font-medium text-gray-500">Email Forwarding</dt>
-                <dd class="mt-2">
-                    {{ if and $emailDelivery $emailDelivery.Enabled }}
-                    <div class="space-y-2">
-                        <span
-                            class="inline-flex items-center rounded-full bg-purple-100 px-2.5 py-0.5 text-xs font-medium text-purple-800">
-                            <svg class="mr-1 h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd"
-                                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                                    clip-rule="evenodd" />
-                            </svg>
-                            Enabled
-                        </span>
-                        <p class="text-sm text-gray-900">{{ $.EmailRecipient }}</p>
-                    </div>
-                    {{ else }}
-                    <span
-                        class="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-800">
-                        Disabled
-                    </span>
-                    {{ end }}
-                </dd>
-            </div>
-        </div>
+                    <span class="whitespace-nowrap text-xs text-stone-400" title="{{ .CreatedAt.Format "Jan 2, 2006 15:04 MST" }}">{{ ago .CreatedAt }}</span>
+                </a>
+            </li>
+            {{ end }}
+        </ul>
+        {{ end }}
     </div>
 
-    <!-- Form Code & Preview -->
-    <div class="rounded-xl border border-gray-200 bg-white shadow-sm">
-        <div class="border-b border-gray-200 px-6 py-4">
-            <h2 class="text-lg font-semibold text-gray-900">Starter Template</h2>
-            <p class="mt-1 text-sm text-gray-600">
-                Copy this HTML into your site and change it however you like. Formlander saves every field the form sends: add an input and it shows up in your submissions. Nothing to set up here.
-                <a href="https://formlander.com/docs/integration/#no-schema-required" target="_blank" rel="noopener" class="text-blue-600 hover:text-blue-700 font-medium">Learn more →</a>
-            </p>
-            <!-- SDK Toggle -->
-            <div class="mt-4 flex items-center gap-2">
-                <input type="checkbox" id="include-sdk" onchange="toggleSDK()"
-                    class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                    {{ if .Form.UseSDK }}checked{{ end }}>
-                <label for="include-sdk" class="text-sm font-medium text-gray-700">
-                    Include JavaScript SDK
-                </label>
-                <span class="text-xs text-gray-500">(adds automatic retry & loading states)</span>
-            </div>
+    <!-- The code to paste -->
+    <div class="card">
+        <div class="card-head">
+            <h2 class="card-title">Code for your site</h2>
+            <p class="card-note">Change it as you like. Formlander saves every field the form sends.</p>
         </div>
-
-        <!-- Tabs -->
-        <div class="border-b border-gray-200">
-            <nav class="flex -mb-px px-6" aria-label="Tabs">
-                <button type="button" onclick="switchTab('source')" id="tab-source"
-                    class="tab-button border-b-2 border-blue-500 py-4 px-4 text-center text-sm font-medium text-blue-600">
-                    <svg class="inline-block mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-                    </svg>
-                    Source Code
-                </button>
-                <button type="button" onclick="switchTab('preview')" id="tab-preview"
-                    class="tab-button border-b-2 border-transparent py-4 px-4 text-center text-sm font-medium text-gray-500 hover:border-gray-300 hover:text-gray-700">
-                    <svg class="inline-block mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                    </svg>
-                    Example Preview
-                </button>
+        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-stone-100 px-5 sm:px-6">
+            <nav class="-mb-px flex gap-5" aria-label="Tabs">
+                <button type="button" onclick="switchTab('source')" id="tab-source" class="tab-button border-b-2 border-stone-900 py-3 text-sm font-medium text-stone-900">Source Code</button>
+                <button type="button" onclick="switchTab('preview')" id="tab-preview" class="tab-button border-b-2 border-transparent py-3 text-sm font-medium text-stone-500">Example Preview</button>
             </nav>
+            <label for="include-sdk" class="flex items-center gap-2 py-2 text-sm text-stone-600">
+                <input type="checkbox" id="include-sdk" onchange="toggleSDK()" class="h-4 w-4 rounded border-stone-300 text-stone-900 focus:ring-stone-900" {{ if .Form.UseSDK }}checked{{ end }}>
+                Include JavaScript SDK <span class="text-stone-400">(retries, loading states)</span>
+            </label>
         </div>
 
-        <!-- Source Code Panel -->
-        <div id="panel-source" class="tab-panel p-6">
+        <div id="panel-source" class="tab-panel p-5 sm:p-6">
             <div class="relative">
-                <button onclick="copyCode()"
-                    class="absolute top-2 right-2 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 shadow-sm transition-all hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <svg class="inline-block mr-1 h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                    </svg>
-                    Copy
-                </button>
-                <pre class="overflow-x-auto rounded-lg border border-gray-200 bg-gray-900 p-4 font-mono text-xs"
-                    style="max-height: 600px;"><code id="form-code" class="language-html text-gray-100">{{ .FormCode }}</code></pre>
+                <button type="button" onclick="copyCode(this)" class="btn btn-small absolute right-2 top-2">Copy</button>
+                <pre class="overflow-x-auto rounded-xl bg-stone-900 p-4 font-mono text-xs" style="max-height: 480px;"><code id="form-code" class="language-html text-stone-100">{{ .FormCode }}</code></pre>
             </div>
         </div>
 
-        <!-- Preview Panel -->
-        <div id="panel-preview" class="tab-panel hidden p-6">
-            <div class="rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 p-6">
-                <div class="mb-4 flex items-center justify-between">
-                    <span class="text-sm font-medium text-gray-700">Example Preview</span>
-                    <span class="text-xs text-gray-500">Yours will look different—and that's the point</span>
-                </div>
-                <div class="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-                    <iframe id="form-preview" sandbox="allow-scripts allow-same-origin" class="w-full border-0"
-                        style="min-height: 400px;" onload="resizePreview()"></iframe>
-                </div>
+        <div id="panel-preview" class="tab-panel hidden p-5 sm:p-6">
+            <p class="mb-3 text-sm text-stone-500">An example. Yours will look like your site.</p>
+            <div class="rounded-xl bg-stone-50 p-4 ring-1 ring-stone-200">
+                <iframe id="form-preview" sandbox="allow-scripts allow-same-origin" class="w-full border-0" style="min-height: 400px;" onload="resizePreview()"></iframe>
             </div>
         </div>
     </div>
@@ -281,16 +178,16 @@
                 const panel = document.getElementById('panel-' + t);
 
                 if (t === tab) {
-                    button.classList.remove('border-transparent', 'text-gray-500', 'hover:border-gray-300', 'hover:text-gray-700');
-                    button.classList.add('border-blue-500', 'text-blue-600');
+                    button.classList.remove('border-transparent', 'text-stone-500');
+                    button.classList.add('border-stone-900', 'text-stone-900');
                     panel.classList.remove('hidden');
 
                     if (t === 'preview') {
                         loadPreview();
                     }
                 } else {
-                    button.classList.add('border-transparent', 'text-gray-500', 'hover:border-gray-300', 'hover:text-gray-700');
-                    button.classList.remove('border-blue-500', 'text-blue-600');
+                    button.classList.add('border-transparent', 'text-stone-500');
+                    button.classList.remove('border-stone-900', 'text-stone-900');
                     panel.classList.add('hidden');
                 }
             });
@@ -373,201 +270,70 @@ ${doc.body.innerHTML}
             }
         }
 
-        // Copy code to clipboard
-        function copyCode() {
-            const code = document.getElementById('form-code').textContent;
-            navigator.clipboard.writeText(code).then(() => {
-                alert('Code copied to clipboard!');
-            }).catch(err => {
-                console.error('Failed to copy:', err);
+        // Copy a text and say so on the button, for a moment.
+        function copyText(text, button) {
+            navigator.clipboard.writeText(text).then(() => {
+                const label = button.textContent;
+                button.textContent = 'Copied';
+                setTimeout(() => { button.textContent = label; }, 1500);
             });
+        }
+        function copyCode(button) {
+            copyText(document.getElementById('form-code').textContent, button);
         }
     </script>
 
-    <!-- Recent Submissions -->
-    <div class="rounded-xl border border-gray-200 bg-white shadow-sm">
-        <div class="border-b border-gray-200 px-6 py-4">
-            <h2 class="text-lg font-semibold text-gray-900">Recent Submissions</h2>
-            <p class="mt-1 text-sm text-gray-600">Last 25 form submissions</p>
-        </div>
-        {{ if not .Submissions }}
-        <div class="px-6 py-12">
-            <div class="text-center">
-                <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                <p class="mt-4 text-sm text-gray-500">No submissions yet.</p>
-            </div>
-        </div>
-        {{ else }}
-        <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200">
-                <thead class="bg-gray-50">
-                    <tr>
-                        <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">When
-                        </th>
-                        <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                            Summary</th>
-                        <th class="relative px-6 py-3"><span class="sr-only">Actions</span></th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-200 bg-white">
-                    {{ range .Submissions }}
-                    <tr class="transition-colors hover:bg-gray-50">
-                        <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500">{{ .CreatedAt.Format "Jan 2 15:04"
-                            }}</td>
-                        <td class="px-6 py-4 font-mono text-xs text-gray-900">{{ truncateJSON .DataJSON }}</td>
-                        <td class="whitespace-nowrap px-6 py-4 text-right text-sm">
-                            <a href="/admin/submissions/{{ .ID }}"
-                                class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition-all hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                View
-                            </a>
-                        </td>
-                    </tr>
-                    {{ end }}
-                </tbody>
-            </table>
-        </div>
-        {{ end }}
-    </div>
 
-    <!-- Webhook Deliveries -->
-    <div class="rounded-xl border border-gray-200 bg-white shadow-sm">
-        <div class="border-b border-gray-200 px-6 py-4">
-            <h2 class="text-lg font-semibold text-gray-900">Webhook Deliveries</h2>
-            <p class="mt-1 text-sm text-gray-600">Recent webhook delivery attempts</p>
+    {{ if or $webhookOn .WebhookEvents }}
+    <div class="card overflow-hidden">
+        <div class="card-head">
+            <h2 class="card-title">Webhook Deliveries</h2>
+            <p class="card-note">The last attempts</p>
         </div>
         {{ if not .WebhookEvents }}
-        <div class="px-6 py-12">
-            <div class="text-center">
-                <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-                <p class="mt-4 text-sm text-gray-500">No webhook activity yet.</p>
-            </div>
-        </div>
+        <p class="px-5 py-8 text-center text-sm text-stone-500 sm:px-6">No webhook was sent yet.</p>
         {{ else }}
-        <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200">
-                <thead class="bg-gray-50">
-                    <tr>
-                        <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                            Submission</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                            Status</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                            Attempts</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Last
-                            Attempt</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-200 bg-white">
-                    {{ range .WebhookEvents }}
-                    <tr class="align-top transition-colors hover:bg-gray-50">
-                        <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500">#{{ .SubmissionID }}</td>
-                        <td class="whitespace-nowrap px-6 py-4">
-                            {{ if eq .Status "success" }}
-                            <span
-                                class="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-800">
-                                {{ .Status }}
-                            </span>
-                            {{ else if eq .Status "failed" }}
-                            <span
-                                class="inline-flex items-center rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-medium text-red-800">
-                                {{ .Status }}
-                            </span>
-                            {{ else }}
-                            <span
-                                class="inline-flex items-center rounded-full bg-yellow-100 px-2.5 py-0.5 text-xs font-medium text-yellow-800">
-                                {{ .Status }}
-                            </span>
-                            {{ end }}
-                        </td>
-                        <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-900">{{ .AttemptCount }}</td>
-                        <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500">{{ if .LastAttemptAt }}{{
-                            .LastAttemptAt.Format "Jan 2 15:04" }}{{ else }}—{{ end }}</td>
-                    </tr>
-                    {{ if .LastAttemptErr }}
-                    <tr>
-                        <td colspan="4" class="px-6 py-2 text-xs text-red-600">{{ .LastAttemptErr }}</td>
-                    </tr>
-                    {{ end }}
-                    {{ end }}
-                </tbody>
-            </table>
-        </div>
+        <ul class="divide-y divide-stone-100 text-sm">
+            {{ range .WebhookEvents }}
+            <li class="px-5 py-3 sm:px-6">
+                <div class="flex flex-wrap items-center gap-x-4 gap-y-1">
+                    <a href="/admin/submissions/{{ .SubmissionID }}" class="link">Submission {{ .SubmissionID }}</a>
+                    <span class="pill {{ if eq .Status "success" }}pill-ok{{ else if eq .Status "failed" }}pill-bad{{ else }}pill-warn{{ end }}">{{ .Status }}</span>
+                    <span class="text-stone-500">{{ .AttemptCount }} {{ if eq .AttemptCount 1 }}attempt{{ else }}attempts{{ end }}</span>
+                    <span class="ml-auto text-xs text-stone-400">{{ if .LastAttemptAt }}{{ ago .LastAttemptAt }}{{ end }}</span>
+                </div>
+                {{ if .LastAttemptErr }}<p class="mt-1 break-all text-xs text-red-700">{{ .LastAttemptErr }}</p>{{ end }}
+            </li>
+            {{ end }}
+        </ul>
         {{ end }}
     </div>
+    {{ end }}
 
-    <!-- Email Forwarding -->
-    <div class="rounded-xl border border-gray-200 bg-white shadow-sm">
-        <div class="border-b border-gray-200 px-6 py-4">
-            <h2 class="text-lg font-semibold text-gray-900">Email Forwarding</h2>
-            <p class="mt-1 text-sm text-gray-600">Recent email delivery attempts</p>
+    {{ if or $emailOn .EmailEvents }}
+    <div class="card overflow-hidden">
+        <div class="card-head">
+            <h2 class="card-title">Email Forwarding</h2>
+            <p class="card-note">The last attempts</p>
         </div>
         {{ if not .EmailEvents }}
-        <div class="px-6 py-12">
-            <div class="text-center">
-                <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                </svg>
-                <p class="mt-4 text-sm text-gray-500">No email forwarding attempts yet.</p>
-            </div>
-        </div>
+        <p class="px-5 py-8 text-center text-sm text-stone-500 sm:px-6">No email was sent yet.</p>
         {{ else }}
-        <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200">
-                <thead class="bg-gray-50">
-                    <tr>
-                        <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                            Submission</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                            Status</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                            Attempts</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Last
-                            Attempt</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-200 bg-white">
-                    {{ range .EmailEvents }}
-                    <tr class="align-top transition-colors hover:bg-gray-50">
-                        <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500">#{{ .SubmissionID }}</td>
-                        <td class="whitespace-nowrap px-6 py-4">
-                            {{ if eq .Status "success" }}
-                            <span
-                                class="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-800">
-                                {{ .Status }}
-                            </span>
-                            {{ else if eq .Status "failed" }}
-                            <span
-                                class="inline-flex items-center rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-medium text-red-800">
-                                {{ .Status }}
-                            </span>
-                            {{ else }}
-                            <span
-                                class="inline-flex items-center rounded-full bg-yellow-100 px-2.5 py-0.5 text-xs font-medium text-yellow-800">
-                                {{ .Status }}
-                            </span>
-                            {{ end }}
-                        </td>
-                        <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-900">{{ .AttemptCount }}</td>
-                        <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500">{{ if .LastAttemptAt }}{{
-                            .LastAttemptAt.Format "Jan 2 15:04" }}{{ else }}—{{ end }}</td>
-                    </tr>
-                    {{ if .LastAttemptErr }}
-                    <tr>
-                        <td colspan="4" class="px-6 py-2 text-xs text-red-600">{{ .LastAttemptErr }}</td>
-                    </tr>
-                    {{ end }}
-                    {{ end }}
-                </tbody>
-            </table>
-        </div>
+        <ul class="divide-y divide-stone-100 text-sm">
+            {{ range .EmailEvents }}
+            <li class="px-5 py-3 sm:px-6">
+                <div class="flex flex-wrap items-center gap-x-4 gap-y-1">
+                    <a href="/admin/submissions/{{ .SubmissionID }}" class="link">Submission {{ .SubmissionID }}</a>
+                    <span class="pill {{ if eq .Status "success" }}pill-ok{{ else if eq .Status "failed" }}pill-bad{{ else }}pill-warn{{ end }}">{{ .Status }}</span>
+                    <span class="text-stone-500">{{ .AttemptCount }} {{ if eq .AttemptCount 1 }}attempt{{ else }}attempts{{ end }}</span>
+                    <span class="ml-auto text-xs text-stone-400">{{ if .LastAttemptAt }}{{ ago .LastAttemptAt }}{{ end }}</span>
+                </div>
+                {{ if .LastAttemptErr }}<p class="mt-1 break-all text-xs text-red-700">{{ .LastAttemptErr }}</p>{{ end }}
+            </li>
+            {{ end }}
+        </ul>
         {{ end }}
     </div>
+    {{ end }}
 </div>
 {{ end }}

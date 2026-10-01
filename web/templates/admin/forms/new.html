@@ -10,17 +10,17 @@
     <div class="flex items-center justify-between">
         <div>
             <div class="flex items-center gap-3 mb-2">
-                <h1 class="text-3xl font-bold text-gray-900">{{ if .IsEdit }}Edit Form{{ else }}Create Form{{ end }}
+                <h1 class="text-3xl font-bold text-stone-900">{{ if .IsEdit }}Edit Form{{ else }}Create Form{{ end }}
                 </h1>
                 <span
                     class="inline-flex items-center rounded-md bg-green-50 px-2 py-1 text-xs font-mono text-green-700 ring-1 ring-inset ring-green-600/20">
                     {{ if .IsEdit }}update{{ else }}POST /forms/:slug{{ end }}
                 </span>
             </div>
-            <p class="text-sm text-gray-600">{{ if .IsEdit }}Update form configuration and delivery settings{{ else
+            <p class="text-sm text-stone-600">{{ if .IsEdit }}Update form configuration and delivery settings{{ else
                 }}Define a new endpoint for form submissions{{ end }}</p>
             {{ if not .IsEdit }}
-            <p class="mt-2 text-xs text-gray-500">
+            <p class="mt-2 text-xs text-stone-500">
                 No schema required—send any fields you want. Formlander stores everything as JSON.
             </p>
             {{ end }}
@@ -38,136 +38,136 @@
         <input type="hidden" name="template_id" value="{{ .TemplateID }}">
         {{ end }}
         <!-- Basic Configuration -->
-        <div class="rounded-xl border border-gray-200 bg-white shadow-sm">
-            <div class="border-b border-gray-200 px-6 py-4">
-                <h2 class="text-lg font-semibold text-gray-900">Basic Configuration</h2>
-                <p class="mt-1 text-sm text-gray-600">Form identity and endpoint settings</p>
+        <div class="rounded-xl border border-stone-200 bg-white shadow-sm">
+            <div class="border-b border-stone-200 px-6 py-4">
+                <h2 class="text-lg font-semibold text-stone-900">Basic Configuration</h2>
+                <p class="mt-1 text-sm text-stone-600">Form identity and endpoint settings</p>
             </div>
             <div class="p-6 space-y-6">
                 <div>
-                    <label for="name" class="block text-sm font-medium text-gray-700">Form Name</label>
+                    <label for="name" class="block text-sm font-medium text-stone-700">Form Name</label>
                     <input type="text" id="name" name="name"
                         value="{{ if $form }}{{ $form.Name }}{{ else }}{{ .FormName }}{{ end }}" required
-                        class="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 shadow-sm transition-colors focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20">
+                        class="mt-1 block w-full rounded-lg border border-stone-300 bg-white px-4 py-2.5 shadow-sm transition-colors focus:border-stone-900 focus:outline-none focus:ring-2 focus:ring-stone-900/20">
                 </div>
                 <div>
-                    <label for="slug" class="block text-sm font-medium text-gray-700">
-                        Slug <span class="font-mono text-xs text-gray-500">{ /forms/:slug/submit }</span>
+                    <label for="slug" class="block text-sm font-medium text-stone-700">
+                        Slug <span class="font-mono text-xs text-stone-500">{ /forms/:slug/submit }</span>
                     </label>
                     <input type="text" id="slug" name="slug" placeholder="contact" required
                         value="{{ if $form }}{{ $form.Slug }}{{ else }}{{ .DefaultSlug }}{{ end }}" {{ if .IsEdit
                         }}disabled{{ end }}
-                        class="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 font-mono shadow-sm transition-colors focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 {{ if .IsEdit }}bg-gray-50 cursor-not-allowed{{ end }}">
-                    <p class="mt-1 text-xs text-gray-500">URL-friendly identifier for your form endpoint. Cannot be changed after creation.</p>
+                        class="mt-1 block w-full rounded-lg border border-stone-300 bg-white px-4 py-2.5 font-mono shadow-sm transition-colors focus:border-stone-900 focus:outline-none focus:ring-2 focus:ring-stone-900/20 {{ if .IsEdit }}bg-stone-50 cursor-not-allowed{{ end }}">
+                    <p class="mt-1 text-xs text-stone-500">URL-friendly identifier for your form endpoint. Cannot be changed after creation.</p>
                 </div>
                 <div>
-                    <label for="allowed_origins" class="block text-sm font-medium text-gray-700">
-                        Allowed Origins <span class="font-mono text-xs text-gray-500">{ Domain Security }</span>
+                    <label for="allowed_origins" class="block text-sm font-medium text-stone-700">
+                        Allowed Origins <span class="font-mono text-xs text-stone-500">{ Domain Security }</span>
                     </label>
                     <input type="text" id="allowed_origins" name="allowed_origins" required
                         placeholder="example.com, *.example.com"
                         value="{{ if $form }}{{ $form.AllowedOrigins }}{{ end }}"
-                        class="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 font-mono text-sm shadow-sm transition-colors focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20">
-                    <p class="mt-1 text-xs text-gray-500">Sites that can submit to this form, comma-separated. <code>example.com</code> also covers <code>www.example.com</code> and every other subdomain. Add <code>localhost</code> to test from your computer. <code>*</code> allows any site (not recommended).</p>
+                        class="mt-1 block w-full rounded-lg border border-stone-300 bg-white px-4 py-2.5 font-mono text-sm shadow-sm transition-colors focus:border-stone-900 focus:outline-none focus:ring-2 focus:ring-stone-900/20">
+                    <p class="mt-1 text-xs text-stone-500">Sites that can submit to this form, comma-separated. <code>example.com</code> also covers <code>www.example.com</code> and every other subdomain. Add <code>localhost</code> to test from your computer. <code>*</code> allows any site (not recommended).</p>
                 </div>
                 <div class="flex items-center">
                     <input type="checkbox" name="use_sdk" id="use_sdk"
-                        class="h-4 w-4 rounded border-gray-300 text-blue-600 transition-colors focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                        class="h-4 w-4 rounded border-stone-300 text-stone-900 transition-colors focus:ring-2 focus:ring-stone-900 focus:ring-offset-2"
                         {{ if $form }}{{ if $form.UseSDK }}checked{{ end }}{{ else }}checked{{ end }}>
-                    <label for="use_sdk" class="ml-2 block text-sm font-medium text-gray-900">
+                    <label for="use_sdk" class="ml-2 block text-sm font-medium text-stone-900">
                         Include JavaScript SDK
                     </label>
-                    <span class="ml-2 text-xs text-gray-500">(adds automatic retry, loading states & better UX)</span>
+                    <span class="ml-2 text-xs text-stone-500">(adds automatic retry, loading states & better UX)</span>
                 </div>
                 <div>
-                    <label for="captcha_profile_id" class="block text-sm font-medium text-gray-700">
-                        Captcha Profile <span class="font-mono text-xs text-gray-500">{ Turnstile }</span>
+                    <label for="captcha_profile_id" class="block text-sm font-medium text-stone-700">
+                        Captcha Profile <span class="font-mono text-xs text-stone-500">{ Turnstile }</span>
                     </label>
                     <select name="captcha_profile_id" id="captcha_profile_id"
-                        class="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 shadow-sm transition-colors focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20">
+                        class="mt-1 block w-full rounded-lg border border-stone-300 bg-white px-4 py-2.5 shadow-sm transition-colors focus:border-stone-900 focus:outline-none focus:ring-2 focus:ring-stone-900/20">
                         <option value="">None (no captcha protection)</option>
                         {{ range .CaptchaProfiles }}
                         <option value="{{ .ID }}" {{ if eq $.SelectedCaptchaProfileID .ID }}selected{{ end }}>{{ .Name
                             }}</option>
                         {{ end }}
                     </select>
-                    <p class="mt-1 text-xs text-gray-500">Captcha profiles are shared between forms. Manage them in <a
-                            href="/admin/settings/captcha" class="text-blue-600 hover:text-blue-700 font-medium">Captcha</a>.</p>
+                    <p class="mt-1 text-xs text-stone-500">Captcha profiles are shared between forms. Manage them in <a
+                            href="/admin/settings/captcha" class="text-stone-900 hover:text-stone-900 font-medium">Captcha</a>.</p>
                 </div>
             </div>
         </div>
 
         <!-- Special fields reference -->
-        <details class="group rounded-xl border border-gray-200 bg-white shadow-sm">
+        <details class="group rounded-xl border border-stone-200 bg-white shadow-sm">
             <summary class="flex cursor-pointer list-none items-center justify-between px-6 py-4">
                 <div>
-                    <h2 class="text-lg font-semibold text-gray-900">Special fields</h2>
-                    <p class="mt-1 text-sm text-gray-600">Redirects, spam protection, and what Formlander saves.</p>
+                    <h2 class="text-lg font-semibold text-stone-900">Special fields</h2>
+                    <p class="mt-1 text-sm text-stone-600">Redirects, spam protection, and what Formlander saves.</p>
                 </div>
-                <svg class="h-5 w-5 text-gray-400 transition group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                <svg class="h-5 w-5 text-stone-400 transition group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
             </summary>
-            <div class="space-y-5 border-t border-gray-200 p-6 text-sm text-gray-700">
+            <div class="space-y-5 border-t border-stone-200 p-6 text-sm text-stone-700">
                 <p>Formlander saves every field your form sends, with any name. There is no schema. These names are special: Formlander reads them and does not save them.</p>
                 <dl class="space-y-4">
                     <div>
-                        <dt><code class="rounded bg-gray-100 px-1.5 py-0.5 font-mono text-xs text-gray-900">_success_url</code></dt>
-                        <dd class="mt-1 text-gray-600">Where the visitor goes after a successful submit. Use a full URL on one of the Allowed Origins, for example <code class="font-mono text-xs">https://example.com/thanks</code>. Without it, the visitor sees a Formlander thank-you page.</dd>
+                        <dt><code class="rounded bg-stone-100 px-1.5 py-0.5 font-mono text-xs text-stone-900">_success_url</code></dt>
+                        <dd class="mt-1 text-stone-600">Where the visitor goes after a successful submit. Use a full URL on one of the Allowed Origins, for example <code class="font-mono text-xs">https://example.com/thanks</code>. Without it, the visitor sees a Formlander thank-you page.</dd>
                     </div>
                     <div>
-                        <dt><code class="rounded bg-gray-100 px-1.5 py-0.5 font-mono text-xs text-gray-900">_error_url</code></dt>
-                        <dd class="mt-1 text-gray-600">Where the visitor goes when the submit fails, for example a failed captcha. Same rules as <code class="font-mono text-xs">_success_url</code>. Without it, the visitor sees a Formlander error page that explains the problem.</dd>
+                        <dt><code class="rounded bg-stone-100 px-1.5 py-0.5 font-mono text-xs text-stone-900">_error_url</code></dt>
+                        <dd class="mt-1 text-stone-600">Where the visitor goes when the submit fails, for example a failed captcha. Same rules as <code class="font-mono text-xs">_success_url</code>. Without it, the visitor sees a Formlander error page that explains the problem.</dd>
                     </div>
                     <div>
-                        <dt><code class="rounded bg-gray-100 px-1.5 py-0.5 font-mono text-xs text-gray-900">__fl_hp</code></dt>
-                        <dd class="mt-1 text-gray-600">Honeypot. A hidden, empty text input. People leave it empty, bots fill it, and Formlander marks those submissions as spam. The starter templates include it.</dd>
+                        <dt><code class="rounded bg-stone-100 px-1.5 py-0.5 font-mono text-xs text-stone-900">__fl_hp</code></dt>
+                        <dd class="mt-1 text-stone-600">Honeypot. A hidden, empty text input. People leave it empty, bots fill it, and Formlander marks those submissions as spam. The starter templates include it.</dd>
                     </div>
                     <div>
-                        <dt><code class="rounded bg-gray-100 px-1.5 py-0.5 font-mono text-xs text-gray-900">cf-turnstile-response</code></dt>
-                        <dd class="mt-1 text-gray-600">Added by the Turnstile widget when the form has a captcha profile. You don't write it yourself.</dd>
+                        <dt><code class="rounded bg-stone-100 px-1.5 py-0.5 font-mono text-xs text-stone-900">cf-turnstile-response</code></dt>
+                        <dd class="mt-1 text-stone-600">Added by the Turnstile widget when the form has a captcha profile. You don't write it yourself.</dd>
                     </div>
                 </dl>
-                <pre class="overflow-x-auto rounded-lg bg-gray-900 p-4 font-mono text-xs leading-relaxed text-gray-100">&lt;input type="hidden" name="_success_url" value="https://example.com/thanks"&gt;
+                <pre class="overflow-x-auto rounded-lg bg-stone-900 p-4 font-mono text-xs leading-relaxed text-stone-100">&lt;input type="hidden" name="_success_url" value="https://example.com/thanks"&gt;
 &lt;input type="hidden" name="_error_url" value="https://example.com/oops"&gt;
 &lt;input type="text" name="__fl_hp" style="display:none" tabindex="-1" autocomplete="off"&gt;</pre>
-                <p class="text-gray-600">With the JavaScript SDK, the page doesn't reload: the SDK shows the result in place, or follows <code class="font-mono text-xs">_success_url</code> and <code class="font-mono text-xs">_error_url</code> itself. <a href="https://formlander.com/docs/integration/" target="_blank" rel="noopener" class="font-medium text-blue-600 hover:text-blue-700">Read the integration docs →</a></p>
+                <p class="text-stone-600">With the JavaScript SDK, the page doesn't reload: the SDK shows the result in place, or follows <code class="font-mono text-xs">_success_url</code> and <code class="font-mono text-xs">_error_url</code> itself. <a href="https://formlander.com/docs/integration/" target="_blank" rel="noopener" class="font-medium text-stone-900 hover:text-stone-900">Read the integration docs →</a></p>
             </div>
         </details>
 
         {{ if $previewHTML }}
         <!-- Starter Template -->
-        <div class="rounded-xl border border-gray-200 bg-white shadow-sm">
-            <div class="border-b border-gray-200 px-6 py-4">
-                <h2 class="text-lg font-semibold text-gray-900">Starter Template</h2>
-                <p class="mt-1 text-sm text-gray-600">
+        <div class="rounded-xl border border-stone-200 bg-white shadow-sm">
+            <div class="border-b border-stone-200 px-6 py-4">
+                <h2 class="text-lg font-semibold text-stone-900">Starter Template</h2>
+                <p class="mt-1 text-sm text-stone-600">
                     Copy this HTML into your site and change it however you like. Formlander saves every field the form sends: add an input and it shows up in your submissions. Nothing to set up here.
                 </p>
             </div>
-            <div class="border-b border-gray-200 flex -mb-px px-6" aria-label="Tabs">
+            <div class="border-b border-stone-200 flex -mb-px px-6" aria-label="Tabs">
                 <button type="button" data-embed-tab="preview"
-                    class="embed-tab border-b-2 border-blue-500 py-4 px-4 text-sm font-medium text-blue-600">
+                    class="embed-tab border-b-2 border-stone-900 py-4 px-4 text-sm font-medium text-stone-900">
                     Example Preview
                 </button>
                 <button type="button" data-embed-tab="code"
-                    class="embed-tab border-b-2 border-transparent py-4 px-4 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300">
+                    class="embed-tab border-b-2 border-transparent py-4 px-4 text-sm font-medium text-stone-500 hover:text-stone-700 hover:border-stone-300">
                     Source Code
                 </button>
             </div>
             <div class="p-6">
                 <div id="embed-panel-preview">
-                    <div class="rounded-lg border border-gray-200 bg-gray-50 p-4">
-                        <iframe id="formEmbedPreviewFrame" class="w-full rounded-lg border border-gray-200 bg-white"
+                    <div class="rounded-lg border border-stone-200 bg-stone-50 p-4">
+                        <iframe id="formEmbedPreviewFrame" class="w-full rounded-lg border border-stone-200 bg-white"
                             style="min-height: 420px;" sandbox="allow-scripts allow-same-origin"></iframe>
                     </div>
                 </div>
                 <div id="embed-panel-code" class="hidden">
                     <div class="flex items-center justify-between mb-3">
-                        <p class="text-sm text-gray-600">Copy, paste, and customize as needed.</p>
+                        <p class="text-sm text-stone-600">Copy, paste, and customize as needed.</p>
                         <button type="button" id="copyEmbedCodeBtn"
-                            class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 shadow-sm transition-all hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            class="inline-flex items-center rounded-lg border border-stone-300 bg-white px-3 py-1.5 text-xs font-medium text-stone-700 shadow-sm transition-all hover:bg-stone-50 focus:outline-none focus:ring-2 focus:ring-stone-900">
                             Copy
                         </button>
                     </div>
-                    <pre class="overflow-x-auto rounded-lg border border-gray-200 bg-gray-900 p-4 font-mono text-xs text-gray-100"
+                    <pre class="overflow-x-auto rounded-lg border border-stone-200 bg-stone-900 p-4 font-mono text-xs text-stone-100"
                         style="max-height: 600px;"><code id="formEmbedCode">{{ $previewHTML }}</code></pre>
                 </div>
             </div>
@@ -176,90 +176,90 @@
         {{ end }}
 
         <!-- Webhook Delivery -->
-        <div class="rounded-xl border border-gray-200 bg-white shadow-sm">
-            <div class="border-b border-gray-200 px-6 py-4">
+        <div class="rounded-xl border border-stone-200 bg-white shadow-sm">
+            <div class="border-b border-stone-200 px-6 py-4">
                 <div class="flex items-center">
-                    <h2 class="text-lg font-semibold text-gray-900">Webhook Delivery</h2>
+                    <h2 class="text-lg font-semibold text-stone-900">Webhook Delivery</h2>
                     <span
-                        class="ml-3 inline-flex items-center rounded-md bg-indigo-50 px-2 py-1 text-xs font-mono text-indigo-700 ring-1 ring-inset ring-indigo-600/20">
+                        class="ml-3 inline-flex items-center rounded-md bg-indigo-50 px-2 py-1 text-xs font-mono text-stone-900 ring-1 ring-inset ring-indigo-600/20">
                         HTTP POST
                     </span>
                 </div>
-                <p class="mt-1 text-sm text-gray-600">Forward submissions to your backend</p>
+                <p class="mt-1 text-sm text-stone-600">Forward submissions to your backend</p>
             </div>
             <div class="p-6 space-y-6">
                 <div class="flex items-center">
                     <input type="checkbox" name="webhook_enabled" id="webhook_enabled"
-                        class="h-4 w-4 rounded border-gray-300 text-indigo-600 transition-colors focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                        class="h-4 w-4 rounded border-stone-300 text-stone-900 transition-colors focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
                         {{ if $webhookDelivery }}{{ if $webhookDelivery.Enabled }}checked{{ end }}{{ end }}>
-                    <label for="webhook_enabled" class="ml-2 block text-sm font-medium text-gray-900">
+                    <label for="webhook_enabled" class="ml-2 block text-sm font-medium text-stone-900">
                         Enable webhook delivery
                     </label>
                 </div>
                 <div class="grid gap-6 md:grid-cols-2">
                     <div class="md:col-span-2">
-                        <label for="webhook_url" class="block text-sm font-medium text-gray-700">Webhook URL</label>
+                        <label for="webhook_url" class="block text-sm font-medium text-stone-700">Webhook URL</label>
                         <input type="url" id="webhook_url" name="webhook_url"
                             value="{{ if $webhookDelivery }}{{ $webhookDelivery.URL }}{{ end }}"
                             placeholder="https://api.example.com/webhooks"
-                            class="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 font-mono text-sm shadow-sm transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20">
+                            class="mt-1 block w-full rounded-lg border border-stone-300 bg-white px-4 py-2.5 font-mono text-sm shadow-sm transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20">
                     </div>
                     <div>
-                        <label for="webhook_secret" class="block text-sm font-medium text-gray-700">
-                            Secret <span class="font-mono text-xs text-gray-500">{ HMAC signature }</span>
+                        <label for="webhook_secret" class="block text-sm font-medium text-stone-700">
+                            Secret <span class="font-mono text-xs text-stone-500">{ HMAC signature }</span>
                         </label>
                         <input type="text" id="webhook_secret" name="webhook_secret"
                             value="{{ if $webhookDelivery }}{{ $webhookDelivery.Secret }}{{ end }}"
                             placeholder="your-secret-key"
-                            class="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 font-mono text-sm shadow-sm transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20">
+                            class="mt-1 block w-full rounded-lg border border-stone-300 bg-white px-4 py-2.5 font-mono text-sm shadow-sm transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20">
                     </div>
                 </div>
                 <div>
-                    <label for="webhook_headers" class="block text-sm font-medium text-gray-700">
-                        Custom Headers <span class="font-mono text-xs text-gray-500">{ JSON }</span>
+                    <label for="webhook_headers" class="block text-sm font-medium text-stone-700">
+                        Custom Headers <span class="font-mono text-xs text-stone-500">{ JSON }</span>
                     </label>
                     <textarea id="webhook_headers" name="webhook_headers" rows="3"
                         placeholder='{"Authorization": "Bearer token"}'
-                        class="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 font-mono text-sm shadow-sm transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20">{{ if $webhookDelivery }}{{ $webhookDelivery.HeadersJSON }}{{ end }}</textarea>
+                        class="mt-1 block w-full rounded-lg border border-stone-300 bg-white px-4 py-2.5 font-mono text-sm shadow-sm transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20">{{ if $webhookDelivery }}{{ $webhookDelivery.HeadersJSON }}{{ end }}</textarea>
                 </div>
             </div>
         </div>
 
         <!-- Email Forwarding -->
-        <div class="rounded-xl border border-gray-200 bg-white shadow-sm">
-            <div class="border-b border-gray-200 px-6 py-4">
-                <h2 class="text-lg font-semibold text-gray-900">Email Forwarding</h2>
-                <p class="mt-1 text-sm text-gray-600">Send submissions to an email address</p>
+        <div class="rounded-xl border border-stone-200 bg-white shadow-sm">
+            <div class="border-b border-stone-200 px-6 py-4">
+                <h2 class="text-lg font-semibold text-stone-900">Email Forwarding</h2>
+                <p class="mt-1 text-sm text-stone-600">Send submissions to an email address</p>
             </div>
             <div class="p-6 space-y-6">
                 <div class="flex items-center">
                     <input type="checkbox" name="email_enabled" id="email_enabled"
-                        class="h-4 w-4 rounded border-gray-300 text-purple-600 transition-colors focus:ring-2 focus:ring-purple-500 focus:ring-offset-2"
+                        class="h-4 w-4 rounded border-stone-300 text-stone-900 transition-colors focus:ring-2 focus:ring-purple-500 focus:ring-offset-2"
                         {{ if $emailDelivery }}{{ if $emailDelivery.Enabled }}checked{{ end }}{{ end }}>
-                    <label for="email_enabled" class="ml-2 block text-sm font-medium text-gray-900">
+                    <label for="email_enabled" class="ml-2 block text-sm font-medium text-stone-900">
                         Send submissions as email
                     </label>
                 </div>
                 <div>
-                    <label for="mailer_profile_id" class="block text-sm font-medium text-gray-700">Mailer
+                    <label for="mailer_profile_id" class="block text-sm font-medium text-stone-700">Mailer
                         Profile</label>
                     <select name="mailer_profile_id" id="mailer_profile_id"
-                        class="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 shadow-sm transition-colors focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/20">
+                        class="mt-1 block w-full rounded-lg border border-stone-300 bg-white px-4 py-2.5 shadow-sm transition-colors focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/20">
                         <option value="">Select mailer profile...</option>
                         {{ range .MailerProfiles }}
                         <option value="{{ .ID }}" {{ if eq $.SelectedMailerProfileID .ID }}selected{{ end }}>{{ .Name }}
                         </option>
                         {{ end }}
                     </select>
-                    <p class="mt-1 text-xs text-gray-500">Configure mailer profiles in <a href="/admin/settings/mailers"
-                            class="text-purple-600 hover:text-purple-700 font-medium">Mailer Settings</a></p>
+                    <p class="mt-1 text-xs text-stone-500">Configure mailer profiles in <a href="/admin/settings/mailers"
+                            class="text-stone-900 hover:text-stone-900 font-medium">Mailer Settings</a></p>
                 </div>
                 <div>
-                    <label for="email_recipient" class="block text-sm font-medium text-gray-700">Send To</label>
+                    <label for="email_recipient" class="block text-sm font-medium text-stone-700">Send To</label>
                     <input type="email" id="email_recipient" name="email_recipient" value="{{ .EmailRecipient }}"
                         placeholder="admin@example.com"
-                        class="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 shadow-sm transition-colors focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/20">
-                    <p class="mt-1 text-xs text-gray-500">Required: recipient email address</p>
+                        class="mt-1 block w-full rounded-lg border border-stone-300 bg-white px-4 py-2.5 shadow-sm transition-colors focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/20">
+                    <p class="mt-1 text-xs text-stone-500">Required: recipient email address</p>
                 </div>
             </div>
         </div>
@@ -267,11 +267,11 @@
         <!-- Actions -->
         <div class="flex justify-end gap-3">
             <a href="/admin/forms"
-                class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-5 py-2.5 text-sm font-medium text-gray-700 shadow-sm transition-all hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                class="inline-flex items-center rounded-lg border border-stone-300 bg-white px-5 py-2.5 text-sm font-medium text-stone-700 shadow-sm transition-all hover:bg-stone-50 focus:outline-none focus:ring-2 focus:ring-stone-900 focus:ring-offset-2">
                 Cancel
             </a>
             <button type="submit"
-                class="inline-flex items-center rounded-lg border border-transparent bg-blue-600 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition-all hover:bg-blue-700 hover:shadow focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                class="inline-flex items-center rounded-lg border border-transparent bg-stone-900 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition-all hover:bg-stone-700 hover:shadow focus:outline-none focus:ring-2 focus:ring-stone-900 focus:ring-offset-2">
                 <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
                 </svg>
@@ -314,11 +314,11 @@ ${snippet}
         function switchEmbedTab(target) {
             document.querySelectorAll('[data-embed-tab]').forEach(btn => {
                 if (btn.getAttribute('data-embed-tab') === target) {
-                    btn.classList.remove('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'hover:border-gray-300');
-                    btn.classList.add('border-blue-500', 'text-blue-600');
+                    btn.classList.remove('border-transparent', 'text-stone-500', 'hover:text-stone-700', 'hover:border-stone-300');
+                    btn.classList.add('border-stone-900', 'text-stone-900');
                 } else {
-                    btn.classList.add('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'hover:border-gray-300');
-                    btn.classList.remove('border-blue-500', 'text-blue-600');
+                    btn.classList.add('border-transparent', 'text-stone-500', 'hover:text-stone-700', 'hover:border-stone-300');
+                    btn.classList.remove('border-stone-900', 'text-stone-900');
                 }
             });
 
