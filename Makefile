@@ -79,7 +79,9 @@ test-e2e-setup:
 	@echo ">> installing Playwright dependencies"
 	cd e2e && npm install && npx playwright install --with-deps chromium
 
-test-e2e: deps
+# The test server embeds web/static when it compiles, and Playwright starts it
+# before its own build step. So the stylesheet must exist first.
+test-e2e: deps css
 	@echo ">> running Playwright E2E tests"
 	cd e2e && npm test
 
