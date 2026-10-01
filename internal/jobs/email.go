@@ -1,7 +1,9 @@
 package jobs
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -76,50 +78,75 @@ func (d *EmailDispatcher) handleEvent(ctx *JobContext, db *gorm.DB, event *forms
 		return
 	}
 
-	profile, from, to := resolveProfileRecipients(db, emailDelivery)
-	if profile == nil || from == "" || to == "" {
-		MarkEmailAsFinal(ctx, db, event, forms.WebhookStatusFailed, "mailer configuration missing")
+	profile, to := resolveProfileRecipient(db, emailDelivery)
+	if profile == nil || to == "" {
+		MarkEmailAsFinal(ctx, db, event, forms.WebhookStatusFailed, "the form has no mailer profile or no recipient")
 		return
 	}
 
 	subject := fmt.Sprintf("New submission · %s", event.Submission.Form.Name)
-	body := bodyForEvent(event)
+	err := d.send(ctx, profile, to, subject, bodyForEvent(event))
 
-	var sendErr error
-	switch profile.Provider {
-	case "mailgun":
-		if profile.APIKey == "" || profile.Domain == "" {
-			MarkEmailAsFinal(ctx, db, event, forms.WebhookStatusFailed, "mailgun configuration missing")
-			return
-		}
-		sendErr = d.sendMailgun(ctx, profile, from, to, subject, body)
-	default: // smtp is the default provider
-		cfg := smtpConfigFromProfile(profile, from, to)
-		if cfg == nil {
-			MarkEmailAsFinal(ctx, db, event, forms.WebhookStatusFailed, "smtp configuration missing")
-			return
-		}
-		sendErr = sendSMTP(cfg, buildSMTPMessage(from, to, subject, body))
+	var incomplete configError
+	if errors.As(err, &incomplete) {
+		MarkEmailAsFinal(ctx, db, event, forms.WebhookStatusFailed, incomplete.Error())
+		return
 	}
-
-	if sendErr != nil {
-		MarkEmailAsRetry(ctx, db, event, d.retry, sendErr)
+	if err != nil {
+		MarkEmailAsRetry(ctx, db, event, d.retry, err)
 		return
 	}
 
 	d.markEmailDelivered(ctx, db, event)
 }
 
-// resolveProfileRecipients loads the mailer profile and resolves the From and
-// To addresses shared by every provider.
-func resolveProfileRecipients(db *gorm.DB, emailDelivery *forms.EmailDelivery) (*integrations.MailerProfile, string, string) {
+// configError is a mailer profile that cannot send. A retry does not help.
+type configError string
+
+func (e configError) Error() string { return string(e) }
+
+// send delivers one message through the provider of a mailer profile.
+func (d *EmailDispatcher) send(ctx context.Context, profile *integrations.MailerProfile, to, subject, body string) error {
+	if profile.DefaultFromEmail == "" {
+		return configError("the mailer profile has no From address")
+	}
+	from := profile.DefaultFromEmail
+	if profile.DefaultFromName != "" {
+		from = fmt.Sprintf("%s <%s>", profile.DefaultFromName, profile.DefaultFromEmail)
+	}
+
+	switch profile.Provider {
+	case "mailgun":
+		if profile.APIKey == "" || profile.Domain == "" {
+			return configError("the mailer profile has no Mailgun API key or no domain")
+		}
+		return d.sendMailgun(ctx, profile, from, to, subject, body)
+	default: // smtp is the default provider
+		cfg := smtpConfigFromProfile(profile, from, to)
+		if cfg == nil {
+			return configError("the mailer profile has no SMTP host or no port")
+		}
+		return sendSMTP(cfg, buildSMTPMessage(from, to, subject, body))
+	}
+}
+
+// SendTest sends a test email through a mailer profile, the same way a
+// submission goes out.
+func (d *EmailDispatcher) SendTest(ctx context.Context, profile *integrations.MailerProfile, to string) error {
+	body := fmt.Sprintf("This is a test from the mailer profile %q in Formlander.\n\nIf you can read it, the profile can send email.\n", profile.Name)
+	return d.send(ctx, profile, to, "Test email from Formlander", body)
+}
+
+// resolveProfileRecipient loads the mailer profile of a form and the address
+// that gets its submissions.
+func resolveProfileRecipient(db *gorm.DB, emailDelivery *forms.EmailDelivery) (*integrations.MailerProfile, string) {
 	if emailDelivery.MailerProfileID == nil {
-		return nil, "", ""
+		return nil, ""
 	}
 
 	var profile integrations.MailerProfile
 	if err := db.First(&profile, *emailDelivery.MailerProfileID).Error; err != nil {
-		return nil, "", ""
+		return nil, ""
 	}
 
 	var to string
@@ -132,12 +159,7 @@ func resolveProfileRecipients(db *gorm.DB, emailDelivery *forms.EmailDelivery) (
 		}
 	}
 
-	from := profile.DefaultFromEmail
-	if profile.DefaultFromName != "" {
-		from = fmt.Sprintf("%s <%s>", profile.DefaultFromName, profile.DefaultFromEmail)
-	}
-
-	return &profile, from, to
+	return &profile, to
 }
 
 // smtpConfigFromProfile builds an SMTP send config from a mailer profile,
@@ -162,7 +184,7 @@ func smtpConfigFromProfile(profile *integrations.MailerProfile, from, to string)
 }
 
 // sendMailgun delivers the message through the Mailgun HTTP API.
-func (d *EmailDispatcher) sendMailgun(ctx *JobContext, profile *integrations.MailerProfile, from, to, subject, body string) error {
+func (d *EmailDispatcher) sendMailgun(ctx context.Context, profile *integrations.MailerProfile, from, to, subject, body string) error {
 	values := url.Values{}
 	values.Set("from", from)
 	values.Set("to", to)
