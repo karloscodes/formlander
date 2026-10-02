@@ -230,22 +230,6 @@ func submissionsURL(formID, rangeFilter, spam, search string, page int) string {
 	return "/admin/submissions?" + query.Encode()
 }
 
-// replyAddress returns the email address of the person who sent a
-// submission, or "" when no field has one.
-func replyAddress(dataJSON string) string {
-	var payload map[string]any
-	if json.Unmarshal([]byte(dataJSON), &payload) != nil {
-		return ""
-	}
-	for name, value := range payload {
-		text, _ := value.(string)
-		if text = strings.TrimSpace(text); strings.Contains(strings.ToLower(name), "email") && strings.Contains(text, "@") && !strings.ContainsAny(text, " \n\r") {
-			return text
-		}
-	}
-	return ""
-}
-
 // AdminSubmissionShow renders a single submission payload.
 func AdminSubmissionShow(ctx *cartridge.Context) error {
 	db := ctx.DB()
@@ -278,7 +262,7 @@ func AdminSubmissionShow(ctx *cartridge.Context) error {
 		"Title":       "Submission",
 		"Submission":  submission,
 		"JSON":        prettyJSON,
-		"ReplyTo":     replyAddress(submission.DataJSON),
+		"ReplyTo":     submission.ReplyAddress(),
 		"ReturnTo":    cameFrom(ctx, fmt.Sprintf("/admin/forms/%d", submission.FormID)),
 		"ContentView": "admin/submissions/show/content",
 	}, "")

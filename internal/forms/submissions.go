@@ -3,6 +3,8 @@ package forms
 import (
 	"encoding/json"
 	"fmt"
+	"net/mail"
+	"slices"
 	"strings"
 	"time"
 
@@ -138,6 +140,54 @@ func CreateSubmissionWithFiles(logger *slog.Logger, db *gorm.DB, form *Form, pay
 	}
 
 	return submission, nil
+}
+
+// ReplyAddress returns the email address of the person who sent the
+// submission, or "" when no field has one. The field named "email" comes
+// first, then the other fields with "email" in the name, in alphabetical
+// order.
+func (s *Submission) ReplyAddress() string {
+	var payload map[string]any
+	if json.Unmarshal([]byte(s.DataJSON), &payload) != nil {
+		return ""
+	}
+
+	var names []string
+	for name := range payload {
+		if strings.Contains(strings.ToLower(name), "email") {
+			names = append(names, name)
+		}
+	}
+	slices.SortFunc(names, func(a, b string) int {
+		aExact, bExact := strings.EqualFold(a, "email"), strings.EqualFold(b, "email")
+		if aExact != bExact {
+			if aExact {
+				return -1
+			}
+			return 1
+		}
+		return strings.Compare(a, b)
+	})
+
+	for _, name := range names {
+		text, _ := payload[name].(string)
+		if address := plainAddress(text); address != "" {
+			return address
+		}
+	}
+	return ""
+}
+
+// plainAddress returns text when it is one email address and nothing else,
+// or "". The visitor typed the text and it goes into an email header, so a
+// display name, a comment, or a line break is refused.
+func plainAddress(text string) string {
+	text = strings.TrimSpace(text)
+	parsed, err := mail.ParseAddress(text)
+	if err != nil || parsed.Address != text {
+		return ""
+	}
+	return text
 }
 
 // DeleteSubmissions removes submissions for good: the rows, their delivery
