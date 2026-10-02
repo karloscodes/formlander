@@ -3,7 +3,7 @@
 ###############################################################################
 # Build stage
 ###############################################################################
-FROM golang:1.26.0-alpine AS builder
+FROM golang:1.27.1-alpine AS builder
 
 ARG TARGETARCH
 ARG COMMIT_SHA=dev
