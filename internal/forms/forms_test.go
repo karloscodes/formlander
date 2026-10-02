@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -617,6 +618,64 @@ func TestUpdate(t *testing.T) {
 		assert.NotNil(t, emailDelivery.MailerProfileID)
 		assert.Equal(t, uint(456), *emailDelivery.MailerProfileID)
 		assert.Contains(t, emailDelivery.OverridesJSON, "updated@example.com")
+	})
+
+	t.Run("stores the email subject on one line", func(t *testing.T) {
+		form := &forms.Form{Name: "Test", Slug: "test-email-subject"}
+		require.NoError(t, db.Create(form).Error)
+		mailerID := uint(456)
+
+		updated, err := forms.Update(logger, db, forms.UpdateParams{
+			ID:              form.ID,
+			Name:            "Test",
+			EmailEnabled:    true,
+			MailerProfileID: &mailerID,
+			EmailRecipient:  "owner@example.com",
+			EmailSubject:    "  Shop\r\ncontact   form ",
+		})
+
+		require.NoError(t, err)
+		overrides := updated.EmailDelivery.Overrides()
+		assert.Equal(t, "Shop contact form", overrides.Subject)
+		assert.Equal(t, "owner@example.com", overrides.To)
+	})
+
+	t.Run("an empty email subject removes the subject of the form", func(t *testing.T) {
+		form := &forms.Form{Name: "Test", Slug: "test-email-subject-removed"}
+		require.NoError(t, db.Create(form).Error)
+		params := forms.UpdateParams{ID: form.ID, Name: "Test", EmailRecipient: "owner@example.com", EmailSubject: "Shop contact form"}
+		_, err := forms.Update(logger, db, params)
+		require.NoError(t, err)
+
+		params.EmailSubject = ""
+		updated, err := forms.Update(logger, db, params)
+
+		require.NoError(t, err)
+		overrides := updated.EmailDelivery.Overrides()
+		assert.Equal(t, "", overrides.Subject)
+		assert.Equal(t, "owner@example.com", overrides.To)
+	})
+
+	t.Run("refuses an email subject of more than 200 characters", func(t *testing.T) {
+		form := &forms.Form{Name: "Test", Slug: "test-email-subject-long"}
+		require.NoError(t, db.Create(form).Error)
+
+		_, err := forms.Update(logger, db, forms.UpdateParams{
+			ID:           form.ID,
+			Name:         "Test",
+			EmailSubject: strings.Repeat("é", 201),
+		})
+
+		valErr, ok := err.(*forms.ValidationError)
+		require.True(t, ok, "expected a validation error, got %v", err)
+		assert.Equal(t, "email_subject", valErr.Field)
+
+		_, err = forms.Update(logger, db, forms.UpdateParams{
+			ID:           form.ID,
+			Name:         "Test",
+			EmailSubject: strings.Repeat("é", 200),
+		})
+		assert.NoError(t, err)
 	})
 
 	t.Run("links the form to the webhook profile that was picked", func(t *testing.T) {

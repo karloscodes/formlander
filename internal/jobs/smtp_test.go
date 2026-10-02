@@ -3,6 +3,7 @@ package jobs
 import (
 	"bufio"
 	"net"
+	"net/mail"
 	"strings"
 	"sync"
 	"testing"
@@ -195,5 +196,24 @@ func TestBuildSMTPMessage(t *testing.T) {
 		if !strings.Contains(s, "line one\r\nline two") {
 			t.Errorf("expected body lines joined with CRLF, got:\n%s", s)
 		}
+	})
+
+	t.Run("keeps a long subject outside ASCII below the line limit of SMTP", func(t *testing.T) {
+		subject := strings.Repeat("é", 200)
+
+		msg := buildSMTPMessage(message{From: "a@x.com", To: "b@x.com", Subject: subject, Body: "B"})
+
+		for _, line := range strings.Split(string(msg), "\r\n") {
+			assert.LessOrEqual(t, len(line), 998, "line: %s", line)
+		}
+		assert.Equal(t, subject, subjectOf(t, string(msg)))
+	})
+
+	t.Run("keeps a line break in the subject out of the headers", func(t *testing.T) {
+		msg := buildSMTPMessage(message{From: "a@x.com", To: "b@x.com", Subject: "Hi\r\nBcc: thief@example.com", Body: "B"})
+
+		parsed, err := mail.ReadMessage(strings.NewReader(string(msg)))
+		require.NoError(t, err)
+		assert.Empty(t, parsed.Header.Get("Bcc"))
 	})
 }

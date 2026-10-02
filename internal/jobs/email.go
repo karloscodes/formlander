@@ -82,16 +82,20 @@ func (d *EmailDispatcher) handleEvent(ctx *JobContext, db *gorm.DB, event *forms
 	}
 
 	profile := loadMailerProfile(db, emailDelivery)
-	to := emailDelivery.Overrides().To
-	if profile == nil || to == "" {
+	overrides := emailDelivery.Overrides()
+	if profile == nil || overrides.To == "" {
 		MarkEmailAsFinal(ctx, db, event, forms.WebhookStatusFailed, "the form has no mailer profile or no recipient")
 		return
 	}
 
+	subject := overrides.Subject
+	if subject == "" {
+		subject = fmt.Sprintf("New submission · %s", form.Name)
+	}
 	err := d.send(ctx, profile, message{
-		To:      to,
+		To:      overrides.To,
 		ReplyTo: replyTo(event.Submission),
-		Subject: fmt.Sprintf("New submission · %s", event.Submission.Form.Name),
+		Subject: subject,
 		Body:    bodyForEvent(event),
 	})
 

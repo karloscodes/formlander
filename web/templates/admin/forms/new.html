@@ -113,6 +113,11 @@
                             <input type="email" id="email_recipient" name="email_recipient" value="{{ $in.EmailRecipient }}" class="field-input" placeholder="you@example.com">
                             <p class="field-help">The address that gets each submission.</p>
                         </div>
+                        <div>
+                            <label for="email_subject" class="field-label">Subject</label>
+                            <input type="text" id="email_subject" name="email_subject" value="{{ $in.EmailSubject }}" maxlength="200" class="field-input" placeholder="New submission · {{ if $in.Name }}{{ $in.Name }}{{ else }}the name of the form{{ end }}">
+                            <p class="field-help">The subject of each email. Leave it empty to get the one shown.</p>
+                        </div>
                     </div>
                 </div>
 

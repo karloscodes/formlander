@@ -162,7 +162,8 @@ type EmailDelivery struct {
 
 // EmailOverrides is what a form sets for its own email.
 type EmailOverrides struct {
-	To string `json:"to,omitempty"`
+	To      string `json:"to,omitempty"`
+	Subject string `json:"subject,omitempty"` // empty for the default subject
 }
 
 // Overrides reads the email settings of the form. A delivery without

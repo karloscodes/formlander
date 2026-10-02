@@ -67,6 +67,7 @@ type formInput struct {
 	EmailEnabled     bool
 	MailerProfileID  uint
 	EmailRecipient   string
+	EmailSubject     string
 	WebhookEnabled   bool
 	WebhookProfileID uint
 }
@@ -100,6 +101,7 @@ func formInputFromPost(ctx *cartridge.Context) formInput {
 		EmailEnabled:     ctx.FormValue("email_enabled") == "on",
 		MailerProfileID:  profileID(postedProfileID(ctx, "mailer_profile_id")),
 		EmailRecipient:   ctx.FormValue("email_recipient"),
+		EmailSubject:     ctx.FormValue("email_subject"),
 		WebhookEnabled:   ctx.FormValue("webhook_enabled") == "on",
 		WebhookProfileID: profileID(postedProfileID(ctx, "webhook_profile_id")),
 	}
@@ -117,7 +119,9 @@ func formInputFromForm(form *forms.Form) formInput {
 	if email := form.EmailDelivery; email != nil {
 		input.EmailEnabled = email.Enabled
 		input.MailerProfileID = profileID(email.MailerProfileID)
-		input.EmailRecipient = email.Overrides().To
+		overrides := email.Overrides()
+		input.EmailRecipient = overrides.To
+		input.EmailSubject = overrides.Subject
 	}
 	if webhook := form.WebhookDelivery; webhook != nil {
 		input.WebhookEnabled = webhook.Enabled
@@ -209,6 +213,7 @@ func AdminFormsCreate(ctx *cartridge.Context) error {
 		MailerProfileID:  postedProfileID(ctx, "mailer_profile_id"),
 		CaptchaProfileID: postedProfileID(ctx, "captcha_profile_id"),
 		EmailRecipient:   ctx.FormValue("email_recipient"),
+		EmailSubject:     ctx.FormValue("email_subject"),
 		EmailEnabled:     ctx.FormValue("email_enabled") == "on",
 		WebhookEnabled:   ctx.FormValue("webhook_enabled") == "on",
 		WebhookProfileID: postedProfileID(ctx, "webhook_profile_id"),
@@ -361,6 +366,7 @@ func AdminFormsUpdate(ctx *cartridge.Context) error {
 		MailerProfileID:  postedProfileID(ctx, "mailer_profile_id"),
 		CaptchaProfileID: postedProfileID(ctx, "captcha_profile_id"),
 		EmailRecipient:   ctx.FormValue("email_recipient"),
+		EmailSubject:     ctx.FormValue("email_subject"),
 		EmailEnabled:     ctx.FormValue("email_enabled") == "on",
 		WebhookEnabled:   ctx.FormValue("webhook_enabled") == "on",
 		WebhookProfileID: postedProfileID(ctx, "webhook_profile_id"),

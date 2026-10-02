@@ -2,6 +2,7 @@ package jobs
 
 import (
 	"crypto/tls"
+	"mime"
 	"net"
 	"net/mail"
 	"net/smtp"
@@ -113,6 +114,14 @@ type message struct {
 	Body    string
 }
 
+// subjectHeader returns a subject as the value of the Subject header. A
+// subject outside ASCII goes out as RFC 2047 encoded words of 75 characters at
+// most. Each word after the first goes on its own line, so a long subject
+// stays below the 998 characters that SMTP allows on a line.
+func subjectHeader(subject string) string {
+	return strings.ReplaceAll(mime.QEncoding.Encode("utf-8", subject), "?= =?", "?=\r\n =?")
+}
+
 // buildSMTPMessage assembles a minimal RFC 5322 plain-text email message.
 // Header and body line endings are normalized to CRLF as required by SMTP.
 func buildSMTPMessage(m message) []byte {
@@ -122,7 +131,7 @@ func buildSMTPMessage(m message) []byte {
 	if m.ReplyTo != "" {
 		b.WriteString("Reply-To: " + m.ReplyTo + "\r\n")
 	}
-	b.WriteString("Subject: " + m.Subject + "\r\n")
+	b.WriteString("Subject: " + subjectHeader(m.Subject) + "\r\n")
 	b.WriteString("Date: " + time.Now().UTC().Format(time.RFC1123Z) + "\r\n")
 	b.WriteString("MIME-Version: 1.0\r\n")
 	b.WriteString("Content-Type: text/plain; charset=\"utf-8\"\r\n")

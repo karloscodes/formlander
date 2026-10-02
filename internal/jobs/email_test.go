@@ -4,9 +4,12 @@ import (
 	"context"
 	"io"
 	"log/slog"
+	"mime"
 	"net/http"
 	"net/http/httptest"
+	"net/mail"
 	"net/url"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -34,10 +37,13 @@ func smtpProfile(host string, port int) *integrations.MailerProfile {
 	}
 }
 
-// dispatchSubmission stores the form "Contact" that emails owner@example.com
-// through the profile, one submission of it, and runs the dispatcher once. It
-// returns the email event after the run.
-func dispatchSubmission(t *testing.T, profile *integrations.MailerProfile, dataJSON string) forms.EmailEvent {
+// toOwner is the email settings of a form that only names a recipient.
+const toOwner = `{"to":"owner@example.com"}`
+
+// dispatchSubmission stores the form "Contact" that emails through the
+// profile, one submission of it, and runs the dispatcher once. It returns the
+// email event after the run.
+func dispatchSubmission(t *testing.T, profile *integrations.MailerProfile, overridesJSON, dataJSON string) forms.EmailEvent {
 	t.Helper()
 	db := testsupport.SetupTestDB(t)
 	require.NoError(t, db.Create(profile).Error)
@@ -47,7 +53,7 @@ func dispatchSubmission(t *testing.T, profile *integrations.MailerProfile, dataJ
 		FormID:          form.ID,
 		Enabled:         true,
 		MailerProfileID: &profile.ID,
-		OverridesJSON:   `{"to":"owner@example.com"}`,
+		OverridesJSON:   overridesJSON,
 	}).Error)
 	sub := &forms.Submission{FormID: form.ID, DataJSON: dataJSON}
 	require.NoError(t, db.Create(sub).Error)
@@ -63,6 +69,16 @@ func dispatchSubmission(t *testing.T, profile *integrations.MailerProfile, dataJ
 	return reloadEmailEvent(t, db, event.ID)
 }
 
+// subjectOf reads the subject of a captured email the way a mail client does.
+func subjectOf(t *testing.T, data string) string {
+	t.Helper()
+	msg, err := mail.ReadMessage(strings.NewReader(data))
+	require.NoError(t, err)
+	subject, err := new(mime.WordDecoder).DecodeHeader(msg.Header.Get("Subject"))
+	require.NoError(t, err)
+	return subject
+}
+
 func reloadEmailEvent(t *testing.T, db *gorm.DB, id uint) forms.EmailEvent {
 	t.Helper()
 	var event forms.EmailEvent
@@ -74,7 +90,7 @@ func TestEmailDispatcher(t *testing.T) {
 	t.Run("delivers a submission through the SMTP server of the profile", func(t *testing.T) {
 		host, port, captured := startFakeSMTPServer(t)
 
-		event := dispatchSubmission(t, smtpProfile(host, port), `{"name":"Alice","email":"alice@example.com"}`)
+		event := dispatchSubmission(t, smtpProfile(host, port), toOwner, `{"name":"Alice","email":"alice@example.com"}`)
 
 		assert.Equal(t, forms.WebhookStatusDelivered, event.Status, "event should be marked delivered")
 		captured.mu.Lock()
@@ -82,14 +98,24 @@ func TestEmailDispatcher(t *testing.T) {
 		assert.True(t, captured.authReceived)
 		assert.Contains(t, captured.from, "forms@example.com")
 		assert.Contains(t, captured.to, "owner@example.com")
-		assert.Contains(t, captured.data, "Subject: New submission")
+		assert.Equal(t, "New submission · Contact", subjectOf(t, captured.data))
 		assert.Contains(t, captured.data, "Alice")
+	})
+
+	t.Run("uses the subject that the form sets", func(t *testing.T) {
+		host, port, captured := startFakeSMTPServer(t)
+
+		dispatchSubmission(t, smtpProfile(host, port), `{"to":"owner@example.com","subject":"Nuevo mensaje · Tienda"}`, `{"name":"Alice"}`)
+
+		captured.mu.Lock()
+		defer captured.mu.Unlock()
+		assert.Equal(t, "Nuevo mensaje · Tienda", subjectOf(t, captured.data))
 	})
 
 	t.Run("a reply goes to the person who sent the submission", func(t *testing.T) {
 		host, port, captured := startFakeSMTPServer(t)
 
-		dispatchSubmission(t, smtpProfile(host, port), `{"name":"Alice","email":"alice@example.com"}`)
+		dispatchSubmission(t, smtpProfile(host, port), toOwner, `{"name":"Alice","email":"alice@example.com"}`)
 
 		captured.mu.Lock()
 		defer captured.mu.Unlock()
@@ -99,24 +125,24 @@ func TestEmailDispatcher(t *testing.T) {
 	t.Run("sends without Reply-To when the submission has no email address", func(t *testing.T) {
 		host, port, captured := startFakeSMTPServer(t)
 
-		event := dispatchSubmission(t, smtpProfile(host, port), `{"name":"Alice"}`)
+		event := dispatchSubmission(t, smtpProfile(host, port), toOwner, `{"name":"Alice"}`)
 
 		assert.Equal(t, forms.WebhookStatusDelivered, event.Status)
 		captured.mu.Lock()
 		defer captured.mu.Unlock()
-		assert.Contains(t, captured.data, "Subject: New submission")
+		assert.Equal(t, "New submission · Contact", subjectOf(t, captured.data))
 		assert.NotContains(t, captured.data, "Reply-To")
 	})
 
 	t.Run("keeps a header that a visitor typed into the email field out of the headers", func(t *testing.T) {
 		host, port, captured := startFakeSMTPServer(t)
 
-		event := dispatchSubmission(t, smtpProfile(host, port), `{"email":"alice@example.com\r\nBcc: thief@example.com"}`)
+		event := dispatchSubmission(t, smtpProfile(host, port), toOwner, `{"email":"alice@example.com\r\nBcc: thief@example.com"}`)
 
 		assert.Equal(t, forms.WebhookStatusDelivered, event.Status)
 		captured.mu.Lock()
 		defer captured.mu.Unlock()
-		assert.Contains(t, captured.data, "Subject: New submission")
+		assert.Equal(t, "New submission · Contact", subjectOf(t, captured.data))
 		assert.NotContains(t, captured.data, "Reply-To")
 		assert.NotContains(t, captured.data, "\nBcc:")
 	})
@@ -124,16 +150,16 @@ func TestEmailDispatcher(t *testing.T) {
 	t.Run("sends without Reply-To when the address is outside ASCII", func(t *testing.T) {
 		host, port, captured := startFakeSMTPServer(t)
 
-		event := dispatchSubmission(t, smtpProfile(host, port), `{"email":"josé@example.com"}`)
+		event := dispatchSubmission(t, smtpProfile(host, port), toOwner, `{"email":"josé@example.com"}`)
 
 		assert.Equal(t, forms.WebhookStatusDelivered, event.Status)
 		captured.mu.Lock()
 		defer captured.mu.Unlock()
-		assert.Contains(t, captured.data, "Subject: New submission")
+		assert.Equal(t, "New submission · Contact", subjectOf(t, captured.data))
 		assert.NotContains(t, captured.data, "Reply-To")
 	})
 
-	t.Run("delivers a submission through Mailgun with the Reply-To header", func(t *testing.T) {
+	t.Run("delivers a submission through Mailgun with the Reply-To header and the subject of the form", func(t *testing.T) {
 		var posted url.Values
 		var path string
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -152,13 +178,13 @@ func TestEmailDispatcher(t *testing.T) {
 			DefaultFromEmail: "forms@example.com",
 		}
 
-		event := dispatchSubmission(t, profile, `{"name":"Alice","email":"alice@example.com"}`)
+		event := dispatchSubmission(t, profile, `{"to":"owner@example.com","subject":"Nuevo mensaje · Tienda"}`, `{"name":"Alice","email":"alice@example.com"}`)
 
 		assert.Equal(t, forms.WebhookStatusDelivered, event.Status)
 		assert.Equal(t, "/v3/mg.example.com/messages", path)
 		assert.Equal(t, "owner@example.com", posted.Get("to"))
 		assert.Equal(t, "alice@example.com", posted.Get("h:Reply-To"))
-		assert.Equal(t, "New submission · Contact", posted.Get("subject"))
+		assert.Equal(t, "Nuevo mensaje · Tienda", posted.Get("subject"))
 	})
 }
 

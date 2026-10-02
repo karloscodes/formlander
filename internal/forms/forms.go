@@ -3,6 +3,7 @@ package forms
 import (
 	"fmt"
 	"strings"
+	"unicode/utf8"
 
 	"gorm.io/gorm"
 	"log/slog"
@@ -23,6 +24,7 @@ type CreateParams struct {
 	MailerProfileID  *uint
 	CaptchaProfileID *uint
 	EmailRecipient   string
+	EmailSubject     string
 	EmailEnabled     bool
 	WebhookEnabled   bool
 	WebhookProfileID *uint
@@ -43,6 +45,7 @@ type UpdateParams struct {
 	MailerProfileID  *uint
 	CaptchaProfileID *uint
 	EmailRecipient   string
+	EmailSubject     string
 	EmailEnabled     bool
 	WebhookEnabled   bool
 	WebhookProfileID *uint
@@ -61,6 +64,26 @@ func (e *ValidationError) Error() string {
 var errWebhookProfileRequired = &ValidationError{
 	Field:   "webhook",
 	Message: "Pick a webhook profile, or turn the webhook off",
+}
+
+// maxEmailSubject is the longest subject a form can set, in characters.
+const maxEmailSubject = 200
+
+// emailOverridesFrom builds the email settings of a form from what the owner
+// typed. A subject is one line, so line breaks and runs of spaces become one
+// space.
+func emailOverridesFrom(recipient, subject string) (EmailOverrides, error) {
+	overrides := EmailOverrides{
+		To:      strings.TrimSpace(recipient),
+		Subject: strings.Join(strings.Fields(subject), " "),
+	}
+	if utf8.RuneCountInString(overrides.Subject) > maxEmailSubject {
+		return EmailOverrides{}, &ValidationError{
+			Field:   "email_subject",
+			Message: fmt.Sprintf("The email subject can have %d characters at most", maxEmailSubject),
+		}
+	}
+	return overrides, nil
 }
 
 // Create creates a new form with the given parameters
@@ -85,7 +108,10 @@ func Create(logger *slog.Logger, db *gorm.DB, params CreateParams) (*Form, error
 		return nil, err
 	}
 
-	emailOverrides := EmailOverrides{To: strings.TrimSpace(params.EmailRecipient)}
+	emailOverrides, err := emailOverridesFrom(params.EmailRecipient, params.EmailSubject)
+	if err != nil {
+		return nil, err
+	}
 
 	// Validate email delivery settings
 	if params.EmailEnabled && (params.MailerProfileID == nil || emailOverrides.To == "") {
@@ -264,7 +290,10 @@ func Update(logger *slog.Logger, db *gorm.DB, params UpdateParams) (*Form, error
 		return nil, err
 	}
 
-	emailOverrides := EmailOverrides{To: strings.TrimSpace(params.EmailRecipient)}
+	emailOverrides, err := emailOverridesFrom(params.EmailRecipient, params.EmailSubject)
+	if err != nil {
+		return nil, err
+	}
 
 	// Validate email delivery if enabled
 	if params.EmailEnabled && (params.MailerProfileID == nil || emailOverrides.To == "") {
