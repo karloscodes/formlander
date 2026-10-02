@@ -3,6 +3,7 @@ package forms
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"strings"
 	"time"
 	"unicode"
@@ -154,9 +155,39 @@ type EmailDelivery struct {
 	Enabled         bool                        `gorm:"not null;default:false"`
 	MailerProfileID *uint                       `gorm:"index"` // Foreign key to MailerProfile
 	MailerProfile   *integrations.MailerProfile `gorm:"constraint:OnDelete:SET NULL"`
-	OverridesJSON   string                      `gorm:"type:text"` // JSON: {to, cc, bcc, subject, template, tags, reply_to}
+	OverridesJSON   string                      `gorm:"type:text"` // JSON of EmailOverrides
 	CreatedAt       time.Time
 	UpdatedAt       time.Time
+}
+
+// EmailOverrides is what a form sets for its own email.
+type EmailOverrides struct {
+	To string `json:"to,omitempty"`
+}
+
+// Overrides reads the email settings of the form. A delivery without
+// settings, or with settings that do not parse, gives empty settings.
+func (e *EmailDelivery) Overrides() EmailOverrides {
+	var overrides EmailOverrides
+	if e == nil || e.OverridesJSON == "" {
+		return overrides
+	}
+	if err := json.Unmarshal([]byte(e.OverridesJSON), &overrides); err != nil {
+		return EmailOverrides{}
+	}
+	return overrides
+}
+
+// JSON encodes the settings for OverridesJSON. Empty settings give "".
+func (o EmailOverrides) JSON() string {
+	if o == (EmailOverrides{}) {
+		return ""
+	}
+	data, err := json.Marshal(o)
+	if err != nil {
+		return ""
+	}
+	return string(data)
 }
 
 // Submission stores the payload received from a public form post.

@@ -117,26 +117,13 @@ func formInputFromForm(form *forms.Form) formInput {
 	if email := form.EmailDelivery; email != nil {
 		input.EmailEnabled = email.Enabled
 		input.MailerProfileID = profileID(email.MailerProfileID)
-		input.EmailRecipient = emailRecipient(email)
+		input.EmailRecipient = email.Overrides().To
 	}
 	if webhook := form.WebhookDelivery; webhook != nil {
 		input.WebhookEnabled = webhook.Enabled
 		input.WebhookProfileID = profileID(webhook.WebhookProfileID)
 	}
 	return input
-}
-
-// emailRecipient returns the address that gets the submissions of a form.
-func emailRecipient(delivery *forms.EmailDelivery) string {
-	if delivery == nil || delivery.OverridesJSON == "" {
-		return ""
-	}
-	var overrides map[string]interface{}
-	if err := json.Unmarshal([]byte(delivery.OverridesJSON), &overrides); err != nil {
-		return ""
-	}
-	to, _ := overrides["to"].(string)
-	return to
 }
 
 // renderFormScreen shows the screen that makes or edits a form. form is nil
@@ -306,7 +293,7 @@ func AdminFormShow(ctx *cartridge.Context) error {
 		"Token":          form.Token,
 		"WebhookEvents":  webhookEvents,
 		"EmailEvents":    emailEvents,
-		"EmailRecipient": emailRecipient(form.EmailDelivery),
+		"EmailRecipient": form.EmailDelivery.Overrides().To,
 		"FormCode":       formCode,
 		"CodeSplit":      true,
 		"UseSDK":         form.UseSDK,
