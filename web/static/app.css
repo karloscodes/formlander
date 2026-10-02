@@ -23,6 +23,8 @@
         scrollbar-width: thin;
         scrollbar-color: #a8a29e transparent;
     }
+    /* The width of the bar does not pass down from html, so a scroll area inside a page asks for the thin bar too. */
+    pre, textarea { scrollbar-width: thin; }
 }
 
 /* The parts every admin screen is made of. One accent, the orange of the mark. */
@@ -104,9 +106,11 @@
     /* A page of settings: the name of each part on the left, its fields on the right. */
     .page-settings { @apply mx-auto max-w-4xl; }
 
-    /* The code of a form and its example. */
-    .code-block { @apply overflow-auto bg-stone-950 p-5 font-mono text-[13px] leading-relaxed text-stone-100; }
-    .code-block code.hljs { @apply bg-transparent p-0; }
+    /* The code of a form and its example. The block scrolls, not the code in it:
+       the theme of highlight.js makes the code scroll, and then the bar sits
+       inside the padding of the block. */
+    .code-block { @apply overflow-auto bg-stone-950 p-5 font-mono text-[13px] leading-relaxed text-stone-100; scrollbar-color: #57534e transparent; }
+    .code-block code.hljs { @apply overflow-visible bg-transparent p-0; }
     .preview-stage {
         @apply bg-stone-50 p-4 sm:p-6;
         background-image: radial-gradient(#e7e5e4 1px, transparent 1px);
