@@ -119,13 +119,10 @@ func CreateSubmissionWithFiles(logger *slog.Logger, db *gorm.DB, form *Form, pay
 
 			// Check email delivery
 			emailDelivery := form.EmailDelivery
-			if emailDelivery != nil && emailDelivery.Enabled {
-				recipient := extractEmailRecipient(emailDelivery)
-				if recipient != "" {
-					event := NewEmailEvent(submission.ID, time.Now().UTC())
-					if err := tx.Create(event).Error; err != nil {
-						return err
-					}
+			if emailDelivery != nil && emailDelivery.Enabled && emailDelivery.Overrides().To != "" {
+				event := NewEmailEvent(submission.ID, time.Now().UTC())
+				if err := tx.Create(event).Error; err != nil {
+					return err
 				}
 			}
 		}
@@ -141,23 +138,6 @@ func CreateSubmissionWithFiles(logger *slog.Logger, db *gorm.DB, form *Form, pay
 	}
 
 	return submission, nil
-}
-
-// extractEmailRecipient extracts the recipient email from email delivery overrides
-func extractEmailRecipient(emailDelivery *EmailDelivery) string {
-	if emailDelivery == nil {
-		return ""
-	}
-	// Extract recipient from overrides_json
-	if emailDelivery.OverridesJSON != "" {
-		var overrides map[string]interface{}
-		if err := json.Unmarshal([]byte(emailDelivery.OverridesJSON), &overrides); err == nil {
-			if to, ok := overrides["to"].(string); ok && to != "" {
-				return to
-			}
-		}
-	}
-	return ""
 }
 
 // DeleteSubmissions removes submissions for good: the rows, their delivery

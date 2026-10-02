@@ -1,7 +1,6 @@
 package forms
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -86,20 +85,10 @@ func Create(logger *slog.Logger, db *gorm.DB, params CreateParams) (*Form, error
 		return nil, err
 	}
 
-	// Build email overrides JSON
-	emailOverrides := make(map[string]interface{})
-	if recipient := strings.TrimSpace(params.EmailRecipient); recipient != "" {
-		emailOverrides["to"] = recipient
-	}
-	emailOverridesJSON := ""
-	if len(emailOverrides) > 0 {
-		if data, err := json.Marshal(emailOverrides); err == nil {
-			emailOverridesJSON = string(data)
-		}
-	}
+	emailOverrides := EmailOverrides{To: strings.TrimSpace(params.EmailRecipient)}
 
 	// Validate email delivery settings
-	if params.EmailEnabled && (params.MailerProfileID == nil || emailOverridesJSON == "") {
+	if params.EmailEnabled && (params.MailerProfileID == nil || emailOverrides.To == "") {
 		return nil, &ValidationError{
 			Field:   "email",
 			Message: "Pick a mailer profile and a recipient, or turn the email off",
@@ -125,7 +114,7 @@ func Create(logger *slog.Logger, db *gorm.DB, params CreateParams) (*Form, error
 	form.EmailDelivery = &EmailDelivery{
 		Enabled:         params.EmailEnabled,
 		MailerProfileID: params.MailerProfileID,
-		OverridesJSON:   emailOverridesJSON,
+		OverridesJSON:   emailOverrides.JSON(),
 	}
 
 	form.WebhookDelivery = &WebhookDelivery{
@@ -275,20 +264,10 @@ func Update(logger *slog.Logger, db *gorm.DB, params UpdateParams) (*Form, error
 		return nil, err
 	}
 
-	// Build email overrides JSON
-	emailOverrides := make(map[string]interface{})
-	if recipient := strings.TrimSpace(params.EmailRecipient); recipient != "" {
-		emailOverrides["to"] = recipient
-	}
-	emailOverridesJSON := ""
-	if len(emailOverrides) > 0 {
-		if data, err := json.Marshal(emailOverrides); err == nil {
-			emailOverridesJSON = string(data)
-		}
-	}
+	emailOverrides := EmailOverrides{To: strings.TrimSpace(params.EmailRecipient)}
 
 	// Validate email delivery if enabled
-	if params.EmailEnabled && (params.MailerProfileID == nil || emailOverridesJSON == "") {
+	if params.EmailEnabled && (params.MailerProfileID == nil || emailOverrides.To == "") {
 		return nil, &ValidationError{
 			Field:   "email",
 			Message: "Pick a mailer profile and a recipient, or turn the email off",
@@ -320,7 +299,7 @@ func Update(logger *slog.Logger, db *gorm.DB, params UpdateParams) (*Form, error
 			Updates(map[string]any{
 				"enabled":           params.EmailEnabled,
 				"mailer_profile_id": params.MailerProfileID,
-				"overrides_json":    emailOverridesJSON,
+				"overrides_json":    emailOverrides.JSON(),
 			}).Error; err != nil {
 			return err
 		}

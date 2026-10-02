@@ -78,7 +78,8 @@ func (d *EmailDispatcher) handleEvent(ctx *JobContext, db *gorm.DB, event *forms
 		return
 	}
 
-	profile, to := resolveProfileRecipient(db, emailDelivery)
+	profile := loadMailerProfile(db, emailDelivery)
+	to := emailDelivery.Overrides().To
 	if profile == nil || to == "" {
 		MarkEmailAsFinal(ctx, db, event, forms.WebhookStatusFailed, "the form has no mailer profile or no recipient")
 		return
@@ -137,29 +138,18 @@ func (d *EmailDispatcher) SendTest(ctx context.Context, profile *integrations.Ma
 	return d.send(ctx, profile, to, "Test email from Formlander", body)
 }
 
-// resolveProfileRecipient loads the mailer profile of a form and the address
-// that gets its submissions.
-func resolveProfileRecipient(db *gorm.DB, emailDelivery *forms.EmailDelivery) (*integrations.MailerProfile, string) {
+// loadMailerProfile loads the mailer profile of a form, or nil when the form
+// has none.
+func loadMailerProfile(db *gorm.DB, emailDelivery *forms.EmailDelivery) *integrations.MailerProfile {
 	if emailDelivery.MailerProfileID == nil {
-		return nil, ""
+		return nil
 	}
 
 	var profile integrations.MailerProfile
 	if err := db.First(&profile, *emailDelivery.MailerProfileID).Error; err != nil {
-		return nil, ""
+		return nil
 	}
-
-	var to string
-	if emailDelivery.OverridesJSON != "" {
-		var overrides map[string]interface{}
-		if err := json.Unmarshal([]byte(emailDelivery.OverridesJSON), &overrides); err == nil {
-			if toField, ok := overrides["to"].(string); ok {
-				to = toField
-			}
-		}
-	}
-
-	return &profile, to
+	return &profile
 }
 
 // smtpConfigFromProfile builds an SMTP send config from a mailer profile,
