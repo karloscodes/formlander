@@ -202,6 +202,18 @@ func TestSessionSecret(t *testing.T) {
 		}
 	})
 
+	t.Run("a login lasts 90 days when the environment sets no timeout", func(t *testing.T) {
+		Reset()
+		os.Clearenv()
+		os.Setenv("FORMLANDER_ENV", "test")
+
+		cfg := Get()
+
+		if cfg.SessionTimeout != 7776000 {
+			t.Errorf("Expected SessionTimeout=7776000, got %d", cfg.SessionTimeout)
+		}
+	})
+
 	t.Run("reads the session timeout from the environment", func(t *testing.T) {
 		Reset()
 		os.Clearenv()

@@ -33,6 +33,9 @@ type WebhookConfig struct {
 	BackoffSchedule string `mapstructure:"backoffschedule"`
 }
 
+// defaultSessionTimeout is how long a login lasts, in seconds: 90 days.
+const defaultSessionTimeout = 90 * 24 * 60 * 60
+
 var (
 	cfgOnce sync.Once
 	cfgInst *Config
@@ -69,8 +72,9 @@ func Get() *Config {
 		v.SetDefault("webhook.retrylimit", 3)
 		v.SetDefault("webhook.backoffschedule", "1,5,15,60")
 
-		// Cartridge does not bind this variable, so the Dockerfile value
-		// was ignored and sessions lasted cartridge's 7-day default.
+		// A login lasts 90 days, unless the environment sets another time.
+		// Cartridge does not bind this variable, so it is read here.
+		base.SessionTimeout = defaultSessionTimeout
 		if raw := os.Getenv("FORMLANDER_SESSION_TIMEOUT_SECONDS"); raw != "" {
 			if seconds, err := strconv.Atoi(raw); err == nil && seconds > 0 {
 				base.SessionTimeout = seconds
