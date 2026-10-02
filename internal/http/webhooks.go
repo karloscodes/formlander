@@ -3,6 +3,7 @@ package http
 import (
 	"fmt"
 	"log/slog"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -14,22 +15,22 @@ import (
 )
 
 // webhookParamsFromForm reads a webhook profile from the posted form. The
-// access key has its own field and becomes the Authorization header. The
-// other headers arrive as rows: one header_name and one header_value for each.
+// first header has its own field, "Key or header". The other headers arrive
+// as rows: one header_name and one header_value for each.
 func webhookParamsFromForm(ctx *cartridge.Context) integrations.WebhookProfileParams {
 	names := postedValues(ctx, "header_name")
 	values := postedValues(ctx, "header_value")
 	var headers []integrations.WebhookHeader
-	if authorization := authorizationValue(ctx.FormValue("authorization")); authorization != "" {
-		headers = append(headers, integrations.WebhookHeader{Name: "Authorization", Value: authorization})
+	if first, ok := pastedHeader(ctx.FormValue("key")); ok {
+		headers = append(headers, first)
 	}
 	for i, name := range names {
 		value := ""
 		if i < len(values) {
 			value = values[i]
 		}
-		// The field above is the one place for the Authorization header.
-		if (name != "" || value != "") && !(len(headers) > 0 && strings.EqualFold(strings.TrimSpace(name), "Authorization")) {
+		// The field above wins over a row with the same name.
+		if (name != "" || value != "") && !(len(headers) > 0 && strings.EqualFold(strings.TrimSpace(name), headers[0].Name)) {
 			headers = append(headers, integrations.WebhookHeader{Name: name, Value: value})
 		}
 	}
@@ -41,31 +42,38 @@ func webhookParamsFromForm(ctx *cartridge.Context) integrations.WebhookProfilePa
 	}
 }
 
-// authorizationValue returns the value of the Authorization header for what
-// the owner pasted: the whole header line, the value, or only the key. A key
-// alone gets the word Bearer, which is what almost every service asks for.
-func authorizationValue(pasted string) string {
+// headerLine is a header as a service shows it: a name, a colon, a space, and
+// the value. The space keeps a key like user:password from being a header.
+var headerLine = regexp.MustCompile(`^([A-Za-z0-9][A-Za-z0-9-]*):\s+(\S.*)$`)
+
+// pastedHeader returns the header for what the owner pasted. Services show
+// their key in different ways, and each one works:
+//
+//	X-API-Key: abc123              -> that header
+//	Authorization: Bearer abc123   -> that header
+//	Bearer abc123, Basic dXNlcg==  -> the Authorization header with that value
+//	abc123                         -> Authorization: Bearer abc123
+func pastedHeader(pasted string) (integrations.WebhookHeader, bool) {
 	value := strings.TrimSpace(pasted)
-	if rest, ok := strings.CutPrefix(strings.ToLower(value), "authorization:"); ok {
-		value = strings.TrimSpace(value[len(value)-len(rest):])
+	if value == "" {
+		return integrations.WebhookHeader{}, false
 	}
-	if value != "" && !strings.ContainsAny(value, " \t") {
+	if parts := headerLine.FindStringSubmatch(value); parts != nil {
+		return integrations.WebhookHeader{Name: parts[1], Value: strings.TrimSpace(parts[2])}, true
+	}
+	if !strings.ContainsAny(value, " \t") {
 		value = "Bearer " + value
 	}
-	return value
+	return integrations.WebhookHeader{Name: "Authorization", Value: value}, true
 }
 
-// splitAuthorization takes the Authorization header out of the headers, for
-// the field that the form has for it.
-func splitAuthorization(headers []integrations.WebhookHeader) (authorization string, rest []integrations.WebhookHeader) {
-	for _, header := range headers {
-		if authorization == "" && strings.EqualFold(strings.TrimSpace(header.Name), "Authorization") {
-			authorization = header.Value
-			continue
-		}
-		rest = append(rest, header)
+// firstHeader takes the first header out of the headers and returns it as a
+// line, for the "Key or header" field of the form.
+func firstHeader(headers []integrations.WebhookHeader) (line string, rest []integrations.WebhookHeader) {
+	if len(headers) == 0 || strings.TrimSpace(headers[0].Name) == "" {
+		return "", headers
 	}
-	return authorization, rest
+	return strings.TrimSpace(headers[0].Name) + ": " + headers[0].Value, headers[1:]
 }
 
 // renderWebhookForm shows the new or edit screen with what the owner typed.
@@ -74,28 +82,26 @@ func renderWebhookForm(ctx *cartridge.Context, id uint, params integrations.Webh
 	if id != 0 {
 		title = "Edit Webhook Profile"
 	}
-	authorization, headers := splitAuthorization(params.Headers)
+	key, headers := firstHeader(params.Headers)
 	return ctx.Render("layouts/base", fiber.Map{
-		"Title":         title,
-		"IsEdit":        id != 0,
-		"Profile":       integrations.WebhookProfile{ID: id, Name: params.Name, URL: params.URL, Secret: params.Secret},
-		"Authorization": authorization,
-		"Headers":       headers,
-		"Error":         message,
-		"SignedBy":      GetAppConfig(ctx).Webhook.SignatureHeader,
-		"ContentView":   "admin/webhooks/new/content",
+		"Title":       title,
+		"IsEdit":      id != 0,
+		"Profile":     integrations.WebhookProfile{ID: id, Name: params.Name, URL: params.URL, Secret: params.Secret},
+		"Key":         key,
+		"Headers":     headers,
+		"Error":       message,
+		"SignedBy":    GetAppConfig(ctx).Webhook.SignatureHeader,
+		"ContentView": "admin/webhooks/new/content",
 	}, "")
 }
 
 // renderWebhookProfile shows one profile, with the result of a test or the
 // reason a delete was refused.
 func renderWebhookProfile(ctx *cartridge.Context, profile *integrations.WebhookProfile, extra fiber.Map) error {
-	authorization, headers := splitAuthorization(profile.Headers())
 	data := fiber.Map{
 		"Title":        profile.Name,
 		"Profile":      profile,
-		"HasKey":       authorization != "",
-		"Headers":      headers,
+		"Headers":      profile.Headers(),
 		"Forms":        formsUsingWebhook(ctx.DB(), profile.ID),
 		"DeleteAction": "/admin/settings/webhooks/" + fmt.Sprint(profile.ID) + "/delete",
 		"SignedBy":     GetAppConfig(ctx).Webhook.SignatureHeader,
@@ -226,7 +232,7 @@ func WebhookProfileTest(ctx *cartridge.Context) error {
 	case err != nil:
 		result = testResult{Message: "The request failed: " + err.Error()}
 	case status == fiber.StatusUnauthorized || status == fiber.StatusForbidden:
-		result = testResult{Message: fmt.Sprintf("The webhook answered with status %d: it did not accept the access key. Edit the profile and paste the key that the service gave you into Access key.", status)}
+		result = testResult{Message: fmt.Sprintf("The webhook answered with status %d: the receiver wants a key. Edit the profile and paste the key or the header that the service shows into \"Key or header\".", status)}
 	case status < 200 || status >= 300:
 		result = testResult{Message: fmt.Sprintf("The webhook answered with status %d. A delivery counts only when the status is between 200 and 299.", status)}
 	}

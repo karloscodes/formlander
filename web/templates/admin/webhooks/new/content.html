@@ -32,9 +32,16 @@
                     <p class="field-help">Formlander sends each submission here as a POST request with a JSON body.</p>
                 </div>
                 <div>
-                    <label for="authorization" class="field-label">Access key <span class="font-normal text-stone-500">(when the service gives you one)</span></label>
-                    <input type="text" id="authorization" name="authorization" value="{{ .Authorization }}" autocomplete="off" class="field-input mono" placeholder="Paste the key or the token">
-                    <p class="field-help">Formlander sends it as the header <code class="mono">Authorization: Bearer your-key</code>. That is what Zapier, Make, n8n, Cursor, and most other services ask for. A service that does not show a key needs nothing here.</p>
+                    <label for="key" class="field-label">Key or header <span class="font-normal text-stone-500">(when the service gives you one)</span></label>
+                    <input type="text" id="key" name="key" value="{{ .Key }}" autocomplete="off" class="field-input mono" placeholder="Paste what the service shows">
+                    <div class="field-help space-y-1">
+                        <p>Services protect a webhook in different ways. Paste what yours shows:</p>
+                        <ul class="list-disc space-y-1 pl-5">
+                            <li>A key alone, like <code class="mono">abc123</code>. Formlander sends <code class="mono">Authorization: Bearer abc123</code>.</li>
+                            <li>A header line, like <code class="mono">X-API-Key: abc123</code>. Formlander sends that header.</li>
+                            <li>Nothing. Many services (Zapier, Make, Slack) put the secret in the URL and need no key.</li>
+                        </ul>
+                    </div>
                 </div>
             </div>
         </div>

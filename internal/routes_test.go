@@ -582,30 +582,42 @@ func TestAdminWebhookProfiles(t *testing.T) {
 		}, profiles[0].Headers())
 	})
 
-	t.Run("the access key becomes the Authorization header, however it is pasted", func(t *testing.T) {
-		for pasted, want := range map[string]string{
-			"crsr_abc123":                       "Bearer crsr_abc123",
-			"Bearer crsr_abc123":                "Bearer crsr_abc123",
-			"Authorization: Bearer crsr_abc123": "Bearer crsr_abc123",
-			"Basic dXNlcjpwYXNz":                "Basic dXNlcjpwYXNz",
+	t.Run("the key field takes a key or a header line, as the service shows it", func(t *testing.T) {
+		for pasted, want := range map[string]integrations.WebhookHeader{
+			"crsr_abc123":                       {Name: "Authorization", Value: "Bearer crsr_abc123"},
+			"Bearer crsr_abc123":                {Name: "Authorization", Value: "Bearer crsr_abc123"},
+			"Authorization: Bearer crsr_abc123": {Name: "Authorization", Value: "Bearer crsr_abc123"},
+			"Basic dXNlcjpwYXNz":                {Name: "Authorization", Value: "Basic dXNlcjpwYXNz"},
+			"X-API-Key: abc123":                 {Name: "X-API-Key", Value: "abc123"},
+			"user:password":                     {Name: "Authorization", Value: "Bearer user:password"},
 		} {
 			ts := mountTestServer(t)
 			post := signIn(t, ts)
 
-			resp := post("/admin/settings/webhooks", "name=Cursor&url=https%3A%2F%2Fhooks.example.com%2Fin"+
-				"&authorization="+url.QueryEscape(pasted)+
-				"&header_name=authorization&header_value=old"+
+			resp := post("/admin/settings/webhooks", "name=Service&url=https%3A%2F%2Fhooks.example.com%2Fin"+
+				"&key="+url.QueryEscape(pasted)+
+				"&header_name="+url.QueryEscape(strings.ToLower(want.Name))+"&header_value=old"+
 				"&header_name=X-Team&header_value=sales")
 
 			require.Equal(t, 302, resp.StatusCode, pasted)
 			profiles, err := integrations.ListWebhookProfiles(ts.DB.GetConnection())
 			require.NoError(t, err)
 			require.Len(t, profiles, 1)
-			assert.Equal(t, []integrations.WebhookHeader{
-				{Name: "Authorization", Value: want},
-				{Name: "X-Team", Value: "sales"},
-			}, profiles[0].Headers(), pasted)
+			assert.Equal(t, []integrations.WebhookHeader{want, {Name: "X-Team", Value: "sales"}}, profiles[0].Headers(), pasted)
 		}
+	})
+
+	t.Run("a webhook with the secret in its URL needs no key", func(t *testing.T) {
+		ts := mountTestServer(t)
+		post := signIn(t, ts)
+
+		resp := post("/admin/settings/webhooks", "name=Zapier&url=https%3A%2F%2Fhooks.zapier.com%2Fhooks%2Fcatch%2F1%2Fabc&key=")
+
+		require.Equal(t, 302, resp.StatusCode)
+		profiles, err := integrations.ListWebhookProfiles(ts.DB.GetConnection())
+		require.NoError(t, err)
+		require.Len(t, profiles, 1)
+		assert.Empty(t, profiles[0].Headers())
 	})
 
 	t.Run("deletes a profile that no form uses", func(t *testing.T) {
