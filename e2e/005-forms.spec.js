@@ -192,6 +192,20 @@ test.describe("Forms Management", () => {
     expect(pageContent).toContain("Test Bug Report");
 
     helpers.log("✅ Form with delivery settings created");
+
+    // Give the email of the form its own subject, and see that it is kept
+    await helpers.navigateTo(`/admin/forms/${formData.formId}/edit`);
+    expect(await page.inputValue('input[name="email_recipient"]')).toBe("bugs@example.com");
+    expect(await page.inputValue('input[name="email_subject"]')).toBe("");
+    await page.fill('input[name="email_subject"]', "Bug report · Shop");
+    await page.click('text=Save Changes');
+    await page.waitForURL(`**/admin/forms/${formData.formId}`);
+
+    await helpers.navigateTo(`/admin/forms/${formData.formId}/edit`);
+    expect(await page.inputValue('input[name="email_subject"]')).toBe("Bug report · Shop");
+    expect(await page.inputValue('input[name="email_recipient"]')).toBe("bugs@example.com");
+
+    helpers.log("✅ Email subject of the form saved");
   });
 
   test("6. See an example of each starting point, and of the new form", async ({ page }) => {
