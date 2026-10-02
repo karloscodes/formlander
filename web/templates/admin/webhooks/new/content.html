@@ -32,45 +32,51 @@
                     <p class="field-help">Formlander sends each submission here as a POST request with a JSON body.</p>
                 </div>
                 <div>
-                    <label for="secret" class="field-label">Signing Secret <span class="font-normal text-stone-500">(optional)</span></label>
-                    <input type="text" id="secret" name="secret" value="{{ .Profile.Secret }}" autocomplete="off" class="field-input mono" placeholder="A long random text">
-                    <p class="field-help">It proves that a request comes from Formlander: each request has an <code class="mono">{{ .SignedBy }}</code> header with the HMAC-SHA256 of the body in hex, and your server computes the same value with this secret and compares the two.</p>
+                    <label for="authorization" class="field-label">Access key <span class="font-normal text-stone-500">(when the service gives you one)</span></label>
+                    <input type="text" id="authorization" name="authorization" value="{{ .Authorization }}" autocomplete="off" class="field-input mono" placeholder="Paste the key or the token">
+                    <p class="field-help">Formlander sends it as the header <code class="mono">Authorization: Bearer your-key</code>. That is what Zapier, Make, n8n, Cursor, and most other services ask for. A service that does not show a key needs nothing here.</p>
                 </div>
             </div>
         </div>
 
-        <div class="card">
-            <div class="card-head">
-                <h2 class="card-title">Headers</h2>
-                <p class="card-note">Optional. Formlander sends them with each request.</p>
-            </div>
-            <div class="space-y-3 p-5 sm:p-6">
-                <p class="text-sm text-stone-500">Use a header when your receiver asks for a token, for example <code class="mono">Authorization</code> with the value <code class="mono">Bearer your-token</code>.</p>
-                {{ range .Headers }}
-                <div class="flex flex-wrap items-end gap-2" data-row>
-                    <label class="min-w-0 flex-1 basis-40 text-sm text-stone-700">Name
-                        <input type="text" name="header_name" value="{{ .Name }}" autocomplete="off" class="field-input mono" placeholder="Authorization">
-                    </label>
-                    <label class="min-w-0 flex-1 basis-40 text-sm text-stone-700">Value
-                        <input type="text" name="header_value" value="{{ .Value }}" autocomplete="off" class="field-input mono" placeholder="Bearer your-token">
-                    </label>
-                    <button type="button" class="btn btn-small mb-1" data-remove-row>Remove</button>
+        <details class="card" {{ if or .Profile.Secret .Headers }}open{{ end }}>
+            <summary class="cursor-pointer px-5 py-4 text-sm font-medium text-stone-900 sm:px-6">More options <span class="font-normal text-stone-500">: a signature for your own server, more headers</span></summary>
+            <div class="space-y-6 border-t border-stone-100 p-5 sm:p-6">
+                <div>
+                    <label for="secret" class="field-label">Signing Secret</label>
+                    <input type="text" id="secret" name="secret" value="{{ .Profile.Secret }}" autocomplete="off" class="field-input mono" placeholder="A long random text">
+                    <p class="field-help">For a receiver that you wrote yourself. It is not the access key of a service. Each request gets an <code class="mono">{{ .SignedBy }}</code> header with the HMAC-SHA256 of the body in hex. Your server computes the same value with this secret and compares the two.</p>
                 </div>
-                {{ end }}
-                <template id="header-row">
+
+                <div class="space-y-3">
+                    <p class="field-label">More headers</p>
+                    <p class="field-help">Formlander sends them with each request.</p>
+                    {{ range .Headers }}
                     <div class="flex flex-wrap items-end gap-2" data-row>
                         <label class="min-w-0 flex-1 basis-40 text-sm text-stone-700">Name
-                            <input type="text" name="header_name" autocomplete="off" class="field-input mono" placeholder="Authorization">
+                            <input type="text" name="header_name" value="{{ .Name }}" autocomplete="off" class="field-input mono" placeholder="X-Team">
                         </label>
                         <label class="min-w-0 flex-1 basis-40 text-sm text-stone-700">Value
-                            <input type="text" name="header_value" autocomplete="off" class="field-input mono" placeholder="Bearer your-token">
+                            <input type="text" name="header_value" value="{{ .Value }}" autocomplete="off" class="field-input mono" placeholder="support">
                         </label>
                         <button type="button" class="btn btn-small mb-1" data-remove-row>Remove</button>
                     </div>
-                </template>
-                <button type="button" class="btn btn-small" data-add-row="header-row">Add a header</button>
+                    {{ end }}
+                    <template id="header-row">
+                        <div class="flex flex-wrap items-end gap-2" data-row>
+                            <label class="min-w-0 flex-1 basis-40 text-sm text-stone-700">Name
+                                <input type="text" name="header_name" autocomplete="off" class="field-input mono" placeholder="X-Team">
+                            </label>
+                            <label class="min-w-0 flex-1 basis-40 text-sm text-stone-700">Value
+                                <input type="text" name="header_value" autocomplete="off" class="field-input mono" placeholder="support">
+                            </label>
+                            <button type="button" class="btn btn-small mb-1" data-remove-row>Remove</button>
+                        </div>
+                    </template>
+                    <button type="button" class="btn btn-small" data-add-row="header-row">Add a header</button>
+                </div>
             </div>
-        </div>
+        </details>
 
         <div class="flex justify-end gap-3">
             <a href="{{ if .IsEdit }}/admin/settings/webhooks/{{ .Profile.ID }}{{ else }}/admin/settings/webhooks{{ end }}" class="btn">Cancel</a>

@@ -32,7 +32,7 @@
     .card-title { @apply text-base font-semibold text-stone-900; }
     .card-note { @apply text-sm text-stone-600; }
     .btn { @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-lg sm:min-h-9 bg-white px-4 py-2 text-sm font-medium text-stone-900 ring-1 ring-stone-300 transition hover:ring-stone-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-stone-900; }
-    .btn-primary { @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-lg sm:min-h-9 bg-stone-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-stone-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-stone-900 focus-visible:ring-offset-2; }
+    .btn-primary { @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-lg sm:min-h-9 bg-orange-500 px-4 py-2 text-sm font-semibold text-stone-950 shadow-sm transition hover:bg-orange-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2; }
     .btn-danger { @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-lg sm:min-h-9 bg-white px-4 py-2 text-sm font-medium text-red-700 ring-1 ring-red-200 transition hover:bg-red-50 hover:ring-red-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-600 disabled:cursor-not-allowed disabled:text-stone-400 disabled:ring-stone-200 disabled:hover:bg-white; }
     .btn-small { @apply px-3 py-1.5 text-sm sm:min-h-7 sm:text-xs; }
     .back { @apply inline-flex min-h-11 items-center text-sm text-stone-600 hover:text-stone-900 sm:min-h-0; }
@@ -40,16 +40,16 @@
     .page-title { @apply text-2xl font-semibold tracking-tight text-stone-900; }
     .page-note { @apply mt-1 text-sm text-stone-600; }
     .check { @apply h-5 w-5 shrink-0 cursor-pointer accent-stone-900 sm:h-4 sm:w-4; }
-    .field-compact { @apply h-11 rounded-lg border border-stone-300 bg-white px-3 text-base text-stone-900 placeholder:text-stone-400 focus:border-stone-900 focus:ring-stone-900 sm:h-9 sm:text-sm; }
+    .field-compact { @apply h-11 rounded-lg border border-stone-300 bg-white px-3 text-base text-stone-900 placeholder:text-stone-400 focus:border-orange-500 focus:outline-none focus:ring-4 focus:ring-orange-500/20 sm:h-9 sm:text-sm; }
     .field-label { @apply block text-sm font-medium text-stone-900; }
     .field-help { @apply mt-1.5 text-sm text-stone-600; }
-    .field-input { @apply mt-1.5 block w-full rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-base text-stone-900 shadow-sm sm:py-2 sm:text-sm placeholder:text-stone-400 focus:border-stone-900 focus:ring-stone-900; }
+    .field-input { @apply mt-1.5 block w-full rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-base text-stone-900 shadow-sm sm:py-2 sm:text-sm placeholder:text-stone-400 focus:border-orange-500 focus:outline-none focus:ring-4 focus:ring-orange-500/20; }
     .mono { @apply font-mono text-[13px]; }
     .pill { @apply inline-flex items-center rounded-full bg-stone-100 px-2.5 py-0.5 text-xs font-medium text-stone-700; }
     .pill-ok { @apply bg-emerald-50 text-emerald-700; }
     .pill-warn { @apply bg-amber-50 text-amber-800; }
     .pill-bad { @apply bg-red-50 text-red-700; }
-    .link { @apply font-medium text-stone-900 underline decoration-stone-300 underline-offset-4 hover:decoration-stone-900; }
+    .link { @apply font-medium text-stone-900 underline decoration-orange-400 decoration-2 underline-offset-4 hover:decoration-orange-600; }
     .notice { @apply rounded-xl px-4 py-3 text-sm; }
     .notice-warn { @apply bg-amber-50 text-amber-900 ring-1 ring-amber-200; }
     .notice-bad { @apply bg-red-50 text-red-800 ring-1 ring-red-200; }
@@ -59,18 +59,18 @@
 /* Controls drawn here, so they look the same in every browser. */
 @layer components {
     .check {
-        @apply appearance-none rounded border border-stone-400 bg-white transition checked:border-stone-900 checked:bg-stone-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-stone-900 focus-visible:ring-offset-2;
+        @apply appearance-none rounded border border-stone-400 bg-white transition checked:border-orange-500 checked:bg-orange-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2;
         background-position: center;
         background-repeat: no-repeat;
         background-size: 80%;
     }
     .check:checked {
-        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='white' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3.5 8.5l3 3 6-7'/%3E%3C/svg%3E");
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%230c0a09' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3.5 8.5l3 3 6-7'/%3E%3C/svg%3E");
     }
 
     /* An on/off switch. It is a checkbox, so a form sends it like one. */
     .switch {
-        @apply relative h-6 w-11 shrink-0 cursor-pointer appearance-none rounded-full bg-stone-300 transition-colors checked:bg-stone-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-stone-900 focus-visible:ring-offset-2;
+        @apply relative h-6 w-11 shrink-0 cursor-pointer appearance-none rounded-full bg-stone-300 transition-colors checked:bg-orange-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2;
     }
     .switch::before {
         content: "";
@@ -91,11 +91,14 @@
     .seg-btn { @apply rounded-md px-3 py-1.5 text-sm font-medium text-stone-600 transition hover:text-stone-900; }
     .seg-btn[aria-selected="true"], .seg-btn[aria-current="true"] { @apply bg-white text-stone-900 shadow-sm ring-1 ring-stone-900/5; }
 
-    .nav-link[aria-current="page"] { @apply bg-white/15 text-white; }
+    .nav-link[aria-current="page"] { @apply text-white; box-shadow: inset 0 -2px 0 #f97316; border-radius: 0; }
 
     /* A number that matters, with its name under it. */
     .stat { @apply rounded-2xl bg-white px-5 py-4 shadow-sm ring-1 ring-stone-900/5; }
     .stat-value { @apply text-3xl font-semibold tabular-nums tracking-tight text-stone-900; }
+    .stat:first-child { @apply bg-stone-950 ring-0; }
+    .stat:first-child .stat-value { @apply text-orange-400; }
+    .stat:first-child .stat-label { @apply text-stone-300; }
     .stat-label { @apply mt-1 text-sm text-stone-600; }
 
     /* A page of settings: the name of each part on the left, its fields on the right. */

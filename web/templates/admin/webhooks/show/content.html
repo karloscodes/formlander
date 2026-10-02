@@ -21,11 +21,15 @@
                 <dd class="mono mt-1 break-all text-stone-900">{{ .Profile.URL }}</dd>
             </div>
             <div>
+                <dt class="text-stone-500">Access key</dt>
+                <dd class="mt-1 text-stone-900">{{ if .HasKey }}Saved. Each request has an <code class="mono">Authorization</code> header.{{ else }}None. <a href="/admin/settings/webhooks/{{ .Profile.ID }}/edit" class="link">Add the key of the service</a> when it asks for one.{{ end }}</dd>
+            </div>
+            <div>
                 <dt class="text-stone-500">Signing secret</dt>
                 <dd class="mt-1 text-stone-900">{{ if .Profile.Secret }}Saved. Each request has an <code class="mono">{{ .SignedBy }}</code> header.{{ else }}None. The requests are not signed.{{ end }}</dd>
             </div>
             <div>
-                <dt class="text-stone-500">Headers</dt>
+                <dt class="text-stone-500">More headers</dt>
                 <dd class="mt-1 text-stone-900">
                     {{ if .Headers }}
                     {{ range .Headers }}<span class="mono mr-3 inline-block break-all">{{ .Name }}</span>{{ end }}

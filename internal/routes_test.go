@@ -9,6 +9,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -579,6 +580,32 @@ func TestAdminWebhookProfiles(t *testing.T) {
 			{Name: "Authorization", Value: "Bearer token"},
 			{Name: "X-Team", Value: "sales"},
 		}, profiles[0].Headers())
+	})
+
+	t.Run("the access key becomes the Authorization header, however it is pasted", func(t *testing.T) {
+		for pasted, want := range map[string]string{
+			"crsr_abc123":                       "Bearer crsr_abc123",
+			"Bearer crsr_abc123":                "Bearer crsr_abc123",
+			"Authorization: Bearer crsr_abc123": "Bearer crsr_abc123",
+			"Basic dXNlcjpwYXNz":                "Basic dXNlcjpwYXNz",
+		} {
+			ts := mountTestServer(t)
+			post := signIn(t, ts)
+
+			resp := post("/admin/settings/webhooks", "name=Cursor&url=https%3A%2F%2Fhooks.example.com%2Fin"+
+				"&authorization="+url.QueryEscape(pasted)+
+				"&header_name=authorization&header_value=old"+
+				"&header_name=X-Team&header_value=sales")
+
+			require.Equal(t, 302, resp.StatusCode, pasted)
+			profiles, err := integrations.ListWebhookProfiles(ts.DB.GetConnection())
+			require.NoError(t, err)
+			require.Len(t, profiles, 1)
+			assert.Equal(t, []integrations.WebhookHeader{
+				{Name: "Authorization", Value: want},
+				{Name: "X-Team", Value: "sales"},
+			}, profiles[0].Headers(), pasted)
+		}
 	})
 
 	t.Run("deletes a profile that no form uses", func(t *testing.T) {

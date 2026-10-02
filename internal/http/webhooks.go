@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strconv"
+	"strings"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/karloscodes/cartridge"
@@ -13,17 +14,22 @@ import (
 )
 
 // webhookParamsFromForm reads a webhook profile from the posted form. The
-// headers arrive as rows: one header_name and one header_value for each.
+// access key has its own field and becomes the Authorization header. The
+// other headers arrive as rows: one header_name and one header_value for each.
 func webhookParamsFromForm(ctx *cartridge.Context) integrations.WebhookProfileParams {
 	names := postedValues(ctx, "header_name")
 	values := postedValues(ctx, "header_value")
 	var headers []integrations.WebhookHeader
+	if authorization := authorizationValue(ctx.FormValue("authorization")); authorization != "" {
+		headers = append(headers, integrations.WebhookHeader{Name: "Authorization", Value: authorization})
+	}
 	for i, name := range names {
 		value := ""
 		if i < len(values) {
 			value = values[i]
 		}
-		if name != "" || value != "" {
+		// The field above is the one place for the Authorization header.
+		if (name != "" || value != "") && !(len(headers) > 0 && strings.EqualFold(strings.TrimSpace(name), "Authorization")) {
 			headers = append(headers, integrations.WebhookHeader{Name: name, Value: value})
 		}
 	}
@@ -35,30 +41,61 @@ func webhookParamsFromForm(ctx *cartridge.Context) integrations.WebhookProfilePa
 	}
 }
 
+// authorizationValue returns the value of the Authorization header for what
+// the owner pasted: the whole header line, the value, or only the key. A key
+// alone gets the word Bearer, which is what almost every service asks for.
+func authorizationValue(pasted string) string {
+	value := strings.TrimSpace(pasted)
+	if rest, ok := strings.CutPrefix(strings.ToLower(value), "authorization:"); ok {
+		value = strings.TrimSpace(value[len(value)-len(rest):])
+	}
+	if value != "" && !strings.ContainsAny(value, " \t") {
+		value = "Bearer " + value
+	}
+	return value
+}
+
+// splitAuthorization takes the Authorization header out of the headers, for
+// the field that the form has for it.
+func splitAuthorization(headers []integrations.WebhookHeader) (authorization string, rest []integrations.WebhookHeader) {
+	for _, header := range headers {
+		if authorization == "" && strings.EqualFold(strings.TrimSpace(header.Name), "Authorization") {
+			authorization = header.Value
+			continue
+		}
+		rest = append(rest, header)
+	}
+	return authorization, rest
+}
+
 // renderWebhookForm shows the new or edit screen with what the owner typed.
 func renderWebhookForm(ctx *cartridge.Context, id uint, params integrations.WebhookProfileParams, message string) error {
 	title := "New Webhook Profile"
 	if id != 0 {
 		title = "Edit Webhook Profile"
 	}
+	authorization, headers := splitAuthorization(params.Headers)
 	return ctx.Render("layouts/base", fiber.Map{
-		"Title":       title,
-		"IsEdit":      id != 0,
-		"Profile":     integrations.WebhookProfile{ID: id, Name: params.Name, URL: params.URL, Secret: params.Secret},
-		"Headers":     params.Headers,
-		"Error":       message,
-		"SignedBy":    GetAppConfig(ctx).Webhook.SignatureHeader,
-		"ContentView": "admin/webhooks/new/content",
+		"Title":         title,
+		"IsEdit":        id != 0,
+		"Profile":       integrations.WebhookProfile{ID: id, Name: params.Name, URL: params.URL, Secret: params.Secret},
+		"Authorization": authorization,
+		"Headers":       headers,
+		"Error":         message,
+		"SignedBy":      GetAppConfig(ctx).Webhook.SignatureHeader,
+		"ContentView":   "admin/webhooks/new/content",
 	}, "")
 }
 
 // renderWebhookProfile shows one profile, with the result of a test or the
 // reason a delete was refused.
 func renderWebhookProfile(ctx *cartridge.Context, profile *integrations.WebhookProfile, extra fiber.Map) error {
+	authorization, headers := splitAuthorization(profile.Headers())
 	data := fiber.Map{
 		"Title":        profile.Name,
 		"Profile":      profile,
-		"Headers":      profile.Headers(),
+		"HasKey":       authorization != "",
+		"Headers":      headers,
 		"Forms":        formsUsingWebhook(ctx.DB(), profile.ID),
 		"DeleteAction": "/admin/settings/webhooks/" + fmt.Sprint(profile.ID) + "/delete",
 		"SignedBy":     GetAppConfig(ctx).Webhook.SignatureHeader,
@@ -188,6 +225,8 @@ func WebhookProfileTest(ctx *cartridge.Context) error {
 	switch {
 	case err != nil:
 		result = testResult{Message: "The request failed: " + err.Error()}
+	case status == fiber.StatusUnauthorized || status == fiber.StatusForbidden:
+		result = testResult{Message: fmt.Sprintf("The webhook answered with status %d: it did not accept the access key. Edit the profile and paste the key that the service gave you into Access key.", status)}
 	case status < 200 || status >= 300:
 		result = testResult{Message: fmt.Sprintf("The webhook answered with status %d. A delivery counts only when the status is between 200 and 299.", status)}
 	}
