@@ -104,17 +104,29 @@ func envelopeAddr(s string) string {
 	return strings.TrimSpace(s)
 }
 
+// message is one email, ready for a provider to send.
+type message struct {
+	From    string // header form, e.g. "Name <addr>"
+	To      string
+	ReplyTo string // empty for no Reply-To header
+	Subject string
+	Body    string
+}
+
 // buildSMTPMessage assembles a minimal RFC 5322 plain-text email message.
 // Header and body line endings are normalized to CRLF as required by SMTP.
-func buildSMTPMessage(from, to, subject, body string) []byte {
+func buildSMTPMessage(m message) []byte {
 	var b strings.Builder
-	b.WriteString("From: " + from + "\r\n")
-	b.WriteString("To: " + to + "\r\n")
-	b.WriteString("Subject: " + subject + "\r\n")
+	b.WriteString("From: " + m.From + "\r\n")
+	b.WriteString("To: " + m.To + "\r\n")
+	if m.ReplyTo != "" {
+		b.WriteString("Reply-To: " + m.ReplyTo + "\r\n")
+	}
+	b.WriteString("Subject: " + m.Subject + "\r\n")
 	b.WriteString("Date: " + time.Now().UTC().Format(time.RFC1123Z) + "\r\n")
 	b.WriteString("MIME-Version: 1.0\r\n")
 	b.WriteString("Content-Type: text/plain; charset=\"utf-8\"\r\n")
 	b.WriteString("\r\n")
-	b.WriteString(strings.ReplaceAll(body, "\n", "\r\n"))
+	b.WriteString(strings.ReplaceAll(m.Body, "\n", "\r\n"))
 	return []byte(b.String())
 }

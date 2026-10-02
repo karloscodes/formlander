@@ -19,7 +19,10 @@ import (
 	"formlander/internal/integrations"
 )
 
-// EmailDispatcher delivers form submissions via Mailgun.
+// mailgunAPI is the address of the Mailgun HTTP API.
+var mailgunAPI = "https://api.mailgun.net"
+
+// EmailDispatcher delivers form submissions by SMTP or by Mailgun.
 type EmailDispatcher struct {
 	cfg   *config.Config
 	http  *http.Client
@@ -85,8 +88,12 @@ func (d *EmailDispatcher) handleEvent(ctx *JobContext, db *gorm.DB, event *forms
 		return
 	}
 
-	subject := fmt.Sprintf("New submission · %s", event.Submission.Form.Name)
-	err := d.send(ctx, profile, to, subject, bodyForEvent(event))
+	err := d.send(ctx, profile, message{
+		To:      to,
+		ReplyTo: replyTo(event.Submission),
+		Subject: fmt.Sprintf("New submission · %s", event.Submission.Form.Name),
+		Body:    bodyForEvent(event),
+	})
 
 	var incomplete configError
 	if errors.As(err, &incomplete) {
@@ -106,14 +113,28 @@ type configError string
 
 func (e configError) Error() string { return string(e) }
 
-// send delivers one message through the provider of a mailer profile.
-func (d *EmailDispatcher) send(ctx context.Context, profile *integrations.MailerProfile, to, subject, body string) error {
+// replyTo returns the address a reply to the email goes to: the person who
+// sent the submission. An address outside ASCII is left out, because a mail
+// server without SMTPUTF8 can refuse the whole email for it.
+func replyTo(submission *forms.Submission) string {
+	address := submission.ReplyAddress()
+	for i := 0; i < len(address); i++ {
+		if address[i] >= 0x80 {
+			return ""
+		}
+	}
+	return address
+}
+
+// send delivers one message through the provider of a mailer profile. The
+// profile gives the From address.
+func (d *EmailDispatcher) send(ctx context.Context, profile *integrations.MailerProfile, m message) error {
 	if profile.DefaultFromEmail == "" {
 		return configError("the mailer profile has no From address")
 	}
-	from := profile.DefaultFromEmail
+	m.From = profile.DefaultFromEmail
 	if profile.DefaultFromName != "" {
-		from = fmt.Sprintf("%s <%s>", profile.DefaultFromName, profile.DefaultFromEmail)
+		m.From = fmt.Sprintf("%s <%s>", profile.DefaultFromName, profile.DefaultFromEmail)
 	}
 
 	switch profile.Provider {
@@ -121,21 +142,24 @@ func (d *EmailDispatcher) send(ctx context.Context, profile *integrations.Mailer
 		if profile.APIKey == "" || profile.Domain == "" {
 			return configError("the mailer profile has no Mailgun API key or no domain")
 		}
-		return d.sendMailgun(ctx, profile, from, to, subject, body)
+		return d.sendMailgun(ctx, profile, m)
 	default: // smtp is the default provider
-		cfg := smtpConfigFromProfile(profile, from, to)
+		cfg := smtpConfigFromProfile(profile, m.From, m.To)
 		if cfg == nil {
 			return configError("the mailer profile has no SMTP host or no port")
 		}
-		return sendSMTP(cfg, buildSMTPMessage(from, to, subject, body))
+		return sendSMTP(cfg, buildSMTPMessage(m))
 	}
 }
 
 // SendTest sends a test email through a mailer profile, the same way a
 // submission goes out.
 func (d *EmailDispatcher) SendTest(ctx context.Context, profile *integrations.MailerProfile, to string) error {
-	body := fmt.Sprintf("This is a test from the mailer profile %q in Formlander.\n\nIf you can read it, the profile can send email.\n", profile.Name)
-	return d.send(ctx, profile, to, "Test email from Formlander", body)
+	return d.send(ctx, profile, message{
+		To:      to,
+		Subject: "Test email from Formlander",
+		Body:    fmt.Sprintf("This is a test from the mailer profile %q in Formlander.\n\nIf you can read it, the profile can send email.\n", profile.Name),
+	})
 }
 
 // loadMailerProfile loads the mailer profile of a form, or nil when the form
@@ -174,14 +198,17 @@ func smtpConfigFromProfile(profile *integrations.MailerProfile, from, to string)
 }
 
 // sendMailgun delivers the message through the Mailgun HTTP API.
-func (d *EmailDispatcher) sendMailgun(ctx context.Context, profile *integrations.MailerProfile, from, to, subject, body string) error {
+func (d *EmailDispatcher) sendMailgun(ctx context.Context, profile *integrations.MailerProfile, m message) error {
 	values := url.Values{}
-	values.Set("from", from)
-	values.Set("to", to)
-	values.Set("subject", subject)
-	values.Set("text", body)
+	values.Set("from", m.From)
+	values.Set("to", m.To)
+	if m.ReplyTo != "" {
+		values.Set("h:Reply-To", m.ReplyTo)
+	}
+	values.Set("subject", m.Subject)
+	values.Set("text", m.Body)
 
-	endpoint := fmt.Sprintf("https://api.mailgun.net/v3/%s/messages", profile.Domain)
+	endpoint := fmt.Sprintf("%s/v3/%s/messages", mailgunAPI, profile.Domain)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, strings.NewReader(values.Encode()))
 	if err != nil {
 		return err
