@@ -134,7 +134,7 @@ func createAdminUser(db *gorm.DB, cfg *config.Config, logger *slog.Logger) error
 	}
 
 	if !cfg.IsTest() {
-		printInitialPassword(cfg, "Admin user created", password)
+		printInitialPassword(cfg, "Admin user created")
 	}
 	return nil
 }
@@ -164,17 +164,17 @@ func replaceDefaultPassword(db *gorm.DB, cfg *config.Config, logger *slog.Logger
 	}
 
 	logger.Warn("replaced the public default admin password with a random one")
-	printInitialPassword(cfg, "Default admin password replaced (the old one is public)", password)
+	printInitialPassword(cfg, "Default admin password replaced (the old one is public)")
 	return nil
 }
 
-// printInitialPassword writes to stdout only, so the password reaches the
-// container logs but not the log file.
-func printInitialPassword(cfg *config.Config, title, password string) {
+// printInitialPassword tells where the first admin password is. It does not
+// print the password: container logs are kept, and often sent to other
+// services, and the password stays valid until the owner changes it.
+func printInitialPassword(cfg *config.Config, title string) {
 	fmt.Printf("\n🔐 %s:\n", title)
 	fmt.Printf("   Email:    %s\n", accounts.DefaultAdminEmail)
-	fmt.Printf("   Password: %s\n", password)
-	fmt.Printf("   Also in:  %s\n", filepath.Join(cfg.DataDirectory, accounts.InitialPasswordFile))
+	fmt.Printf("   Password: in %s\n", filepath.Join(cfg.DataDirectory, accounts.InitialPasswordFile))
 	fmt.Printf("   Change it in Settings after you sign in.\n\n")
 }
 

@@ -98,7 +98,7 @@ docker run -d \
 
 Access the admin dashboard at `http://localhost:8080`:
 - Email: `admin@formlander.local`
-- Password: random, generated on first start. Find it with `docker logs <container>`, or in `storage/initial-admin-password`. Change it in Settings after you sign in.
+- Password: random, generated on first start. Find it in `storage/initial-admin-password`, or with `docker exec <container> cat /app/storage/initial-admin-password`. Change it in Settings after you sign in.
 
 ### Running the Binary
 
