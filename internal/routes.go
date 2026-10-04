@@ -113,7 +113,7 @@ func MountRoutes(s *cartridge.Server, cfg *config.Config) {
 
 	// Auth config for protected routes: a valid session.
 	authConfig := &cartridge.RouteConfig{
-		CustomMiddleware: []fiber.Handler{s.Session().Middleware(), endStaleSessions(s)},
+		CustomMiddleware: []fiber.Handler{requireSession(s)},
 	}
 
 	// Protected routes (require a logged-in session).
@@ -172,9 +172,11 @@ func MountRoutes(s *cartridge.Server, cfg *config.Config) {
 	s.Get("/admin/submissions", httphandlers.SubmissionList, authConfig)
 }
 
-// endStaleSessions signs out sessions issued before the last password
-// change, and sessions of users that no longer exist.
-func endStaleSessions(s *cartridge.Server) fiber.Handler {
+// requireSession lets a request through only with a current session. It
+// sends every other request to the login page: no session, an expired one,
+// one issued before the last password change, or one of a user that no
+// longer exists.
+func requireSession(s *cartridge.Server) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		session := s.Session()
 		userID, ok := session.GetUserID(c)
@@ -186,6 +188,18 @@ func endStaleSessions(s *cartridge.Server) fiber.Handler {
 			}
 		}
 		session.ClearSession(c)
-		return c.Redirect("/admin/login")
+		return sendToLogin(c)
 	}
+}
+
+// sendToLogin sends the browser to the login page. The admin pages use
+// hx-boost, so a click is an htmx request, and htmx does not show a 401 or
+// follow a redirect into a new page. The HX-Redirect header makes htmx load
+// the login page.
+func sendToLogin(c *fiber.Ctx) error {
+	if c.Get("HX-Request") == "true" {
+		c.Set("HX-Redirect", "/admin/login")
+		return c.SendStatus(fiber.StatusUnauthorized)
+	}
+	return c.Redirect("/admin/login")
 }
