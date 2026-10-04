@@ -436,6 +436,59 @@ func TestSessionsEndAfterPasswordChange(t *testing.T) {
 	})
 }
 
+func TestSignedOutRequestsGoToLogin(t *testing.T) {
+	prev := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
+	t.Cleanup(func() { slog.SetDefault(prev) })
+
+	get := func(t *testing.T, ts *cartridgetestsupport.TestServer, headers map[string]string, cookies []*http.Cookie) *http.Response {
+		t.Helper()
+		req := httptest.NewRequest("GET", "/admin/submissions", nil)
+		for k, v := range headers {
+			req.Header.Set(k, v)
+		}
+		for _, c := range cookies {
+			req.AddCookie(c)
+		}
+		resp, err := ts.App.Test(req, -1)
+		require.NoError(t, err)
+		return resp
+	}
+
+	t.Run("redirects a page load without a session", func(t *testing.T) {
+		ts := mountTestServer(t)
+
+		resp := get(t, ts, nil, nil)
+
+		assert.Equal(t, 302, resp.StatusCode)
+		assert.Equal(t, "/admin/login", resp.Header.Get("Location"))
+	})
+
+	t.Run("tells htmx to load the login page for a click without a session", func(t *testing.T) {
+		ts := mountTestServer(t)
+
+		resp := get(t, ts, map[string]string{"HX-Request": "true"}, nil)
+
+		assert.Equal(t, 401, resp.StatusCode)
+		assert.Equal(t, "/admin/login", resp.Header.Get("HX-Redirect"))
+	})
+
+	t.Run("tells htmx to load the login page for a click with a session that ended", func(t *testing.T) {
+		ts := mountTestServer(t)
+		seedAdmin(t, ts, "admin@example.com", "old-password-1")
+		req := httptest.NewRequest("POST", "/admin/login", strings.NewReader("email=admin@example.com&password=old-password-1"))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		login, err := ts.App.Test(req, -1)
+		require.NoError(t, err)
+		require.NoError(t, accounts.ResetPassword(slog.Default(), ts.DB.GetConnection(), "admin@example.com", "new-password-1"))
+
+		resp := get(t, ts, map[string]string{"HX-Request": "true"}, login.Cookies())
+
+		assert.Equal(t, 401, resp.StatusCode)
+		assert.Equal(t, "/admin/login", resp.Header.Get("HX-Redirect"))
+	})
+}
+
 // signIn logs the admin in and returns a function that posts a form as that
 // admin, the way the admin pages do.
 func signIn(t *testing.T, ts *cartridgetestsupport.TestServer) func(path, body string) *http.Response {
