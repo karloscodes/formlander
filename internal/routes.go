@@ -184,7 +184,11 @@ func requireSession(s *cartridge.Server) fiber.Handler {
 		if ok {
 			user, err := accounts.FindByID(s.GetDBManager().GetConnection(), userID)
 			if err == nil && user.SessionIsCurrent(issuedAt) {
-				return c.Next()
+				// A failed lookup counts as ended, so an error never lets a
+				// signed-out session back in.
+				if ended, err := accounts.SessionEnded(s.GetDBManager().GetConnection(), user.ID, issuedAt); err == nil && !ended {
+					return c.Next()
+				}
 			}
 		}
 		session.ClearSession(c)

@@ -41,6 +41,7 @@ func mountTestServer(t *testing.T) *cartridgetestsupport.TestServer {
 
 	models := []any{
 		&accounts.User{},
+		&accounts.EndedSession{},
 		&forms.Form{},
 		&forms.Submission{},
 		&forms.EmailDelivery{},
@@ -487,6 +488,68 @@ func TestSignedOutRequestsGoToLogin(t *testing.T) {
 
 		assert.Equal(t, 401, resp.StatusCode)
 		assert.Equal(t, "/admin/login", resp.Header.Get("HX-Redirect"))
+	})
+}
+
+func TestLogoutEndsTheSession(t *testing.T) {
+	prev := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
+	t.Cleanup(func() { slog.SetDefault(prev) })
+
+	login := func(t *testing.T, ts *cartridgetestsupport.TestServer) []*http.Cookie {
+		t.Helper()
+		req := httptest.NewRequest("POST", "/admin/login", strings.NewReader("email=admin@example.com&password=a-good-password"))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		resp, err := ts.App.Test(req, -1)
+		require.NoError(t, err)
+		require.Equal(t, 302, resp.StatusCode)
+		return resp.Cookies()
+	}
+	logout := func(t *testing.T, ts *cartridgetestsupport.TestServer, cookies []*http.Cookie) {
+		t.Helper()
+		req := httptest.NewRequest("POST", "/admin/logout", nil)
+		req.Header.Set("Sec-Fetch-Site", "same-origin")
+		for _, c := range cookies {
+			req.AddCookie(c)
+		}
+		resp, err := ts.App.Test(req, -1)
+		require.NoError(t, err)
+		require.Equal(t, "/admin/login", resp.Header.Get("Location"))
+	}
+	// The test server has no templates, so a signed-in request fails to
+	// render. Only the redirect to the login page shows a signed-out session.
+	signedIn := func(t *testing.T, ts *cartridgetestsupport.TestServer, cookies []*http.Cookie) bool {
+		t.Helper()
+		req := httptest.NewRequest("GET", "/admin", nil)
+		for _, c := range cookies {
+			req.AddCookie(c)
+		}
+		resp, err := ts.App.Test(req, -1)
+		require.NoError(t, err)
+		return resp.Header.Get("Location") != "/admin/login"
+	}
+
+	t.Run("a cookie copied before logout no longer works", func(t *testing.T) {
+		ts := mountTestServer(t)
+		seedAdmin(t, ts, "admin@example.com", "a-good-password")
+		copied := login(t, ts)
+		require.True(t, signedIn(t, ts, copied))
+
+		logout(t, ts, copied)
+
+		assert.False(t, signedIn(t, ts, copied))
+	})
+
+	t.Run("logout on one device keeps the other device signed in", func(t *testing.T) {
+		ts := mountTestServer(t)
+		seedAdmin(t, ts, "admin@example.com", "a-good-password")
+		laptop := login(t, ts)
+		phone := login(t, ts)
+
+		logout(t, ts, laptop)
+
+		assert.False(t, signedIn(t, ts, laptop))
+		assert.True(t, signedIn(t, ts, phone))
 	})
 }
 
