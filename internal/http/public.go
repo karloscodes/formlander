@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/karloscodes/cartridge"
+	"github.com/karloscodes/cartridge/sqlite"
 	"gorm.io/gorm"
 
 	"formlander/internal/config"
@@ -115,13 +116,25 @@ func PublicFormSubmission(ctx *cartridge.Context) error {
 	userAgent := ctx.Get("User-Agent")
 	dataDir := cfg.DataDirectory
 
-	submission, err := forms.CreateSubmissionWithFiles(logger, db, form, payload, userAgent, dataDir, uploadedFiles)
+	// Submissions are public and can come in bursts, so they wait for a
+	// write turn. When the queue is full, the sender gets 503 and
+	// Retry-After instead of a hung request.
+	var submission *forms.Submission
+	err = ctx.WriteTx(func(tx *gorm.DB) error {
+		var err error
+		submission, err = forms.CreateSubmissionWithFiles(logger, tx, form, payload, userAgent, dataDir, uploadedFiles)
+		return err
+	})
 	if err != nil {
 		forms.CloseFiles(uploadedFiles) // Clean up on error
 		if errorURL != "" {
 			return ctx.Redirect(errorURL)
 		}
-		return submitError(ctx, nethttp.StatusInternalServerError, err.Error())
+		if errors.Is(err, sqlite.ErrBusy) {
+			ctx.Set("Retry-After", "5")
+			return submitError(ctx, nethttp.StatusServiceUnavailable, "Busy. Please try again in a moment.")
+		}
+		return submitError(ctx, nethttp.StatusInternalServerError, "failed to save submission")
 	}
 
 	// Check for custom success redirect

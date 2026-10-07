@@ -11,8 +11,6 @@ import (
 	"log/slog"
 
 	"gorm.io/gorm"
-
-	"formlander/internal/pkg/dbtxn"
 )
 
 // HoneypotField is the form field name reserved for bot-trap detection.
@@ -85,7 +83,7 @@ func CreateSubmissionWithFiles(logger *slog.Logger, db *gorm.DB, form *Form, pay
 		IsSpam:    isSpam,
 	}
 
-	if err := dbtxn.WithRetry(logger, db, func(tx *gorm.DB) error {
+	if err := db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(submission).Error; err != nil {
 			return err
 		}
@@ -136,7 +134,7 @@ func CreateSubmissionWithFiles(logger *slog.Logger, db *gorm.DB, form *Form, pay
 			DeleteSubmissionFiles(dataDir, form.ID, submission.ID)
 		}
 		logger.Error("store submission failed", slog.Any("error", err))
-		return nil, fmt.Errorf("failed to save submission")
+		return nil, fmt.Errorf("failed to save submission: %w", err)
 	}
 
 	return submission, nil
@@ -212,7 +210,7 @@ func DeleteSubmissions(logger *slog.Logger, db *gorm.DB, dataDir string, ids []u
 
 	// The children go first: SQLite removes them itself only when foreign
 	// keys are on for the connection.
-	if err := dbtxn.WithRetry(logger, db, func(tx *gorm.DB) error {
+	if err := db.Transaction(func(tx *gorm.DB) error {
 		for _, child := range []any{&WebhookEvent{}, &EmailEvent{}, &SubmissionFile{}} {
 			if err := tx.Where("submission_id IN ?", found).Delete(child).Error; err != nil {
 				return err

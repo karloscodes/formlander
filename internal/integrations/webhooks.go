@@ -10,8 +10,6 @@ import (
 	"time"
 
 	"gorm.io/gorm"
-
-	"formlander/internal/pkg/dbtxn"
 )
 
 // WebhookProfile stores one place that receives submissions: a URL, the
@@ -80,7 +78,7 @@ func CreateWebhookProfile(logger *slog.Logger, db *gorm.DB, params WebhookProfil
 		return nil, err
 	}
 
-	if err := dbtxn.WithRetry(logger, db, func(tx *gorm.DB) error {
+	if err := db.Transaction(func(tx *gorm.DB) error {
 		return tx.Create(profile).Error
 	}); err != nil {
 		logger.Error("failed to create webhook profile", slog.Any("error", err))
@@ -100,7 +98,7 @@ func UpdateWebhookProfile(logger *slog.Logger, db *gorm.DB, id uint, params Webh
 		return nil, err
 	}
 
-	if err := dbtxn.WithRetry(logger, db, func(tx *gorm.DB) error {
+	if err := db.Transaction(func(tx *gorm.DB) error {
 		return tx.Model(&WebhookProfile{}).Where("id = ?", id).Updates(map[string]any{
 			"name":         profile.Name,
 			"url":          profile.URL,
@@ -117,7 +115,7 @@ func UpdateWebhookProfile(logger *slog.Logger, db *gorm.DB, id uint, params Webh
 
 // DeleteWebhookProfile deletes a webhook profile
 func DeleteWebhookProfile(logger *slog.Logger, db *gorm.DB, id uint) error {
-	return dbtxn.WithRetry(logger, db, func(tx *gorm.DB) error {
+	return db.Transaction(func(tx *gorm.DB) error {
 		return tx.Delete(&WebhookProfile{}, id).Error
 	})
 }

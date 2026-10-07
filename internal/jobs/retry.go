@@ -10,7 +10,6 @@ import (
 
 	"formlander/internal/config"
 	"formlander/internal/forms"
-	"formlander/internal/pkg/dbtxn"
 )
 
 // RetryStrategy handles retry logic for background jobs.
@@ -89,7 +88,7 @@ func (u *EventUpdater) Update(ctx *JobContext, db *gorm.DB, id uint, status stri
 		opt(values)
 	}
 
-	return dbtxn.WithRetry(ctx.Logger, db, func(tx *gorm.DB) error {
+	return db.Transaction(func(tx *gorm.DB) error {
 		return tx.Model(u.model).
 			Where("id = ?", id).
 			Updates(values).Error

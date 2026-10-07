@@ -6,8 +6,6 @@ import (
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
-
-	"formlander/internal/pkg/dbtxn"
 )
 
 // EndedSession is a session that was signed out before it expired. The
@@ -25,7 +23,7 @@ type EndedSession struct {
 // EndSession records that the session of userID issued at issuedAt is signed
 // out. Records older than maxAge go away: the sessions they name have expired.
 func EndSession(logger *slog.Logger, db *gorm.DB, userID uint, issuedAt time.Time, maxAge time.Duration) error {
-	return dbtxn.WithRetry(logger, db, func(tx *gorm.DB) error {
+	return db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Where("created_at < ?", time.Now().Add(-maxAge)).Delete(&EndedSession{}).Error; err != nil {
 			return err
 		}

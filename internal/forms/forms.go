@@ -7,8 +7,6 @@ import (
 
 	"gorm.io/gorm"
 	"log/slog"
-
-	"formlander/internal/pkg/dbtxn"
 )
 
 // CreateParams holds parameters for creating a new form
@@ -149,7 +147,7 @@ func Create(logger *slog.Logger, db *gorm.DB, params CreateParams) (*Form, error
 	}
 
 	// Persist to database
-	if err := dbtxn.WithRetry(logger, db, func(tx *gorm.DB) error {
+	if err := db.Transaction(func(tx *gorm.DB) error {
 		return tx.Create(form).Error
 	}); err != nil {
 		if isUniqueConstraint(err) {
@@ -226,7 +224,7 @@ func GetEmailEvents(db *gorm.DB, formID uint, limit int) ([]EmailEvent, error) {
 
 // Delete deletes a form
 func Delete(logger *slog.Logger, db *gorm.DB, id uint) error {
-	return dbtxn.WithRetry(logger, db, func(tx *gorm.DB) error {
+	return db.Transaction(func(tx *gorm.DB) error {
 		return tx.Delete(&Form{}, id).Error
 	})
 }
@@ -250,7 +248,7 @@ func GetBySlug(db *gorm.DB, slug string) (*Form, error) {
 func EnsureDeliveryRecords(logger *slog.Logger, db *gorm.DB, form *Form) error {
 	if form.EmailDelivery == nil {
 		form.EmailDelivery = &EmailDelivery{FormID: form.ID}
-		if err := dbtxn.WithRetry(logger, db, func(tx *gorm.DB) error {
+		if err := db.Transaction(func(tx *gorm.DB) error {
 			return tx.Create(form.EmailDelivery).Error
 		}); err != nil {
 			logger.Error("failed to create email delivery", slog.Any("error", err), slog.Uint64("form_id", uint64(form.ID)))
@@ -259,7 +257,7 @@ func EnsureDeliveryRecords(logger *slog.Logger, db *gorm.DB, form *Form) error {
 	}
 	if form.WebhookDelivery == nil {
 		form.WebhookDelivery = &WebhookDelivery{FormID: form.ID}
-		if err := dbtxn.WithRetry(logger, db, func(tx *gorm.DB) error {
+		if err := db.Transaction(func(tx *gorm.DB) error {
 			return tx.Create(form.WebhookDelivery).Error
 		}); err != nil {
 			logger.Error("failed to create webhook delivery", slog.Any("error", err), slog.Uint64("form_id", uint64(form.ID)))
@@ -309,7 +307,7 @@ func Update(logger *slog.Logger, db *gorm.DB, params UpdateParams) (*Form, error
 	}
 
 	// Update in transaction
-	if err := dbtxn.WithRetry(logger, db, func(tx *gorm.DB) error {
+	if err := db.Transaction(func(tx *gorm.DB) error {
 		// Update form fields
 		if err := tx.Model(&Form{}).
 			Where("id = ?", params.ID).

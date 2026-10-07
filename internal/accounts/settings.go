@@ -1,10 +1,8 @@
 package accounts
 
 import (
-	"log/slog"
 	"gorm.io/gorm"
-
-	"formlander/internal/pkg/dbtxn"
+	"log/slog"
 )
 
 // SetupDefaultSettings initializes default settings in the database
@@ -33,7 +31,7 @@ func SetSetting(db *gorm.DB, logger *slog.Logger, key, value string) error {
 			Key:   key,
 			Value: value,
 		}
-		return dbtxn.WithRetry(logger, db, func(tx *gorm.DB) error {
+		return db.Transaction(func(tx *gorm.DB) error {
 			return tx.Create(&setting).Error
 		})
 	} else if err != nil {
@@ -42,7 +40,7 @@ func SetSetting(db *gorm.DB, logger *slog.Logger, key, value string) error {
 
 	// Update existing setting
 	setting.Value = value
-	return dbtxn.WithRetry(logger, db, func(tx *gorm.DB) error {
+	return db.Transaction(func(tx *gorm.DB) error {
 		return tx.Save(&setting).Error
 	})
 }

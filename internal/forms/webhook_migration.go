@@ -8,7 +8,6 @@ import (
 	"gorm.io/gorm"
 
 	"formlander/internal/integrations"
-	"formlander/internal/pkg/dbtxn"
 )
 
 // MigrateInlineWebhooks moves the webhooks that forms held inline (URL,
@@ -25,7 +24,7 @@ func MigrateInlineWebhooks(logger *slog.Logger, db *gorm.DB) error {
 
 	for _, delivery := range deliveries {
 		delivery := delivery
-		if err := dbtxn.WithRetry(logger, db, func(tx *gorm.DB) error {
+		if err := db.Transaction(func(tx *gorm.DB) error {
 			var profile integrations.WebhookProfile
 			err := tx.Where("url = ? AND secret = ? AND headers_json = ?", delivery.URL, delivery.Secret, delivery.HeadersJSON).
 				First(&profile).Error

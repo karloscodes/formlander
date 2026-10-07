@@ -5,10 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"log/slog"
 	"gorm.io/gorm"
-
-	"formlander/internal/pkg/dbtxn"
+	"log/slog"
 )
 
 // CaptchaProfileParams holds parameters for creating/updating a captcha profile
@@ -63,7 +61,7 @@ func CreateCaptchaProfile(logger *slog.Logger, db *gorm.DB, params CaptchaProfil
 		PolicyJSON:   policyJSON,
 	}
 
-	if err := dbtxn.WithRetry(logger, db, func(tx *gorm.DB) error {
+	if err := db.Transaction(func(tx *gorm.DB) error {
 		return tx.Create(profile).Error
 	}); err != nil {
 		logger.Error("failed to create captcha profile", slog.Any("error", err))
@@ -114,7 +112,7 @@ func UpdateCaptchaProfile(logger *slog.Logger, db *gorm.DB, id uint, params Capt
 		}
 	}
 
-	if err := dbtxn.WithRetry(logger, db, func(tx *gorm.DB) error {
+	if err := db.Transaction(func(tx *gorm.DB) error {
 		return tx.Model(profile).Updates(map[string]any{
 			"name":           name,
 			"provider":       strings.TrimSpace(params.Provider),
@@ -133,7 +131,7 @@ func UpdateCaptchaProfile(logger *slog.Logger, db *gorm.DB, id uint, params Capt
 
 // DeleteCaptchaProfile deletes a captcha profile
 func DeleteCaptchaProfile(logger *slog.Logger, db *gorm.DB, id uint) error {
-	return dbtxn.WithRetry(logger, db, func(tx *gorm.DB) error {
+	return db.Transaction(func(tx *gorm.DB) error {
 		return tx.Delete(&CaptchaProfile{}, id).Error
 	})
 }

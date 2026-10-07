@@ -16,7 +16,6 @@ import (
 	"formlander/internal/forms"
 	httphandlers "formlander/internal/http"
 	"formlander/internal/jobs"
-	"formlander/internal/pkg/dbtxn"
 	"formlander/internal/server"
 	"formlander/web"
 )
@@ -137,7 +136,7 @@ func createAdminUser(db *gorm.DB, cfg *config.Config, logger *slog.Logger) error
 		admin.LastLoginAt = &now
 	}
 
-	if err := dbtxn.WithRetry(logger, db, func(tx *gorm.DB) error {
+	if err := db.Transaction(func(tx *gorm.DB) error {
 		return tx.Create(admin).Error
 	}); err != nil {
 		logger.Error("failed to create default admin user", slog.Any("error", err))

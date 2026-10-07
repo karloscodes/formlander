@@ -15,7 +15,6 @@ import (
 
 	"formlander/internal/forms"
 	"formlander/internal/integrations"
-	"formlander/internal/pkg/dbtxn"
 )
 
 // AdminFormsIndex renders the list of forms.
@@ -233,7 +232,7 @@ func AdminFormsCreate(ctx *cartridge.Context) error {
 	if selectedTemplate != nil {
 		if html := selectedTemplate.RenderHTML(liveFormAction(form.Slug, form.Token)); strings.TrimSpace(html) != "" {
 			form.GeneratedHTML = html
-			if err := dbtxn.WithRetry(ctx.Logger, db, func(tx *gorm.DB) error {
+			if err := db.Transaction(func(tx *gorm.DB) error {
 				return tx.Model(form).Update("generated_html", html).Error
 			}); err != nil {
 				ctx.Logger.Error("failed to update generated HTML", slog.Any("error", err))
