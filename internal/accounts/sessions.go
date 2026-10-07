@@ -34,6 +34,19 @@ func EndSession(logger *slog.Logger, db *gorm.DB, userID uint, issuedAt time.Tim
 	})
 }
 
+// SessionValid reports whether a session of userID issued at issuedAt still
+// counts: the user exists, the session is not older than the last password
+// change, and nobody signed it out. An error counts as not valid, so a failed
+// lookup never lets a session in.
+func SessionValid(db *gorm.DB, userID uint, issuedAt time.Time) bool {
+	user, err := FindByID(db, userID)
+	if err != nil || !user.SessionIsCurrent(issuedAt) {
+		return false
+	}
+	ended, err := SessionEnded(db, userID, issuedAt)
+	return err == nil && !ended
+}
+
 // SessionEnded reports whether the session of userID issued at issuedAt was
 // signed out.
 func SessionEnded(db *gorm.DB, userID uint, issuedAt time.Time) (bool, error) {

@@ -31,6 +31,9 @@ type App struct {
 func NewApp() (*App, error) {
 	cfg := config.Get()
 
+	// The session check runs per request, after NewApp has returned, so it
+	// can use the database of the app.
+	var app *cartridge.App
 	app, err := cartridge.NewApp(cfg,
 		cartridge.WithAssets(web.Templates, web.Static),
 		cartridge.WithServerConfig(func(c *cartridge.ServerConfig) {
@@ -43,6 +46,9 @@ func NewApp() (*App, error) {
 		cartridge.WithTemplateFuncs(server.TemplateFuncs()),
 		cartridge.WithErrorHandler(server.ErrorHandler(slog.Default(), cfg)),
 		cartridge.WithSession("/admin/login"),
+		cartridge.WithSessionCheck(func(userID uint, issuedAt time.Time) bool {
+			return accounts.SessionValid(app.DBManager.GetConnection(), userID, issuedAt)
+		}),
 		cartridge.WithJobs(2*time.Minute,
 			jobs.NewWebhookDispatcher(cfg),
 			jobs.NewEmailDispatcher(cfg),

@@ -7,7 +7,6 @@ import (
 	"github.com/karloscodes/cartridge"
 	ratelimit "github.com/karloscodes/cartridge/middleware"
 
-	"formlander/internal/accounts"
 	"formlander/internal/config"
 	httphandlers "formlander/internal/http"
 )
@@ -87,7 +86,7 @@ func MountRoutes(s *cartridge.Server, cfg *config.Config) {
 
 	// Auth config for protected routes: a valid session.
 	authConfig := &cartridge.RouteConfig{
-		CustomMiddleware: []cartridge.HandlerFunc{requireSession(s)},
+		CustomMiddleware: []cartridge.HandlerFunc{s.Session().Middleware()},
 	}
 
 	// Protected routes (require a logged-in session).
@@ -144,42 +143,4 @@ func MountRoutes(s *cartridge.Server, cfg *config.Config) {
 
 	// Submissions routes
 	s.Get("/admin/submissions", httphandlers.SubmissionList, authConfig)
-}
-
-// requireSession lets a request through only with a current session. It
-// sends every other request to the login page: no session, an expired one,
-// one issued before the last password change, or one of a user that no
-// longer exists.
-func requireSession(s *cartridge.Server) cartridge.HandlerFunc {
-	return func(c *cartridge.Context) error {
-		session := s.Session()
-		userID, ok := session.GetUserID(c)
-		issuedAt, _ := session.IssuedAt(c)
-		if ok {
-			user, err := accounts.FindByID(c.DB(), userID)
-			if err == nil && user.SessionIsCurrent(issuedAt) {
-				// A failed lookup counts as ended, so an error never lets a
-				// signed-out session back in.
-				if ended, err := accounts.SessionEnded(c.DB(), user.ID, issuedAt); err == nil && !ended {
-					// Admin pages hold visitor data: no cache keeps a copy.
-					c.Set("Cache-Control", "private, no-store")
-					return c.Next()
-				}
-			}
-		}
-		session.ClearSession(c)
-		return sendToLogin(c)
-	}
-}
-
-// sendToLogin sends the browser to the login page. The admin pages use
-// hx-boost, so a click is an htmx request, and htmx does not show a 401 or
-// follow a redirect into a new page. The HX-Redirect header makes htmx load
-// the login page.
-func sendToLogin(c *cartridge.Context) error {
-	if c.Get("HX-Request") == "true" {
-		c.Set("HX-Redirect", "/admin/login")
-		return c.SendStatus(http.StatusUnauthorized)
-	}
-	return c.Redirect("/admin/login")
 }
