@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"mime"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
@@ -893,6 +894,35 @@ func TestAdminExportsSubmissions(t *testing.T) {
 }
 
 // signInGet signs the admin in and returns a function that gets a page.
+func TestAdminDownloadsAFile(t *testing.T) {
+	prev := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
+	t.Cleanup(func() { slog.SetDefault(prev) })
+	ts := mountTestServer(t)
+	db := ts.DB.GetConnection()
+	require.NoError(t, db.Create(&forms.Form{Name: "Contact", Slug: "contact", Token: "secret-token", AllowedOrigins: "example.com"}).Error)
+	name := `a";filename*=UTF-8''invoice.exe;x=".pdf`
+	status, body := multipartPost(t, ts, "/forms/contact/submit?token=secret-token", nil, name,
+		map[string]string{"Origin": "https://example.com"})
+	require.Equal(t, 200, status, body)
+	var file forms.SubmissionFile
+	require.NoError(t, db.First(&file).Error)
+	get := signInGet(t, ts)
+
+	resp := get(fmt.Sprintf("/admin/submissions/%d/files/%d", file.SubmissionID, file.ID))
+
+	require.Equal(t, 200, resp.StatusCode)
+	disposition, params, err := mime.ParseMediaType(resp.Header.Get("Content-Disposition"))
+	require.NoError(t, err)
+	assert.Equal(t, "attachment", disposition)
+	assert.Equal(t, map[string]string{"filename": name}, params, "the visitor's name stays one filename parameter")
+	assert.Equal(t, "application/octet-stream", resp.Header.Get("Content-Type"))
+	assert.Equal(t, "nosniff", resp.Header.Get("X-Content-Type-Options"))
+	content, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	assert.Equal(t, "hello", string(content))
+}
+
 func TestAdminExportNeutralizesFieldNames(t *testing.T) {
 	ts := mountTestServer(t)
 	db := ts.DB.GetConnection()

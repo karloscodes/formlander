@@ -6,7 +6,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"maps"
+	"mime"
 	"net/url"
+	"os"
 	"slices"
 	"strconv"
 	"strings"
@@ -296,15 +298,27 @@ func AdminSubmissionFileDownload(ctx *cartridge.Context) error {
 		return fiber.ErrInternalServerError
 	}
 
-	filePath := forms.GetFilePath(cfg.DataDirectory, &file)
-
-	// Set content disposition for download
-	ctx.Set("Content-Disposition", "attachment; filename=\""+file.Filename+"\"")
-	if file.ContentType != "" {
-		ctx.Set("Content-Type", file.ContentType)
+	stored, err := os.Open(forms.GetFilePath(cfg.DataDirectory, &file))
+	if err != nil {
+		return fiber.ErrNotFound
+	}
+	info, err := stored.Stat()
+	if err != nil {
+		stored.Close()
+		return fiber.ErrInternalServerError
 	}
 
-	return ctx.SendFile(filePath)
+	// A visitor chose the name and the type of the file. FormatMediaType keeps
+	// the name inside one filename parameter, and the browser saves the bytes
+	// as a download of an unknown type, never as a page of this site.
+	disposition := mime.FormatMediaType("attachment", map[string]string{"filename": file.Filename})
+	if disposition == "" {
+		disposition = "attachment"
+	}
+	ctx.Set(fiber.HeaderContentDisposition, disposition)
+	ctx.Set(fiber.HeaderContentType, "application/octet-stream")
+	ctx.Set(fiber.HeaderXContentTypeOptions, "nosniff")
+	return ctx.SendStream(stored, int(info.Size()))
 }
 
 // cameFrom returns the admin page that linked to this one, or fallback. After
