@@ -35,7 +35,11 @@ run_installer() {
     esac
 
     BINARY_PATH="$INSTALL_DIR/formlander"
-    TEMP_FILE="/tmp/formlander-$ARCH"
+    # A private directory, so no other user can create or swap the file
+    # that root runs.
+    TEMP_DIR=$(mktemp -d)
+    trap 'rm -rf "$TEMP_DIR"' EXIT
+    TEMP_FILE="$TEMP_DIR/formlander-$ARCH"
 
     # Install dependencies if needed
     NEED_UPDATE=false
@@ -116,26 +120,24 @@ run_installer() {
 
     # Verify SHA256 checksum
     echo "Verifying SHA256 checksum..."
-    CHECKSUMS_FILE="/tmp/formlander-checksums.txt"
-    if curl -fsSL -o "$CHECKSUMS_FILE" "$CHECKSUMS_URL" 2>/dev/null; then
-        EXPECTED_HASH=$(grep "$ASSET_NAME" "$CHECKSUMS_FILE" | awk '{print $1}')
-        if [ -n "$EXPECTED_HASH" ]; then
-            ACTUAL_HASH=$(sha256sum "$TEMP_FILE" | awk '{print $1}')
-            if [ "$ACTUAL_HASH" != "$EXPECTED_HASH" ]; then
-                echo -e "${RED}Error: SHA256 checksum mismatch!${NC}"
-                echo "  Expected: $EXPECTED_HASH"
-                echo "  Got:      $ACTUAL_HASH"
-                rm -f "$TEMP_FILE" "$CHECKSUMS_FILE"
-                exit 1
-            fi
-            echo -e "${GREEN}Checksum verified.${NC}"
-        else
-            echo "Warning: No checksum found for $ASSET_NAME, skipping verification."
-        fi
-        rm -f "$CHECKSUMS_FILE"
-    else
-        echo "Warning: Could not download checksums file, skipping verification."
+    CHECKSUMS_FILE="$TEMP_DIR/checksums.txt"
+    if ! curl -fsSL -o "$CHECKSUMS_FILE" "$CHECKSUMS_URL"; then
+        echo -e "${RED}Error: Could not download checksums.txt, so the binary cannot be verified.${NC}"
+        exit 1
     fi
+    EXPECTED_HASH=$(awk -v name="$ASSET_NAME" '$2 == name {print $1}' "$CHECKSUMS_FILE")
+    if [ -z "$EXPECTED_HASH" ]; then
+        echo -e "${RED}Error: checksums.txt has no entry for $ASSET_NAME.${NC}"
+        exit 1
+    fi
+    ACTUAL_HASH=$(sha256sum "$TEMP_FILE" | awk '{print $1}')
+    if [ "$ACTUAL_HASH" != "$EXPECTED_HASH" ]; then
+        echo -e "${RED}Error: SHA256 checksum mismatch!${NC}"
+        echo "  Expected: $EXPECTED_HASH"
+        echo "  Got:      $ACTUAL_HASH"
+        exit 1
+    fi
+    echo -e "${GREEN}Checksum verified.${NC}"
 
     # Check file type
     if command -v file >/dev/null 2>&1; then
