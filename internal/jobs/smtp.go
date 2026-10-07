@@ -122,6 +122,15 @@ func subjectHeader(subject string) string {
 	return strings.ReplaceAll(mime.QEncoding.Encode("utf-8", subject), "?= =?", "?=\r\n =?")
 }
 
+// crlf makes every line break of a body CRLF. A bare CR becomes a line break
+// too: the body holds text that visitors chose, and some mail servers read a
+// bare CR next to a dot as the end of the message (SMTP smuggling).
+func crlf(body string) string {
+	body = strings.ReplaceAll(body, "\r\n", "\n")
+	body = strings.ReplaceAll(body, "\r", "\n")
+	return strings.ReplaceAll(body, "\n", "\r\n")
+}
+
 // buildSMTPMessage assembles a minimal RFC 5322 plain-text email message.
 // Header and body line endings are normalized to CRLF as required by SMTP.
 func buildSMTPMessage(m message) []byte {
@@ -136,6 +145,6 @@ func buildSMTPMessage(m message) []byte {
 	b.WriteString("MIME-Version: 1.0\r\n")
 	b.WriteString("Content-Type: text/plain; charset=\"utf-8\"\r\n")
 	b.WriteString("\r\n")
-	b.WriteString(strings.ReplaceAll(m.Body, "\n", "\r\n"))
+	b.WriteString(crlf(m.Body))
 	return []byte(b.String())
 }

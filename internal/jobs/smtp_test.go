@@ -198,6 +198,14 @@ func TestBuildSMTPMessage(t *testing.T) {
 		}
 	})
 
+	t.Run("turns a bare CR in the body into a line break", func(t *testing.T) {
+		msg := buildSMTPMessage(message{From: "a@x.com", To: "b@x.com", Subject: "Hi", Body: "a\r.\rMAIL FROM:<x@example.com>\r\nb\n"})
+
+		s := string(msg)
+		assert.Contains(t, s, "a\r\n.\r\nMAIL FROM:<x@example.com>\r\nb\r\n")
+		assert.Equal(t, strings.Count(s, "\r"), strings.Count(s, "\r\n"), "every CR starts a CRLF")
+	})
+
 	t.Run("keeps a long subject outside ASCII below the line limit of SMTP", func(t *testing.T) {
 		subject := strings.Repeat("é", 200)
 
