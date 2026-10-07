@@ -25,6 +25,17 @@ func parseSMTPPort(s string) int {
 	return n
 }
 
+// sameSMTPServer reports whether the posted profile sends to the server that
+// the saved SMTP password was typed for. A saved password goes to no other
+// server: the screen never shows it, so a changed host must not reveal it.
+func sameSMTPServer(params integrations.MailerProfileParams, saved *integrations.MailerProfile) bool {
+	return strings.TrimSpace(params.Provider) == saved.Provider &&
+		strings.TrimSpace(params.SMTPHost) == saved.SMTPHost &&
+		params.SMTPPort == saved.SMTPPort &&
+		strings.TrimSpace(params.SMTPUsername) == saved.SMTPUsername &&
+		strings.TrimSpace(params.SMTPEncryption) == saved.SMTPEncryption
+}
+
 // mailerParamsFromForm reads a mailer profile from the posted form. existing
 // is the saved profile on an update, or nil on a create. The screen never
 // shows a saved password or API key, so an empty one means "keep it".
@@ -47,7 +58,7 @@ func mailerParamsFromForm(ctx *cartridge.Context, existing *integrations.MailerP
 		if strings.TrimSpace(params.APIKey) == "" {
 			params.APIKey = existing.APIKey
 		}
-		if strings.TrimSpace(params.SMTPPassword) == "" {
+		if strings.TrimSpace(params.SMTPPassword) == "" && sameSMTPServer(params, existing) {
 			params.SMTPPassword = existing.SMTPPassword
 		}
 		// The screen has no field for the extra defaults. Keep what is saved.
@@ -196,6 +207,10 @@ func MailerProfileUpdate(ctx *cartridge.Context) error {
 		return err
 	}
 	params := mailerParamsFromForm(ctx, existing)
+	if params.Provider != "mailgun" && existing.SMTPPassword != "" && strings.TrimSpace(params.SMTPPassword) == "" {
+		ctx.Status(fiber.StatusBadRequest)
+		return renderMailerForm(ctx, existing.ID, params, "Type the SMTP password again. Formlander sends a saved password only to the server it was saved for.")
+	}
 
 	profile, err := integrations.UpdateMailerProfile(ctx.Logger, ctx.DB(), existing.ID, params)
 	if err != nil {

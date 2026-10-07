@@ -894,6 +894,65 @@ func TestAdminExportsSubmissions(t *testing.T) {
 }
 
 // signInGet signs the admin in and returns a function that gets a page.
+func TestMailerProfileSendsItsPasswordOnlyToItsServer(t *testing.T) {
+	prev := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
+	t.Cleanup(func() { slog.SetDefault(prev) })
+
+	setup := func(t *testing.T) (*cartridgetestsupport.TestServer, *integrations.MailerProfile, func(path, body string) *http.Response) {
+		t.Helper()
+		ts := mountTestServer(t)
+		profile := &integrations.MailerProfile{
+			Name: "Relay", Provider: "smtp", DefaultFromEmail: "forms@example.com",
+			SMTPHost: "smtp.example.com", SMTPPort: 587, SMTPUsername: "u", SMTPPassword: "dummy-secret", SMTPEncryption: "starttls",
+		}
+		require.NoError(t, ts.DB.GetConnection().Create(profile).Error)
+		return ts, profile, signIn(t, ts)
+	}
+	update := func(host, password string) string {
+		return url.Values{
+			"name": {"Relay"}, "provider": {"smtp"}, "default_from_email": {"forms@example.com"},
+			"smtp_host": {host}, "smtp_port": {"587"}, "smtp_username": {"u"}, "smtp_password": {password}, "smtp_encryption": {"starttls"},
+		}.Encode()
+	}
+	saved := func(t *testing.T, ts *cartridgetestsupport.TestServer, id uint) integrations.MailerProfile {
+		t.Helper()
+		var profile integrations.MailerProfile
+		require.NoError(t, ts.DB.GetConnection().First(&profile, id).Error)
+		return profile
+	}
+
+	t.Run("refuses a new host when the password is not typed again", func(t *testing.T) {
+		ts, profile, post := setup(t)
+
+		post(fmt.Sprintf("/admin/settings/mailers/%d", profile.ID), update("smtp.attacker.example", ""))
+
+		after := saved(t, ts, profile.ID)
+		assert.Equal(t, "smtp.example.com", after.SMTPHost)
+		assert.Equal(t, "dummy-secret", after.SMTPPassword)
+	})
+
+	t.Run("keeps the saved password when the server stays the same", func(t *testing.T) {
+		ts, profile, post := setup(t)
+
+		resp := post(fmt.Sprintf("/admin/settings/mailers/%d", profile.ID), update("smtp.example.com", ""))
+
+		assert.Equal(t, 302, resp.StatusCode)
+		assert.Equal(t, "dummy-secret", saved(t, ts, profile.ID).SMTPPassword)
+	})
+
+	t.Run("takes a new host with the password typed again", func(t *testing.T) {
+		ts, profile, post := setup(t)
+
+		resp := post(fmt.Sprintf("/admin/settings/mailers/%d", profile.ID), update("smtp.other.example", "new-secret"))
+
+		assert.Equal(t, 302, resp.StatusCode)
+		after := saved(t, ts, profile.ID)
+		assert.Equal(t, "smtp.other.example", after.SMTPHost)
+		assert.Equal(t, "new-secret", after.SMTPPassword)
+	})
+}
+
 func TestAdminDownloadsAFile(t *testing.T) {
 	prev := slog.Default()
 	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
