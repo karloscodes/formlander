@@ -86,15 +86,15 @@ echo "Save this secret: $FORMLANDER_SESSION_SECRET"
 
 ```bash
 docker run -d \
-  -p 8080:8080 \
-  -e FORMLANDER_SESSION_SECRET="your-saved-secret-here" \
+  -p 127.0.0.1:8080:8080 \
+  -e FORMLANDER_SESSION_SECRET="$FORMLANDER_SESSION_SECRET" \
   -v $(pwd)/storage:/app/storage \
   karloscodes/formlander:latest
 ```
 
 **Important:** Use the same `FORMLANDER_SESSION_SECRET` value across restarts to prevent logging out all users.
 
-**HTTPS is required.** The Docker image runs in production mode, which marks the session cookie `Secure`. Without TLS in front (Caddy, Nginx, Traefik, etc.) browsers silently drop the cookie and login appears to fail. The bundled `install.sh` sets up Caddy with automatic certificates; if you roll your own with docker-compose, put a TLS terminator in front of `:8080`.
+**HTTPS is required.** The Docker image runs in production mode, which marks the session cookie `Secure`. Without TLS in front (Caddy, Nginx, Traefik, etc.) browsers silently drop the cookie and login appears to fail. The bundled `install.sh` sets up Caddy with automatic certificates; if you roll your own with docker-compose, put a TLS terminator in front of `:8080`. Publish the port on `127.0.0.1` only, as above: Formlander trusts `X-Forwarded-For` from private addresses, so only your proxy should reach it.
 
 Access the admin dashboard at `http://localhost:8080`:
 - Email: `admin@formlander.local`
@@ -124,7 +124,7 @@ Formlander uses [Viper](https://github.com/spf13/viper) for flexible configurati
 - Environment variables always override `.env` file values
 
 **Required Environment Variable (Production Only):**
-- `FORMLANDER_SESSION_SECRET` - HMAC secret for signing session cookies (fixed default in dev/test)
+- `FORMLANDER_SESSION_SECRET` - HMAC secret for signing session cookies, 32 characters or more. Formlander replaces a shorter or public value with a random one.
 
 **Optional Environment Variables:**
 - `FORMLANDER_ENV` - Environment mode: `development`, `production` (default: `development` for binary / `go run`; the Docker image sets `production`)
@@ -140,7 +140,7 @@ Formlander uses [Viper](https://github.com/spf13/viper) for flexible configurati
 ```bash
 FORMLANDER_ENV=production
 FORMLANDER_PORT=8080
-FORMLANDER_SESSION_SECRET=your-secret-here
+FORMLANDER_SESSION_SECRET=<the output of openssl rand -hex 32>
 FORMLANDER_LOG_LEVEL=info
 FORMLANDER_DATA_DIR=./storage
 ```
