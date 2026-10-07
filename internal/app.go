@@ -140,25 +140,13 @@ func createAdminUser(db *gorm.DB, cfg *config.Config, logger *slog.Logger) error
 }
 
 func replaceDefaultPassword(db *gorm.DB, cfg *config.Config, logger *slog.Logger) error {
-	admin, err := accounts.FindByEmail(db, accounts.DefaultAdminEmail)
-	if err != nil {
-		return err
-	}
-
 	password := accounts.GenerateInitialPassword()
 	if err := accounts.WriteInitialPassword(cfg.DataDirectory, password); err != nil {
 		return fmt.Errorf("write initial admin password: %w", err)
 	}
 
-	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-	if err != nil {
-		return fmt.Errorf("hash password: %w", err)
-	}
-	admin.PasswordHash = string(hash)
-
-	if err := dbtxn.WithRetry(logger, db, func(tx *gorm.DB) error {
-		return tx.Save(admin).Error
-	}); err != nil {
+	// ResetPassword also ends every session opened with the public password.
+	if err := accounts.ResetPassword(logger, db, accounts.DefaultAdminEmail, password); err != nil {
 		logger.Error("failed to replace default admin password", slog.Any("error", err))
 		return err
 	}

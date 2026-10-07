@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	cartridgeconfig "github.com/karloscodes/cartridge/config"
 	"github.com/stretchr/testify/assert"
@@ -86,6 +87,24 @@ func TestEnsureAdminUser(t *testing.T) {
 		require.NoError(t, err)
 		assert.False(t, passwordWorks(t, db, accounts.DefaultAdminPassword))
 		assert.True(t, passwordWorks(t, db, readInitialPassword(t, cfg)))
+	})
+
+	t.Run("ends the sessions opened with the public default password", func(t *testing.T) {
+		db := testsupport.SetupTestDB(t)
+		hash, err := bcrypt.GenerateFromPassword([]byte(accounts.DefaultAdminPassword), bcrypt.MinCost)
+		require.NoError(t, err)
+		require.NoError(t, db.Create(&accounts.User{Email: accounts.DefaultAdminEmail, PasswordHash: string(hash)}).Error)
+		cfg := adminTestConfig(t, cartridgeconfig.Production)
+		issuedBefore := time.Now()
+
+		captureStdout(t, func() {
+			require.NoError(t, ensureAdminUser(db, cfg, logger))
+		})
+
+		admin, err := accounts.FindByEmail(db, accounts.DefaultAdminEmail)
+		require.NoError(t, err)
+		assert.False(t, admin.SessionIsCurrent(issuedBefore))
+		assert.True(t, admin.SessionIsCurrent(time.Now()))
 	})
 
 	t.Run("keeps a password the operator already changed", func(t *testing.T) {
