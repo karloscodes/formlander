@@ -22,7 +22,7 @@ func TestExtractCaptchaToken(t *testing.T) {
 
 	t.Run("extracts cf_turnstile_response (underscore variant)", func(t *testing.T) {
 		payload := map[string]any{
-			"email":                  "test@example.com",
+			"email":                 "test@example.com",
 			"cf_turnstile_response": "underscore-token",
 		}
 

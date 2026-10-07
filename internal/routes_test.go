@@ -36,6 +36,9 @@ import (
 // browsers and reverse-proxied deploys can authenticate; every other
 // state-changing admin route must remain protected.
 
+// testSessionSecret signs the sessions of the test server.
+const testSessionSecret = "a-test-session-secret-of-32-bytes-or-more"
+
 func mountTestServer(t *testing.T) *cartridgetestsupport.TestServer {
 	t.Helper()
 
@@ -58,7 +61,7 @@ func mountTestServer(t *testing.T) *cartridgetestsupport.TestServer {
 		Config: &cartridgeconfig.Config{
 			AppName:        "formlander",
 			Environment:    cartridgeconfig.Test,
-			SessionSecret:  "test-secret",
+			SessionSecret:  testSessionSecret,
 			SessionTimeout: 3600,
 			DataDirectory:  t.TempDir(),
 		},
@@ -68,12 +71,15 @@ func mountTestServer(t *testing.T) *cartridgetestsupport.TestServer {
 	ts := cartridgetestsupport.NewTestServer(t, cartridgetestsupport.TestServerOptions{
 		Models: models,
 		RouteMountFunc: func(s *cartridge.Server) {
-			s.SetSession(cartridge.NewSessionManager(cartridge.SessionConfig{
+			sessions, err := cartridge.NewSessionManager(cartridge.SessionConfig{
 				CookieName: "formlander_session",
-				Secret:     "test-secret",
+				Secret:     testSessionSecret,
 				TTL:        time.Hour,
 				LoginPath:  "/admin/login",
-			}))
+				Insecure:   true,
+			})
+			require.NoError(t, err)
+			s.SetSession(sessions)
 			internal.MountRoutes(s, flCfg)
 		},
 	})
@@ -88,7 +94,7 @@ func formPost(t *testing.T, ts *cartridgetestsupport.TestServer, path, body stri
 	for k, v := range headers {
 		req.Header.Set(k, v)
 	}
-	resp, err := ts.App.Test(req, -1)
+	resp, err := ts.Server.Test(req)
 	require.NoError(t, err)
 	defer resp.Body.Close()
 	b, _ := io.ReadAll(resp.Body)
@@ -114,7 +120,7 @@ func multipartPost(t *testing.T, ts *cartridgetestsupport.TestServer, path strin
 	for k, v := range headers {
 		req.Header.Set(k, v)
 	}
-	resp, err := ts.App.Test(req, -1)
+	resp, err := ts.Server.Test(req)
 	require.NoError(t, err)
 	defer resp.Body.Close()
 	b, _ := io.ReadAll(resp.Body)
@@ -327,7 +333,7 @@ func TestPublicFormSubmissionGuards(t *testing.T) {
 		req := httptest.NewRequest("POST", "/forms/contact/submit?token=secret-token", strings.NewReader(fields))
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 		req.Header.Set("Origin", "https://example.com")
-		resp, err := ts.App.Test(req, -1)
+		resp, err := ts.Server.Test(req)
 		require.NoError(t, err)
 		defer resp.Body.Close()
 
@@ -353,7 +359,7 @@ func TestPublicFormSubmissionGuards(t *testing.T) {
 		req.Header.Set("Origin", "https://example.com")
 		req.Header.Set("Sec-Fetch-Mode", "navigate")
 
-		resp, err := ts.App.Test(req, -1)
+		resp, err := ts.Server.Test(req)
 
 		require.NoError(t, err)
 		assert.Equal(t, 303, resp.StatusCode)
@@ -365,7 +371,7 @@ func TestPublicFormSubmissionGuards(t *testing.T) {
 		req := httptest.NewRequest("GET", "/forms/sent", nil)
 		req.Header.Set("Referer", "https://example.com/")
 
-		resp, err := ts.App.Test(req, -1)
+		resp, err := ts.Server.Test(req)
 
 		require.NoError(t, err)
 		body, _ := io.ReadAll(resp.Body)
@@ -397,7 +403,7 @@ func TestSessionsEndAfterPasswordChange(t *testing.T) {
 		t.Helper()
 		req := httptest.NewRequest("POST", "/admin/login", strings.NewReader("email=admin@example.com&password="+password))
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-		resp, err := ts.App.Test(req, -1)
+		resp, err := ts.Server.Test(req)
 		require.NoError(t, err)
 		require.Equal(t, 302, resp.StatusCode)
 		return resp.Cookies()
@@ -410,7 +416,7 @@ func TestSessionsEndAfterPasswordChange(t *testing.T) {
 		for _, c := range cookies {
 			req.AddCookie(c)
 		}
-		resp, err := ts.App.Test(req, -1)
+		resp, err := ts.Server.Test(req)
 		require.NoError(t, err)
 		return resp.Header.Get("Location") != "/admin/login"
 	}
@@ -452,7 +458,7 @@ func TestSignedOutRequestsGoToLogin(t *testing.T) {
 		for _, c := range cookies {
 			req.AddCookie(c)
 		}
-		resp, err := ts.App.Test(req, -1)
+		resp, err := ts.Server.Test(req)
 		require.NoError(t, err)
 		return resp
 	}
@@ -480,7 +486,7 @@ func TestSignedOutRequestsGoToLogin(t *testing.T) {
 		seedAdmin(t, ts, "admin@example.com", "old-password-1")
 		req := httptest.NewRequest("POST", "/admin/login", strings.NewReader("email=admin@example.com&password=old-password-1"))
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-		login, err := ts.App.Test(req, -1)
+		login, err := ts.Server.Test(req)
 		require.NoError(t, err)
 		require.NoError(t, accounts.ResetPassword(slog.Default(), ts.DB.GetConnection(), "admin@example.com", "new-password-1"))
 
@@ -500,7 +506,7 @@ func TestLogoutEndsTheSession(t *testing.T) {
 		t.Helper()
 		req := httptest.NewRequest("POST", "/admin/login", strings.NewReader("email=admin@example.com&password=a-good-password"))
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-		resp, err := ts.App.Test(req, -1)
+		resp, err := ts.Server.Test(req)
 		require.NoError(t, err)
 		require.Equal(t, 302, resp.StatusCode)
 		return resp.Cookies()
@@ -512,7 +518,7 @@ func TestLogoutEndsTheSession(t *testing.T) {
 		for _, c := range cookies {
 			req.AddCookie(c)
 		}
-		resp, err := ts.App.Test(req, -1)
+		resp, err := ts.Server.Test(req)
 		require.NoError(t, err)
 		require.Equal(t, "/admin/login", resp.Header.Get("Location"))
 	}
@@ -524,7 +530,7 @@ func TestLogoutEndsTheSession(t *testing.T) {
 		for _, c := range cookies {
 			req.AddCookie(c)
 		}
-		resp, err := ts.App.Test(req, -1)
+		resp, err := ts.Server.Test(req)
 		require.NoError(t, err)
 		return resp.Header.Get("Location") != "/admin/login"
 	}
@@ -560,7 +566,7 @@ func signIn(t *testing.T, ts *cartridgetestsupport.TestServer) func(path, body s
 	seedAdmin(t, ts, "admin@example.com", "a-good-password")
 	req := httptest.NewRequest("POST", "/admin/login", strings.NewReader("email=admin@example.com&password=a-good-password"))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	resp, err := ts.App.Test(req, -1)
+	resp, err := ts.Server.Test(req)
 	require.NoError(t, err)
 	require.Equal(t, 302, resp.StatusCode)
 	cookies := resp.Cookies()
@@ -573,7 +579,7 @@ func signIn(t *testing.T, ts *cartridgetestsupport.TestServer) func(path, body s
 		for _, c := range cookies {
 			req.AddCookie(c)
 		}
-		resp, err := ts.App.Test(req, -1)
+		resp, err := ts.Server.Test(req)
 		require.NoError(t, err)
 		return resp
 	}
@@ -949,7 +955,7 @@ func TestAdminExportsSubmissions(t *testing.T) {
 	})
 
 	t.Run("needs a login", func(t *testing.T) {
-		resp, err := ts.App.Test(httptest.NewRequest("GET", "/admin/submissions/export.csv", nil), -1)
+		resp, err := ts.Server.Test(httptest.NewRequest("GET", "/admin/submissions/export.csv", nil))
 
 		require.NoError(t, err)
 		assert.NotEqual(t, 200, resp.StatusCode)
@@ -1069,7 +1075,7 @@ func signInGet(t *testing.T, ts *cartridgetestsupport.TestServer) func(path stri
 	seedAdmin(t, ts, "admin@example.com", "a-good-password")
 	req := httptest.NewRequest("POST", "/admin/login", strings.NewReader("email=admin@example.com&password=a-good-password"))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	resp, err := ts.App.Test(req, -1)
+	resp, err := ts.Server.Test(req)
 	require.NoError(t, err)
 	require.Equal(t, 302, resp.StatusCode)
 	cookies := resp.Cookies()
@@ -1080,7 +1086,7 @@ func signInGet(t *testing.T, ts *cartridgetestsupport.TestServer) func(path stri
 		for _, c := range cookies {
 			req.AddCookie(c)
 		}
-		resp, err := ts.App.Test(req, -1)
+		resp, err := ts.Server.Test(req)
 		require.NoError(t, err)
 		return resp
 	}

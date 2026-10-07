@@ -5,7 +5,6 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
 	"github.com/karloscodes/cartridge"
 
 	"formlander/internal/accounts"
@@ -13,7 +12,7 @@ import (
 
 // AdminLoginPage renders the admin login form.
 func AdminLoginPage(ctx *cartridge.Context) error {
-	return ctx.Render("layouts/base", fiber.Map{
+	return ctx.Render("layouts/base", cartridge.Map{
 		"Title":                   "Sign in",
 		"HideHeaderActions":       true,
 		"ContentView":             "admin/login/content",
@@ -34,12 +33,12 @@ func AdminLoginSubmit(ctx *cartridge.Context) error {
 			return renderLoginError(ctx, "Invalid credentials")
 		}
 		ctx.Logger.Error("authentication failed", slog.Any("error", err))
-		return fiber.ErrInternalServerError
+		return cartridge.NewError(500)
 	}
 
-	if err := GetSession(ctx).SetSession(ctx.Ctx, result.User.ID); err != nil {
+	if err := GetSession(ctx).SetSession(ctx, result.User.ID); err != nil {
 		ctx.Logger.Error("failed to set session cookie", slog.Any("error", err), slog.Uint64("userID", uint64(result.User.ID)))
-		return fiber.ErrInternalServerError
+		return cartridge.NewError(500)
 	}
 
 	return ctx.Redirect("/admin")
@@ -50,19 +49,19 @@ func AdminLoginSubmit(ctx *cartridge.Context) error {
 // cookie no longer works either. Other sessions of the admin stay signed in.
 func AdminLogout(ctx *cartridge.Context) error {
 	session := GetSession(ctx)
-	if userID, ok := session.GetUserID(ctx.Ctx); ok {
-		issuedAt, _ := session.IssuedAt(ctx.Ctx)
+	if userID, ok := session.GetUserID(ctx); ok {
+		issuedAt, _ := session.IssuedAt(ctx)
 		maxAge := time.Duration(GetAppConfig(ctx).SessionTimeout) * time.Second
 		if err := accounts.EndSession(ctx.Logger, ctx.DB(), userID, issuedAt, maxAge); err != nil {
 			ctx.Logger.Error("failed to record the end of a session", slog.Any("error", err))
 		}
 	}
-	session.ClearSession(ctx.Ctx)
+	session.ClearSession(ctx)
 	return ctx.Redirect("/admin/login")
 }
 
 func renderLoginError(ctx *cartridge.Context, message string) error {
-	return ctx.Render("layouts/base", fiber.Map{
+	return ctx.Render("layouts/base", cartridge.Map{
 		"Title":                   "Sign in",
 		"Error":                   message,
 		"HideHeaderActions":       true,

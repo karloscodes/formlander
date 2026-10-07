@@ -22,11 +22,11 @@ type testResult struct {
 // postedValues returns every value of a field that a form sends several
 // times, in the order of the page.
 func postedValues(ctx *cartridge.Context, name string) []string {
-	var values []string
-	for _, value := range ctx.Context().PostArgs().PeekMulti(name) {
-		values = append(values, string(value))
+	ctx.Body() // keeps the body readable for later reads
+	if err := ctx.Request().ParseForm(); err != nil {
+		return nil
 	}
-	return values
+	return ctx.Request().PostForm[name]
 }
 
 // errorMessage is what the owner reads when a profile cannot be saved.

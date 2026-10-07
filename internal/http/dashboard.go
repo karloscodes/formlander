@@ -3,7 +3,6 @@ package http
 import (
 	"time"
 
-	"github.com/gofiber/fiber/v2"
 	"github.com/karloscodes/cartridge"
 
 	"formlander/internal/forms"
@@ -50,9 +49,9 @@ func AdminDashboard(ctx *cartridge.Context) error {
 		Limit(5).
 		Find(&formsWithCounts)
 
-	return ctx.Render("layouts/base", fiber.Map{
+	return ctx.Render("layouts/base", cartridge.Map{
 		"Title": "Dashboard",
-		"Stats": fiber.Map{
+		"Stats": cartridge.Map{
 			"TotalForms":         totalForms,
 			"TotalSubmissions":   totalSubmissions,
 			"SubmissionsLast24h": submissionsLast24h,

@@ -6,10 +6,11 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"mime/multipart"
+	nethttp "net/http"
 	"strings"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
 	"github.com/karloscodes/cartridge"
 	"gorm.io/gorm"
 
@@ -26,19 +27,19 @@ func PublicFormSubmission(ctx *cartridge.Context) error {
 
 	slug := ctx.Params("slug")
 	if slug == "" {
-		return submitError(ctx, fiber.StatusNotFound, "form not found")
+		return submitError(ctx, nethttp.StatusNotFound, "form not found")
 	}
 
 	form, err := forms.GetBySlug(db, slug)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return submitError(ctx, fiber.StatusNotFound, "form not found")
+			return submitError(ctx, nethttp.StatusNotFound, "form not found")
 		}
-		return submitError(ctx, fiber.StatusInternalServerError, "form lookup failed")
+		return submitError(ctx, nethttp.StatusInternalServerError, "form lookup failed")
 	}
 
 	if token := ctx.Query("token"); subtle.ConstantTimeCompare([]byte(token), []byte(form.Token)) != 1 {
-		return submitError(ctx, fiber.StatusUnauthorized, "invalid token")
+		return submitError(ctx, nethttp.StatusUnauthorized, "invalid token")
 	}
 
 	// Check allowed origins (domain allowlisting)
@@ -48,12 +49,12 @@ func PublicFormSubmission(ctx *cartridge.Context) error {
 		ctx.Logger.Warn("submission origin not allowed",
 			slog.String("form", form.Slug),
 			slog.String("origin_header", ctx.Get("Origin")),
-			slog.String("referer_header", ctx.Get(fiber.HeaderReferer)),
+			slog.String("referer_header", ctx.Get("Referer")),
 		)
 		if origin == "" {
-			return submitError(ctx, fiber.StatusForbidden, "origin not allowed: the request has no Origin or Referer header")
+			return submitError(ctx, nethttp.StatusForbidden, "origin not allowed: the request has no Origin or Referer header")
 		}
-		return submitError(ctx, fiber.StatusForbidden, fmt.Sprintf("origin not allowed: add %s to this form's Allowed Origins", origin))
+		return submitError(ctx, nethttp.StatusForbidden, fmt.Sprintf("origin not allowed: add %s to this form's Allowed Origins", origin))
 	}
 
 	payload, err := extractSubmissionPayload(ctx, cfg)
@@ -68,7 +69,7 @@ func PublicFormSubmission(ctx *cartridge.Context) error {
 				return ctx.Redirect(errorURL)
 			}
 		}
-		return submitError(ctx, fiber.StatusBadRequest, err.Error())
+		return submitError(ctx, nethttp.StatusBadRequest, err.Error())
 	}
 
 	// Extract custom redirect URLs before saving (don't store them)
@@ -78,12 +79,12 @@ func PublicFormSubmission(ctx *cartridge.Context) error {
 	// Validate redirect URLs
 	if successURL != "" {
 		if err := form.ValidateRedirectURL(successURL); err != nil {
-			return submitError(ctx, fiber.StatusBadRequest, "invalid success redirect URL")
+			return submitError(ctx, nethttp.StatusBadRequest, "invalid success redirect URL")
 		}
 	}
 	if errorURL != "" {
 		if err := form.ValidateRedirectURL(errorURL); err != nil {
-			return submitError(ctx, fiber.StatusBadRequest, "invalid error redirect URL")
+			return submitError(ctx, nethttp.StatusBadRequest, "invalid error redirect URL")
 		}
 	}
 
@@ -91,7 +92,7 @@ func PublicFormSubmission(ctx *cartridge.Context) error {
 		if errorURL != "" {
 			return ctx.Redirect(errorURL)
 		}
-		return submitError(ctx, fiber.StatusBadRequest, err.Error())
+		return submitError(ctx, nethttp.StatusBadRequest, err.Error())
 	}
 
 	// Remove special fields from payload
@@ -100,18 +101,18 @@ func PublicFormSubmission(ctx *cartridge.Context) error {
 
 	// Extract files from multipart form
 	var uploadedFiles []*forms.UploadedFile
-	if multipartForm, err := ctx.MultipartForm(); err == nil && multipartForm != nil {
+	if multipartForm := parseMultipart(ctx); multipartForm != nil {
 		uploadedFiles, err = forms.ExtractFiles(multipartForm)
 		if err != nil {
 			if errorURL != "" {
 				return ctx.Redirect(errorURL)
 			}
-			return submitError(ctx, fiber.StatusBadRequest, err.Error())
+			return submitError(ctx, nethttp.StatusBadRequest, err.Error())
 		}
 	}
 
 	logger := ctx.Logger
-	userAgent := ctx.Get(fiber.HeaderUserAgent)
+	userAgent := ctx.Get("User-Agent")
 	dataDir := cfg.DataDirectory
 
 	submission, err := forms.CreateSubmissionWithFiles(logger, db, form, payload, userAgent, dataDir, uploadedFiles)
@@ -120,7 +121,7 @@ func PublicFormSubmission(ctx *cartridge.Context) error {
 		if errorURL != "" {
 			return ctx.Redirect(errorURL)
 		}
-		return submitError(ctx, fiber.StatusInternalServerError, err.Error())
+		return submitError(ctx, nethttp.StatusInternalServerError, err.Error())
 	}
 
 	// Check for custom success redirect
@@ -132,7 +133,7 @@ func PublicFormSubmission(ctx *cartridge.Context) error {
 		return submitSuccess(ctx)
 	}
 
-	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
+	return ctx.Status(nethttp.StatusOK).JSON(cartridge.Map{
 		"ok":            true,
 		"submission_id": submission.ID,
 		"received_at":   submission.CreatedAt.UTC().Format(time.RFC3339),
@@ -144,13 +145,13 @@ func extractSubmissionPayload(ctx *cartridge.Context, cfg *config.Config) (map[s
 	fieldCount := 0
 	hasFiles := false
 
-	contentType := ctx.Get(fiber.HeaderContentType)
-	if strings.Contains(contentType, fiber.MIMEApplicationJSON) {
+	contentType := ctx.Get("Content-Type")
+	if strings.Contains(contentType, "application/json") {
 		if err := json.Unmarshal(ctx.Body(), &result); err != nil {
 			return nil, err
 		}
 	} else {
-		if form, err := ctx.MultipartForm(); err == nil && form != nil {
+		if form := parseMultipart(ctx); form != nil {
 			hasFiles = len(form.File) > 0
 			for key, values := range form.Value {
 				fieldCount += len(values)
@@ -160,33 +161,17 @@ func extractSubmissionPayload(ctx *cartridge.Context, cfg *config.Config) (map[s
 				assignFormField(result, key, values)
 			}
 		} else {
-			args := ctx.Request().PostArgs()
-			if args == nil {
+			ctx.Body() // keeps the body readable for later reads
+			if err := ctx.Request().ParseForm(); err != nil {
 				return nil, errors.New("submission payload empty")
 			}
-			args.VisitAll(func(key, value []byte) {
-				k := string(key)
-				v := string(value)
-				fieldCount++
+			for key, values := range ctx.Request().PostForm {
+				fieldCount += len(values)
 				if fieldCount > cfg.MaxInputFields {
-					result["__limit"] = true
-					return
+					return nil, errors.New("too many fields")
 				}
-				if existing, ok := result[k]; ok {
-					switch current := existing.(type) {
-					case []string:
-						result[k] = append(current, v)
-					case string:
-						result[k] = []string{current, v}
-					}
-				} else {
-					result[k] = v
-				}
-			})
-			if result["__limit"] == true {
-				return nil, errors.New("too many fields")
+				assignFormField(result, key, values)
 			}
-			delete(result, "__limit")
 		}
 	}
 
@@ -249,7 +234,7 @@ func enforceCaptchaIfNeeded(ctx *cartridge.Context, form *forms.Form, payload ma
 		return errors.New("captcha verification failed")
 	}
 
-	result, err := middleware.VerifyTurnstileToken(secret, token, middleware.ClientIP(ctx.Ctx))
+	result, err := middleware.VerifyTurnstileToken(secret, token, ctx.IP())
 	if err != nil {
 		if logger != nil {
 			logger.Warn("turnstile verification failed",
@@ -315,7 +300,7 @@ func coerceToString(value any) string {
 }
 
 func jsonError(ctx *cartridge.Context, status int, message string) error {
-	return ctx.Status(status).JSON(fiber.Map{
+	return ctx.Status(status).JSON(cartridge.Map{
 		"ok":    false,
 		"error": message,
 	})
@@ -354,4 +339,18 @@ func extractDomain(urlStr string) string {
 	}
 
 	return strings.ToLower(urlStr)
+}
+
+// parseMultipart returns the parts of a multipart body, or nil for any other
+// body. The server already caps the body size.
+func parseMultipart(ctx *cartridge.Context) *multipart.Form {
+	req := ctx.Request()
+	if !strings.HasPrefix(req.Header.Get("Content-Type"), "multipart/form-data") {
+		return nil
+	}
+	ctx.Body() // keeps the body readable for later reads
+	if err := req.ParseMultipartForm(32 << 20); err != nil {
+		return nil
+	}
+	return req.MultipartForm
 }

@@ -3,10 +3,10 @@ package http
 import (
 	"bytes"
 	"html/template"
+	nethttp "net/http"
 	"net/url"
 	"strings"
 
-	"github.com/gofiber/fiber/v2"
 	"github.com/karloscodes/cartridge"
 )
 
@@ -17,7 +17,7 @@ func wantsHTML(ctx *cartridge.Context) bool {
 	case "navigate":
 		return true
 	case "":
-		accept := ctx.Get(fiber.HeaderAccept)
+		accept := ctx.Get("Accept")
 		return strings.Contains(accept, "text/html") && !strings.Contains(accept, "application/json")
 	default:
 		return false
@@ -43,12 +43,12 @@ func submitError(ctx *cartridge.Context, status int, message string) error {
 // no _success_url. The redirect (Post/Redirect/Get) keeps a page refresh
 // from posting the form a second time.
 func submitSuccess(ctx *cartridge.Context) error {
-	return ctx.Redirect("/forms/sent", fiber.StatusSeeOther)
+	return ctx.Redirect("/forms/sent", nethttp.StatusSeeOther)
 }
 
 // SubmissionSent renders the thank-you page after a browser submission.
 func SubmissionSent(ctx *cartridge.Context) error {
-	return renderSubmitPage(ctx, fiber.StatusOK, submitPage{
+	return renderSubmitPage(ctx, nethttp.StatusOK, submitPage{
 		Title:   "Thanks, we got it.",
 		Body:    "Your message is on its way. You can close this page or go back.",
 		BackURL: backURL(ctx),
@@ -59,13 +59,13 @@ func SubmissionSent(ctx *cartridge.Context) error {
 // in the form. The raw message stays below it for the form's owner.
 func visitorMessage(status int, message string) (string, string) {
 	switch {
-	case status == fiber.StatusNotFound:
+	case status == nethttp.StatusNotFound:
 		return "This form doesn't exist.", "The form may have been removed. Please contact the site owner another way."
-	case status == fiber.StatusUnauthorized:
+	case status == nethttp.StatusUnauthorized:
 		return "This form's link is not valid.", "The site owner needs to update the form. Please contact them another way."
-	case status == fiber.StatusForbidden:
+	case status == nethttp.StatusForbidden:
 		return "This form can't be sent from this site.", "The site owner needs to allow this website in the form's settings."
-	case status == fiber.StatusTooManyRequests:
+	case status == nethttp.StatusTooManyRequests:
 		return "Too many tries.", "Please wait a minute and send the form again."
 	case strings.Contains(message, "captcha"):
 		return "Please complete the captcha.", "Go back, complete the check above the button, and send the form again."
@@ -80,7 +80,7 @@ func visitorMessage(status int, message string) (string, string) {
 // the site's origin as Referer on cross-site posts, so the button uses the
 // browser history first.
 func backURL(ctx *cartridge.Context) string {
-	ref, err := url.Parse(ctx.Get(fiber.HeaderReferer))
+	ref, err := url.Parse(ctx.Get("Referer"))
 	if err != nil || (ref.Scheme != "http" && ref.Scheme != "https") || ref.Host == "" {
 		return ""
 	}
@@ -100,7 +100,7 @@ func renderSubmitPage(ctx *cartridge.Context, status int, page submitPage) error
 	if err := submitPageTemplate.Execute(&buf, page); err != nil {
 		return jsonError(ctx, status, page.Details)
 	}
-	ctx.Set(fiber.HeaderContentType, fiber.MIMETextHTMLCharsetUTF8)
+	ctx.Set("Content-Type", "text/html; charset=utf-8")
 	return ctx.Status(status).Send(buf.Bytes())
 }
 

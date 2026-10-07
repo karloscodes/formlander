@@ -3,11 +3,11 @@ package http
 import (
 	"fmt"
 	"log/slog"
+	nethttp "net/http"
 	"net/mail"
 	"strconv"
 	"strings"
 
-	"github.com/gofiber/fiber/v2"
 	"github.com/karloscodes/cartridge"
 
 	"formlander/internal/accounts"
@@ -77,7 +77,7 @@ func renderMailerForm(ctx *cartridge.Context, id uint, params integrations.Maile
 	if params.Provider == "" {
 		params.Provider = "smtp"
 	}
-	return ctx.Render("layouts/base", fiber.Map{
+	return ctx.Render("layouts/base", cartridge.Map{
 		"Title":  title,
 		"IsEdit": id != 0,
 		"Profile": integrations.MailerProfile{
@@ -99,8 +99,8 @@ func renderMailerForm(ctx *cartridge.Context, id uint, params integrations.Maile
 
 // renderMailerProfile shows one profile, with the result of a test or the
 // reason a delete was refused.
-func renderMailerProfile(ctx *cartridge.Context, profile *integrations.MailerProfile, extra fiber.Map) error {
-	data := fiber.Map{
+func renderMailerProfile(ctx *cartridge.Context, profile *integrations.MailerProfile, extra cartridge.Map) error {
+	data := cartridge.Map{
 		"Title":        profile.Name,
 		"Profile":      profile,
 		"Forms":        formsUsingMailer(ctx.DB(), profile.ID),
@@ -116,7 +116,7 @@ func renderMailerProfile(ctx *cartridge.Context, profile *integrations.MailerPro
 
 // adminEmail returns the address of the person who is signed in, or "".
 func adminEmail(ctx *cartridge.Context) string {
-	userID, ok := GetSession(ctx).GetUserID(ctx.Ctx)
+	userID, ok := GetSession(ctx).GetUserID(ctx)
 	if !ok {
 		return ""
 	}
@@ -131,11 +131,11 @@ func adminEmail(ctx *cartridge.Context) string {
 func mailerProfileFromPath(ctx *cartridge.Context) (*integrations.MailerProfile, error) {
 	id, err := strconv.ParseUint(ctx.Params("id"), 10, 32)
 	if err != nil {
-		return nil, fiber.ErrNotFound
+		return nil, cartridge.NewError(404)
 	}
 	profile, err := integrations.GetMailerProfileByID(ctx.DB(), uint(id))
 	if err != nil {
-		return nil, fiber.ErrNotFound
+		return nil, cartridge.NewError(404)
 	}
 	return profile, nil
 }
@@ -144,10 +144,10 @@ func mailerProfileFromPath(ctx *cartridge.Context) (*integrations.MailerProfile,
 func MailerProfileList(ctx *cartridge.Context) error {
 	profiles, err := integrations.ListMailerProfiles(ctx.DB())
 	if err != nil {
-		return fiber.ErrInternalServerError
+		return cartridge.NewError(500)
 	}
 
-	return ctx.Render("layouts/base", fiber.Map{
+	return ctx.Render("layouts/base", cartridge.Map{
 		"Title":       "Mailer Profiles",
 		"Profiles":    profiles,
 		"ContentView": "admin/mailers/index",
@@ -206,7 +206,7 @@ func MailerProfileUpdate(ctx *cartridge.Context) error {
 	}
 	params := mailerParamsFromForm(ctx, existing)
 	if params.Provider != "mailgun" && existing.SMTPPassword != "" && strings.TrimSpace(params.SMTPPassword) == "" {
-		ctx.Status(fiber.StatusBadRequest)
+		ctx.Status(nethttp.StatusBadRequest)
 		return renderMailerForm(ctx, existing.ID, params, "Type the SMTP password again. Formlander sends a saved password only to the server it was saved for.")
 	}
 
@@ -226,15 +226,15 @@ func MailerProfileDelete(ctx *cartridge.Context) error {
 	}
 
 	if len(formsUsingMailer(ctx.DB(), profile.ID)) > 0 {
-		ctx.Status(fiber.StatusBadRequest)
-		return renderMailerProfile(ctx, profile, fiber.Map{
+		ctx.Status(nethttp.StatusBadRequest)
+		return renderMailerProfile(ctx, profile, cartridge.Map{
 			"Error": "A form uses this profile. Remove it from the form first.",
 		})
 	}
 
 	if err := integrations.DeleteMailerProfile(ctx.Logger, ctx.DB(), profile.ID); err != nil {
 		ctx.Logger.Error("failed to delete mailer profile", slog.Any("error", err), slog.Uint64("profile_id", uint64(profile.ID)))
-		return fiber.ErrInternalServerError
+		return cartridge.NewError(500)
 	}
 
 	return ctx.Redirect("/admin/settings/mailers")
@@ -251,15 +251,15 @@ func MailerProfileTest(ctx *cartridge.Context) error {
 	to := strings.TrimSpace(ctx.FormValue("to"))
 	address, err := mail.ParseAddress(to)
 	if err != nil {
-		return renderMailerProfile(ctx, profile, fiber.Map{
+		return renderMailerProfile(ctx, profile, cartridge.Map{
 			"Test":   testResult{Message: "Type the email address that gets the test."},
 			"TestTo": to,
 		})
 	}
 
 	result := testResult{OK: true, Message: "The provider accepted a test email to " + address.Address + ". Look in that inbox, and in its spam folder."}
-	if err := jobs.NewEmailDispatcher(GetAppConfig(ctx)).SendTest(ctx.UserContext(), profile, address.Address); err != nil {
+	if err := jobs.NewEmailDispatcher(GetAppConfig(ctx)).SendTest(ctx.Context(), profile, address.Address); err != nil {
 		result = testResult{Message: "The email was not sent: " + err.Error()}
 	}
-	return renderMailerProfile(ctx, profile, fiber.Map{"Test": result, "TestTo": address.Address})
+	return renderMailerProfile(ctx, profile, cartridge.Map{"Test": result, "TestTo": address.Address})
 }

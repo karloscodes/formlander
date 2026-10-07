@@ -2,8 +2,8 @@ package http
 
 import (
 	"errors"
+	nethttp "net/http"
 
-	"github.com/gofiber/fiber/v2"
 	"github.com/karloscodes/cartridge"
 	"gorm.io/gorm"
 
@@ -18,12 +18,12 @@ func DemoContactForm(ctx *cartridge.Context) error {
 	var form forms.Form
 	if err := db.Where("slug = ?", "demo-contact").First(&form).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return ctx.Status(fiber.StatusNotFound).SendString("Demo form not found. Please create a form with slug 'demo-contact'.")
+			return ctx.Status(nethttp.StatusNotFound).SendString("Demo form not found. Please create a form with slug 'demo-contact'.")
 		}
-		return fiber.ErrInternalServerError
+		return cartridge.NewError(500)
 	}
 
-	return ctx.Render("demo", fiber.Map{
+	return ctx.Render("demo", cartridge.Map{
 		"FormSlug":  form.Slug,
 		"FormToken": form.Token,
 	}, "")
