@@ -44,6 +44,8 @@ var (
 // Get returns the singleton configuration instance.
 func Get() *Config {
 	cfgOnce.Do(func() {
+		loadDotEnv()
+
 		// Default FORMLANDER_ENV to development; production is opt-in.
 		// Cartridge defaults to production, which marks the session cookie
 		// Secure and breaks login on plain-HTTP self-hosted deploys. Set
@@ -91,29 +93,59 @@ func Get() *Config {
 	return cfgInst
 }
 
-// publicSecrets are session secrets anyone can read in the source code.
-// A session signed with one of them can be forged.
+// loadDotEnv copies the FORMLANDER_ settings of a .env file in the working
+// directory into the environment, unless the environment already sets them.
+// Cartridge reads FORMLANDER_ENV and the session secret only from the
+// environment, so without this a .env file could not turn on production mode,
+// and the rate limits and the Secure cookie stayed off.
+func loadDotEnv() {
+	v := viper.New()
+	v.SetConfigFile(".env")
+	v.SetConfigType("env")
+	if v.ReadInConfig() != nil {
+		return
+	}
+	for _, key := range v.AllKeys() {
+		name := strings.ToUpper(key)
+		if strings.HasPrefix(name, "FORMLANDER_") && os.Getenv(name) == "" {
+			os.Setenv(name, v.GetString(key))
+		}
+	}
+}
+
+// publicSecrets are session secrets anyone can read in the source code or in
+// its documentation. A session signed with one of them can be forged.
 var publicSecrets = map[string]bool{
 	"dev-secret-do-not-use-in-production-f8e3a9c2d1b7e6a4": true,
 	"replace-me-with-random-secret":                        true,
+	"replace-me-session-secret":                            true,
+	"your-saved-secret-here":                               true,
+	"your-secret-here":                                     true,
 }
+
+// minSecretLength is the shortest session secret Formlander accepts. A shorter
+// one is a placeholder or can be guessed.
+const minSecretLength = 32
 
 // SessionSecretFile holds the generated secret in the data directory, so
 // sessions survive a restart.
 const SessionSecretFile = "session-secret"
 
-// ensureSessionSecret replaces a missing or public session secret with a
-// random one stored in the data directory. The test environment keeps the
+// ensureSessionSecret replaces a missing, public, or short session secret with
+// a random one stored in the data directory. The test environment keeps the
 // fixed secret. If the file cannot be written, the secret lives in memory
 // and sessions end at the next restart.
 func ensureSessionSecret(c *config.Config) {
-	if c.IsTest() || (c.SessionSecret != "" && !publicSecrets[c.SessionSecret]) {
+	if c.IsTest() || (len(c.SessionSecret) >= minSecretLength && !publicSecrets[c.SessionSecret]) {
 		return
+	}
+	if c.SessionSecret != "" {
+		log.Printf("warn: the session secret is public or shorter than %d characters, so Formlander uses a random one", minSecretLength)
 	}
 
 	path := filepath.Join(c.DataDirectory, SessionSecretFile)
 	if data, err := os.ReadFile(path); err == nil {
-		if stored := strings.TrimSpace(string(data)); len(stored) >= 32 {
+		if stored := strings.TrimSpace(string(data)); len(stored) >= minSecretLength {
 			c.SessionSecret = stored
 			return
 		}

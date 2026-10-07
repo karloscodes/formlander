@@ -137,7 +137,7 @@ release:
 
     ```bash
     docker run -d \
-      -p 8080:8080 \
+      -p 127.0.0.1:8080:8080 \
       -e FORMLANDER_SESSION_SECRET=$(openssl rand -hex 32) \
       -v $(pwd)/storage:/app/storage \
       karloscodes/formlander:{{ .Version }}

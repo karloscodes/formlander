@@ -2,6 +2,7 @@ package config
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -130,13 +131,13 @@ func TestEnvironmentVariableOverrides(t *testing.T) {
 		{
 			name:     "FORMLANDER_SESSION_SECRET",
 			envVar:   "FORMLANDER_SESSION_SECRET",
-			envValue: "custom-secret-123",
+			envValue: "custom-secret-of-at-least-32-characters",
 			setup: func() {
 				os.Setenv("FORMLANDER_ENV", "production")
 			},
 			check: func(c *Config) error {
-				if c.SessionSecret != "custom-secret-123" {
-					t.Errorf("Expected SessionSecret=custom-secret-123, got %s", c.SessionSecret)
+				if c.SessionSecret != "custom-secret-of-at-least-32-characters" {
+					t.Errorf("Expected SessionSecret=custom-secret-of-at-least-32-characters, got %s", c.SessionSecret)
 				}
 				return nil
 			},
@@ -161,11 +162,11 @@ func TestSessionSecret(t *testing.T) {
 		Reset()
 		os.Clearenv()
 		os.Setenv("FORMLANDER_ENV", "production")
-		os.Setenv("FORMLANDER_SESSION_SECRET", "required-secret")
+		os.Setenv("FORMLANDER_SESSION_SECRET", "a-required-secret-of-at-least-32-characters")
 
 		cfg := Get()
-		if cfg.SessionSecret != "required-secret" {
-			t.Errorf("Expected SessionSecret=required-secret in production, got %s", cfg.SessionSecret)
+		if cfg.SessionSecret != "a-required-secret-of-at-least-32-characters" {
+			t.Errorf("Expected the configured secret in production, got %s", cfg.SessionSecret)
 		}
 	})
 
@@ -199,6 +200,36 @@ func TestSessionSecret(t *testing.T) {
 
 		if cfg.SessionSecret == "replace-me-with-random-secret" {
 			t.Error("Expected the public placeholder to be replaced")
+		}
+	})
+
+	t.Run("replaces the placeholders shown in the README and in old .env files", func(t *testing.T) {
+		for _, placeholder := range []string{"your-saved-secret-here", "your-secret-here", "replace-me-session-secret"} {
+			Reset()
+			os.Clearenv()
+			os.Setenv("FORMLANDER_ENV", "production")
+			os.Setenv("FORMLANDER_DATA_DIR", t.TempDir())
+			os.Setenv("FORMLANDER_SESSION_SECRET", placeholder)
+
+			cfg := Get()
+
+			if cfg.SessionSecret == placeholder || len(cfg.SessionSecret) < 32 {
+				t.Errorf("Expected the placeholder %q to be replaced, got %q", placeholder, cfg.SessionSecret)
+			}
+		}
+	})
+
+	t.Run("replaces a secret shorter than 32 characters", func(t *testing.T) {
+		Reset()
+		os.Clearenv()
+		os.Setenv("FORMLANDER_ENV", "production")
+		os.Setenv("FORMLANDER_DATA_DIR", t.TempDir())
+		os.Setenv("FORMLANDER_SESSION_SECRET", "short-secret")
+
+		cfg := Get()
+
+		if cfg.SessionSecret == "short-secret" || len(cfg.SessionSecret) < 32 {
+			t.Errorf("Expected the short secret to be replaced, got %q", cfg.SessionSecret)
 		}
 	})
 
@@ -238,6 +269,47 @@ func TestSessionSecret(t *testing.T) {
 		}
 		if cfg.SessionSecret != "dev-secret-do-not-use-in-production-f8e3a9c2d1b7e6a4" {
 			t.Errorf("Expected fixed dev secret, got %s", cfg.SessionSecret)
+		}
+	})
+}
+
+func TestDotEnvFile(t *testing.T) {
+	secret := "a-secret-from-the-env-file-with-more-than-32-characters"
+	writeDotEnv := func(t *testing.T) string {
+		t.Helper()
+		dir := t.TempDir()
+		content := "FORMLANDER_ENV=production\nFORMLANDER_SESSION_SECRET=" + secret + "\nFORMLANDER_DATA_DIR=" + filepath.Join(dir, "storage") + "\n"
+		if err := os.WriteFile(filepath.Join(dir, ".env"), []byte(content), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		return dir
+	}
+
+	t.Run("turns on production mode and the secret from a .env file", func(t *testing.T) {
+		t.Chdir(writeDotEnv(t))
+		Reset()
+		os.Clearenv()
+
+		cfg := Get()
+
+		if !cfg.IsProduction() {
+			t.Errorf("Expected production from .env, got %q", cfg.Environment)
+		}
+		if cfg.SessionSecret != secret {
+			t.Errorf("Expected the secret from .env, got %q", cfg.SessionSecret)
+		}
+	})
+
+	t.Run("lets the environment win over the .env file", func(t *testing.T) {
+		t.Chdir(writeDotEnv(t))
+		Reset()
+		os.Clearenv()
+		os.Setenv("FORMLANDER_ENV", "test")
+
+		cfg := Get()
+
+		if !cfg.IsTest() {
+			t.Errorf("Expected the environment value test, got %q", cfg.Environment)
 		}
 	})
 }
