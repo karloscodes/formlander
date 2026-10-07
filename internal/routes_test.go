@@ -68,7 +68,10 @@ func mountTestServer(t *testing.T) *cartridgetestsupport.TestServer {
 		MaxInputFields: 200,
 	}
 
-	ts := cartridgetestsupport.NewTestServer(t, cartridgetestsupport.TestServerOptions{
+	// The session check uses the database of the server, which exists once
+	// NewTestServer returns; the check runs only during requests.
+	var ts *cartridgetestsupport.TestServer
+	ts = cartridgetestsupport.NewTestServer(t, cartridgetestsupport.TestServerOptions{
 		Models: models,
 		RouteMountFunc: func(s *cartridge.Server) {
 			sessions, err := cartridge.NewSessionManager(cartridge.SessionConfig{
@@ -77,6 +80,9 @@ func mountTestServer(t *testing.T) *cartridgetestsupport.TestServer {
 				TTL:        time.Hour,
 				LoginPath:  "/admin/login",
 				Insecure:   true,
+				Valid: func(userID uint, issuedAt time.Time) bool {
+					return accounts.SessionValid(ts.DB.GetConnection(), userID, issuedAt)
+				},
 			})
 			require.NoError(t, err)
 			s.SetSession(sessions)
