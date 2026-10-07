@@ -893,6 +893,25 @@ func TestAdminExportsSubmissions(t *testing.T) {
 }
 
 // signInGet signs the admin in and returns a function that gets a page.
+func TestAdminExportNeutralizesFieldNames(t *testing.T) {
+	ts := mountTestServer(t)
+	db := ts.DB.GetConnection()
+	form := &forms.Form{Name: "Contact", Slug: "contact", AllowedOrigins: "example.com"}
+	require.NoError(t, db.Create(form).Error)
+	_, err := forms.CreateSubmission(slog.Default(), db, form, map[string]any{"=HYPERLINK(\"http://evil\")": "x"}, "test")
+	require.NoError(t, err)
+	get := signInGet(t, ts)
+
+	resp := get("/admin/submissions/export.csv")
+
+	require.Equal(t, 200, resp.StatusCode)
+	rows, err := csv.NewReader(resp.Body).ReadAll()
+	require.NoError(t, err)
+	require.Len(t, rows, 2)
+	assert.Equal(t, []string{"received", "form", "spam", `'=HYPERLINK("http://evil")`}, rows[0])
+	assert.Equal(t, "x", rows[1][3])
+}
+
 func signInGet(t *testing.T, ts *cartridgetestsupport.TestServer) func(path string) *http.Response {
 	t.Helper()
 	seedAdmin(t, ts, "admin@example.com", "a-good-password")

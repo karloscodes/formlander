@@ -173,7 +173,12 @@ func SubmissionsExport(ctx *cartridge.Context) error {
 
 	var file bytes.Buffer
 	out := csv.NewWriter(&file)
-	_ = out.Write(append([]string{"received", "form", "spam"}, fields...))
+	// A visitor also chooses the field names, so the header row is made safe too.
+	header := []string{"received", "form", "spam"}
+	for _, name := range fields {
+		header = append(header, csvCell(name))
+	}
+	_ = out.Write(header)
 	for i, submission := range submissions {
 		form, spam := "", "no"
 		if submission.Form != nil {
