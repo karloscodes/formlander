@@ -57,6 +57,14 @@ func (d *EmailDispatcher) ProcessBatch(ctx *JobContext) error {
 	}
 
 	for i := range events {
+		claimed, err := claim(db, &forms.EmailEvent{}, events[i].ID, now)
+		if err != nil {
+			ctx.Logger.Error("claim email event", slog.Uint64("id", uint64(events[i].ID)), slog.Any("error", err))
+			continue
+		}
+		if !claimed {
+			continue // another process sends it
+		}
 		d.handleEvent(ctx, db, &events[i])
 	}
 

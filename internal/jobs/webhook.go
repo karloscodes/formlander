@@ -39,29 +39,42 @@ func NewWebhookDispatcher(cfg *config.Config) *WebhookDispatcher {
 
 // ProcessBatch implements the Processor interface.
 func (d *WebhookDispatcher) ProcessBatch(ctx *JobContext) error {
-	db := ctx.DB
 	now := time.Now().UTC()
+	events, err := d.due(ctx.DB, now)
+	if err != nil {
+		ctx.Logger.Error("query pending webhooks", slog.Any("error", err))
+		return err
+	}
+	d.deliver(ctx, ctx.DB, events, now)
+	return nil
+}
+
+// due returns up to 10 webhooks to send now, oldest first.
+func (d *WebhookDispatcher) due(db *gorm.DB, now time.Time) ([]forms.WebhookEvent, error) {
 	var events []forms.WebhookEvent
-	if err := db.
+	err := db.
 		Preload("Submission").
 		Preload("Submission.Form.WebhookDelivery.WebhookProfile").
 		Where("status IN ? AND (next_attempt_at IS NULL OR next_attempt_at <= ?)", []string{forms.WebhookStatusPending, forms.WebhookStatusRetrying}, now).
 		Order("created_at ASC").
 		Limit(10).
-		Find(&events).Error; err != nil {
-		ctx.Logger.Error("query pending webhooks", slog.Any("error", err))
-		return err
-	}
+		Find(&events).Error
+	return events, err
+}
 
-	if len(events) == 0 {
-		return nil
-	}
-
+// deliver claims each webhook and sends the ones this process claimed.
+func (d *WebhookDispatcher) deliver(ctx *JobContext, db *gorm.DB, events []forms.WebhookEvent, now time.Time) {
 	for i := range events {
+		claimed, err := claim(db, &forms.WebhookEvent{}, events[i].ID, now)
+		if err != nil {
+			ctx.Logger.Error("claim webhook event", slog.Uint64("id", uint64(events[i].ID)), slog.Any("error", err))
+			continue
+		}
+		if !claimed {
+			continue // another process sends it
+		}
 		d.handleEvent(ctx, db, &events[i])
 	}
-
-	return nil
 }
 
 func (d *WebhookDispatcher) handleEvent(ctx *JobContext, db *gorm.DB, event *forms.WebhookEvent) {
