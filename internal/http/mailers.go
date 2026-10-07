@@ -25,15 +25,13 @@ func parseSMTPPort(s string) int {
 	return n
 }
 
-// sameSMTPServer reports whether the posted profile sends to the server that
+// sameSMTPServer reports whether the posted profile sends to the host that
 // the saved SMTP password was typed for. A saved password goes to no other
-// server: the screen never shows it, so a changed host must not reveal it.
+// host: the screen never shows it, so a changed host must not reveal it. A
+// new port or encryption on the same host is fine.
 func sameSMTPServer(params integrations.MailerProfileParams, saved *integrations.MailerProfile) bool {
 	return strings.TrimSpace(params.Provider) == saved.Provider &&
-		strings.TrimSpace(params.SMTPHost) == saved.SMTPHost &&
-		params.SMTPPort == saved.SMTPPort &&
-		strings.TrimSpace(params.SMTPUsername) == saved.SMTPUsername &&
-		strings.TrimSpace(params.SMTPEncryption) == saved.SMTPEncryption
+		strings.EqualFold(strings.TrimSpace(params.SMTPHost), saved.SMTPHost)
 }
 
 // mailerParamsFromForm reads a mailer profile from the posted form. existing
