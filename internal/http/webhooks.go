@@ -3,11 +3,11 @@ package http
 import (
 	"fmt"
 	"log/slog"
+	nethttp "net/http"
 	"regexp"
 	"strconv"
 	"strings"
 
-	"github.com/gofiber/fiber/v2"
 	"github.com/karloscodes/cartridge"
 
 	"formlander/internal/integrations"
@@ -83,7 +83,7 @@ func renderWebhookForm(ctx *cartridge.Context, id uint, params integrations.Webh
 		title = "Edit Webhook Profile"
 	}
 	key, headers := firstHeader(params.Headers)
-	return ctx.Render("layouts/base", fiber.Map{
+	return ctx.Render("layouts/base", cartridge.Map{
 		"Title":       title,
 		"IsEdit":      id != 0,
 		"Profile":     integrations.WebhookProfile{ID: id, Name: params.Name, URL: params.URL, Secret: params.Secret},
@@ -97,8 +97,8 @@ func renderWebhookForm(ctx *cartridge.Context, id uint, params integrations.Webh
 
 // renderWebhookProfile shows one profile, with the result of a test or the
 // reason a delete was refused.
-func renderWebhookProfile(ctx *cartridge.Context, profile *integrations.WebhookProfile, extra fiber.Map) error {
-	data := fiber.Map{
+func renderWebhookProfile(ctx *cartridge.Context, profile *integrations.WebhookProfile, extra cartridge.Map) error {
+	data := cartridge.Map{
 		"Title":        profile.Name,
 		"Profile":      profile,
 		"Headers":      profile.Headers(),
@@ -117,11 +117,11 @@ func renderWebhookProfile(ctx *cartridge.Context, profile *integrations.WebhookP
 func webhookProfileFromPath(ctx *cartridge.Context) (*integrations.WebhookProfile, error) {
 	id, err := strconv.ParseUint(ctx.Params("id"), 10, 32)
 	if err != nil {
-		return nil, fiber.ErrNotFound
+		return nil, cartridge.NewError(404)
 	}
 	profile, err := integrations.GetWebhookProfileByID(ctx.DB(), uint(id))
 	if err != nil {
-		return nil, fiber.ErrNotFound
+		return nil, cartridge.NewError(404)
 	}
 	return profile, nil
 }
@@ -130,10 +130,10 @@ func webhookProfileFromPath(ctx *cartridge.Context) (*integrations.WebhookProfil
 func WebhookProfileList(ctx *cartridge.Context) error {
 	profiles, err := integrations.ListWebhookProfiles(ctx.DB())
 	if err != nil {
-		return fiber.ErrInternalServerError
+		return cartridge.NewError(500)
 	}
 
-	return ctx.Render("layouts/base", fiber.Map{
+	return ctx.Render("layouts/base", cartridge.Map{
 		"Title":       "Webhook Profiles",
 		"Profiles":    profiles,
 		"ContentView": "admin/webhooks/index/content",
@@ -203,15 +203,15 @@ func WebhookProfileDelete(ctx *cartridge.Context) error {
 	}
 
 	if len(formsUsingWebhook(ctx.DB(), profile.ID)) > 0 {
-		ctx.Status(fiber.StatusBadRequest)
-		return renderWebhookProfile(ctx, profile, fiber.Map{
+		ctx.Status(nethttp.StatusBadRequest)
+		return renderWebhookProfile(ctx, profile, cartridge.Map{
 			"Error": "A form uses this profile. Remove it from the form first.",
 		})
 	}
 
 	if err := integrations.DeleteWebhookProfile(ctx.Logger, ctx.DB(), profile.ID); err != nil {
 		ctx.Logger.Error("failed to delete webhook profile", slog.Any("error", err), slog.Uint64("profile_id", uint64(profile.ID)))
-		return fiber.ErrInternalServerError
+		return cartridge.NewError(500)
 	}
 
 	return ctx.Redirect("/admin/settings/webhooks")
@@ -225,16 +225,16 @@ func WebhookProfileTest(ctx *cartridge.Context) error {
 		return err
 	}
 
-	status, err := jobs.NewWebhookDispatcher(GetAppConfig(ctx)).SendTest(ctx.UserContext(), profile)
+	status, err := jobs.NewWebhookDispatcher(GetAppConfig(ctx)).SendTest(ctx.Context(), profile)
 
 	result := testResult{OK: true, Message: fmt.Sprintf("The webhook answered with status %d.", status)}
 	switch {
 	case err != nil:
 		result = testResult{Message: "The request failed: " + err.Error()}
-	case status == fiber.StatusUnauthorized || status == fiber.StatusForbidden:
+	case status == nethttp.StatusUnauthorized || status == nethttp.StatusForbidden:
 		result = testResult{Message: fmt.Sprintf("The webhook answered with status %d: the receiver wants a key. Edit the profile and paste the key or the header that the service shows into \"Key or header\".", status)}
 	case status < 200 || status >= 300:
 		result = testResult{Message: fmt.Sprintf("The webhook answered with status %d. A delivery counts only when the status is between 200 and 299.", status)}
 	}
-	return renderWebhookProfile(ctx, profile, fiber.Map{"Test": result})
+	return renderWebhookProfile(ctx, profile, cartridge.Map{"Test": result})
 }

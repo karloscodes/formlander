@@ -9,7 +9,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/gofiber/fiber/v2"
 	"github.com/karloscodes/cartridge"
 	htmlnode "golang.org/x/net/html"
 	"gorm.io/gorm"
@@ -25,7 +24,7 @@ func AdminFormsIndex(ctx *cartridge.Context) error {
 
 	formsList, err := forms.List(db)
 	if err != nil {
-		return fiber.ErrInternalServerError
+		return cartridge.NewError(500)
 	}
 
 	// Load relations for display
@@ -47,7 +46,7 @@ func AdminFormsIndex(ctx *cartridge.Context) error {
 		counts[row.FormID] = row.Count
 	}
 
-	return ctx.Render("layouts/base", fiber.Map{
+	return ctx.Render("layouts/base", cartridge.Map{
 		"Title":       "Forms",
 		"Forms":       formsList,
 		"Counts":      counts,
@@ -138,7 +137,7 @@ func renderFormScreen(ctx *cartridge.Context, form *forms.Form, templateID strin
 	captchaProfiles, _ := integrations.ListCaptchaProfiles(db)
 	webhookProfiles, _ := integrations.ListWebhookProfiles(db)
 
-	data := fiber.Map{
+	data := cartridge.Map{
 		"Title":           "New Form",
 		"Error":           message,
 		"Input":           input,
@@ -166,7 +165,7 @@ func AdminFormsNew(ctx *cartridge.Context) error {
 	templateID := ctx.Query("template")
 	if templateID == "" {
 		// Show template selector
-		return ctx.Render("layouts/base", fiber.Map{
+		return ctx.Render("layouts/base", cartridge.Map{
 			"Title":       "Choose a Template",
 			"Templates":   GetFormTemplates(),
 			"ContentView": "admin/forms/templates/content",
@@ -227,7 +226,7 @@ func AdminFormsCreate(ctx *cartridge.Context) error {
 			return renderFormScreen(ctx, nil, templateID, formInputFromPost(ctx), validationErr.Message)
 		}
 		ctx.Logger.Error("failed to create form", slog.Any("error", err))
-		return fiber.ErrInternalServerError
+		return cartridge.NewError(500)
 	}
 
 	// Update generated HTML if template was selected
@@ -252,15 +251,15 @@ func AdminFormShow(ctx *cartridge.Context) error {
 
 	id, err := strconv.Atoi(ctx.Params("id"))
 	if err != nil {
-		return fiber.ErrNotFound
+		return cartridge.NewError(404)
 	}
 
 	form, err := forms.GetByID(db, uint(id))
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return fiber.ErrNotFound
+			return cartridge.NewError(404)
 		}
-		return fiber.ErrInternalServerError
+		return cartridge.NewError(500)
 	}
 
 	// Ensure delivery records exist
@@ -271,23 +270,23 @@ func AdminFormShow(ctx *cartridge.Context) error {
 
 	submissions, err := forms.GetSubmissions(db, form.ID, 25)
 	if err != nil {
-		return fiber.ErrInternalServerError
+		return cartridge.NewError(500)
 	}
 
 	webhookEvents, err := forms.GetWebhookEvents(db, form.ID, 20)
 	if err != nil {
-		return fiber.ErrInternalServerError
+		return cartridge.NewError(500)
 	}
 
 	emailEvents, err := forms.GetEmailEvents(db, form.ID, 20)
 	if err != nil {
-		return fiber.ErrInternalServerError
+		return cartridge.NewError(500)
 	}
 
 	endpoint := fmt.Sprintf("/forms/%s/submit", form.Slug)
 	actionURL, formCode := formCodeFor(ctx, form)
 
-	return ctx.Render("layouts/base", fiber.Map{
+	return ctx.Render("layouts/base", cartridge.Map{
 		"Title":          form.Name,
 		"Form":           form,
 		"Submissions":    submissions,
@@ -328,15 +327,15 @@ func AdminFormsEdit(ctx *cartridge.Context) error {
 
 	id, err := strconv.Atoi(ctx.Params("id"))
 	if err != nil {
-		return fiber.ErrNotFound
+		return cartridge.NewError(404)
 	}
 
 	form, err := forms.GetByID(db, uint(id))
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return fiber.ErrNotFound
+			return cartridge.NewError(404)
 		}
-		return fiber.ErrInternalServerError
+		return cartridge.NewError(500)
 	}
 
 	// Initialize deliveries if they don't exist
@@ -354,7 +353,7 @@ func AdminFormsUpdate(ctx *cartridge.Context) error {
 
 	id, err := strconv.Atoi(ctx.Params("id"))
 	if err != nil {
-		return fiber.ErrNotFound
+		return cartridge.NewError(404)
 	}
 
 	params := forms.UpdateParams{
@@ -378,16 +377,16 @@ func AdminFormsUpdate(ctx *cartridge.Context) error {
 		if valErr, ok := err.(*forms.ValidationError); ok {
 			form, loadErr := forms.GetByID(db, uint(id))
 			if loadErr != nil {
-				return fiber.ErrNotFound
+				return cartridge.NewError(404)
 			}
 			input := formInputFromPost(ctx)
 			input.Slug = form.Slug
 			return renderFormScreen(ctx, form, "", input, valErr.Message)
 		}
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return fiber.ErrNotFound
+			return cartridge.NewError(404)
 		}
-		return fiber.ErrInternalServerError
+		return cartridge.NewError(500)
 	}
 
 	return ctx.Redirect(fmt.Sprintf("/admin/forms/%d", updatedForm.ID))

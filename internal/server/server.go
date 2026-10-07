@@ -3,14 +3,16 @@ package server
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"html/template"
 	"log/slog"
+	"net/http"
 	"sort"
 	"strings"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/karloscodes/cartridge"
 
 	"formlander/internal/config"
 )
@@ -50,10 +52,11 @@ func TemplateFuncs() template.FuncMap {
 }
 
 // ErrorHandler returns formlander-specific error handler.
-func ErrorHandler(log *slog.Logger, cfg *config.Config) fiber.ErrorHandler {
-	return func(c *fiber.Ctx, err error) error {
-		code := fiber.StatusInternalServerError
-		if e, ok := err.(*fiber.Error); ok {
+func ErrorHandler(log *slog.Logger, cfg *config.Config) cartridge.ErrorHandler {
+	return func(c *cartridge.Context, err error) error {
+		code := http.StatusInternalServerError
+		var e *cartridge.Error
+		if errors.As(err, &e) {
 			code = e.Code
 		}
 
@@ -65,21 +68,21 @@ func ErrorHandler(log *slog.Logger, cfg *config.Config) fiber.ErrorHandler {
 		)
 
 		// A program gets JSON. A browser asks for HTML first, and gets a page.
-		if c.Accepts(fiber.MIMEApplicationJSON, fiber.MIMETextHTML) != fiber.MIMETextHTML {
-			return c.Status(code).JSON(fiber.Map{
-				"error":   "internal_server_error",
-				"message": err.Error(),
+		if c.Accepts("application/json", "text/html") != "text/html" {
+			return c.Status(code).JSON(cartridge.Map{
+				"error":   http.StatusText(code),
+				"message": http.StatusText(code),
 			})
 		}
 
 		heading, message := "Something went wrong", "Formlander could not finish this request. Try again. The server log has the details."
 		switch code {
-		case fiber.StatusNotFound:
+		case http.StatusNotFound:
 			heading, message = "Page not found", "This page does not exist, or it was deleted."
-		case fiber.StatusForbidden, fiber.StatusUnauthorized:
+		case http.StatusForbidden, http.StatusUnauthorized:
 			heading, message = "Not allowed", "You cannot open this page."
 		}
-		data := fiber.Map{
+		data := cartridge.Map{
 			"Title":             heading,
 			"ContentView":       "errors/500/content",
 			"Code":              code,
@@ -87,7 +90,7 @@ func ErrorHandler(log *slog.Logger, cfg *config.Config) fiber.ErrorHandler {
 			"Message":           message,
 			"HideHeaderActions": true,
 		}
-		if cfg.IsDevelopment() && code >= fiber.StatusInternalServerError {
+		if cfg.IsDevelopment() && code >= http.StatusInternalServerError {
 			data["ErrorMessage"] = err.Error()
 		}
 		return c.Status(code).Render("layouts/base", data, "")

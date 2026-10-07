@@ -14,7 +14,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
 	"github.com/karloscodes/cartridge"
 	"gorm.io/gorm"
 
@@ -38,7 +37,7 @@ func SubmissionList(ctx *cartridge.Context) error {
 	// Get total count for pagination
 	var totalCount int64
 	if err := query.Count(&totalCount).Error; err != nil {
-		return fiber.ErrInternalServerError
+		return cartridge.NewError(500)
 	}
 
 	// Get submissions for current page
@@ -47,7 +46,7 @@ func SubmissionList(ctx *cartridge.Context) error {
 		Limit(perPage).
 		Offset(offset).
 		Find(&submissions).Error; err != nil {
-		return fiber.ErrInternalServerError
+		return cartridge.NewError(500)
 	}
 
 	// Count the spam that "Delete spam" removes: all of it, or that of the
@@ -86,7 +85,7 @@ func SubmissionList(ctx *cartridge.Context) error {
 		{"Spam", link(rangeFilter, "only", 1), spam == "only"},
 	}
 
-	return ctx.Render("layouts/base", fiber.Map{
+	return ctx.Render("layouts/base", cartridge.Map{
 		"Title":       "Submissions",
 		"Submissions": submissions,
 		"SpamCount":   spamCount,
@@ -151,7 +150,7 @@ func SubmissionsExport(ctx *cartridge.Context) error {
 	query, _, _, _, _ := filteredSubmissions(ctx)
 	var submissions []forms.Submission
 	if err := query.Order("created_at DESC").Find(&submissions).Error; err != nil {
-		return fiber.ErrInternalServerError
+		return cartridge.NewError(500)
 	}
 
 	// The columns are the fields of all the rows, by name.
@@ -197,8 +196,8 @@ func SubmissionsExport(ctx *cartridge.Context) error {
 	}
 	out.Flush()
 
-	ctx.Set(fiber.HeaderContentType, "text/csv; charset=utf-8")
-	ctx.Set(fiber.HeaderContentDisposition, fmt.Sprintf(`attachment; filename="submissions-%s.csv"`, time.Now().UTC().Format("2006-01-02")))
+	ctx.Set("Content-Type", "text/csv; charset=utf-8")
+	ctx.Set("Content-Disposition", fmt.Sprintf(`attachment; filename="submissions-%s.csv"`, time.Now().UTC().Format("2006-01-02")))
 	return ctx.Send(file.Bytes())
 }
 
@@ -243,15 +242,15 @@ func AdminSubmissionShow(ctx *cartridge.Context) error {
 
 	id, err := strconv.Atoi(ctx.Params("id"))
 	if err != nil {
-		return fiber.ErrNotFound
+		return cartridge.NewError(404)
 	}
 
 	var submission forms.Submission
 	if err := db.Preload("Form").Preload("WebhookEvents").Preload("EmailEvents").Preload("Files").Where("id = ?", id).First(&submission).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			return fiber.ErrNotFound
+			return cartridge.NewError(404)
 		}
-		return fiber.ErrInternalServerError
+		return cartridge.NewError(500)
 	}
 
 	var prettyJSON string
@@ -265,7 +264,7 @@ func AdminSubmissionShow(ctx *cartridge.Context) error {
 		}
 	}
 
-	return ctx.Render("layouts/base", fiber.Map{
+	return ctx.Render("layouts/base", cartridge.Map{
 		"Title":       "Submission",
 		"Submission":  submission,
 		"JSON":        prettyJSON,
@@ -282,30 +281,30 @@ func AdminSubmissionFileDownload(ctx *cartridge.Context) error {
 
 	submissionID, err := strconv.Atoi(ctx.Params("id"))
 	if err != nil {
-		return fiber.ErrNotFound
+		return cartridge.NewError(404)
 	}
 
 	fileID, err := strconv.Atoi(ctx.Params("file_id"))
 	if err != nil {
-		return fiber.ErrNotFound
+		return cartridge.NewError(404)
 	}
 
 	var file forms.SubmissionFile
 	if err := db.Where("id = ? AND submission_id = ?", fileID, submissionID).First(&file).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			return fiber.ErrNotFound
+			return cartridge.NewError(404)
 		}
-		return fiber.ErrInternalServerError
+		return cartridge.NewError(500)
 	}
 
 	stored, err := os.Open(forms.GetFilePath(cfg.DataDirectory, &file))
 	if err != nil {
-		return fiber.ErrNotFound
+		return cartridge.NewError(404)
 	}
 	info, err := stored.Stat()
 	if err != nil {
 		stored.Close()
-		return fiber.ErrInternalServerError
+		return cartridge.NewError(500)
 	}
 
 	// A visitor chose the name and the type of the file. FormatMediaType keeps
@@ -315,9 +314,9 @@ func AdminSubmissionFileDownload(ctx *cartridge.Context) error {
 	if disposition == "" {
 		disposition = "attachment"
 	}
-	ctx.Set(fiber.HeaderContentDisposition, disposition)
-	ctx.Set(fiber.HeaderContentType, "application/octet-stream")
-	ctx.Set(fiber.HeaderXContentTypeOptions, "nosniff")
+	ctx.Set("Content-Disposition", disposition)
+	ctx.Set("Content-Type", "application/octet-stream")
+	ctx.Set("X-Content-Type-Options", "nosniff")
 	return ctx.SendStream(stored, int(info.Size()))
 }
 
@@ -354,15 +353,15 @@ func returnPath(ctx *cartridge.Context, fallback string) string {
 func AdminSubmissionDelete(ctx *cartridge.Context) error {
 	id, err := strconv.ParseUint(ctx.Params("id"), 10, 32)
 	if err != nil {
-		return fiber.ErrNotFound
+		return cartridge.NewError(404)
 	}
 
 	deleted, err := forms.DeleteSubmissions(ctx.Logger, ctx.DB(), GetAppConfig(ctx).DataDirectory, []uint{uint(id)})
 	if err != nil {
-		return fiber.ErrInternalServerError
+		return cartridge.NewError(500)
 	}
 	if deleted == 0 {
-		return fiber.ErrNotFound
+		return cartridge.NewError(404)
 	}
 
 	return ctx.Redirect(returnPath(ctx, "/admin/submissions"))
@@ -388,7 +387,7 @@ func AdminSubmissionsDelete(ctx *cartridge.Context) error {
 		_, err = forms.DeleteSubmissions(ctx.Logger, db, dataDir, ids)
 	}
 	if err != nil {
-		return fiber.ErrInternalServerError
+		return cartridge.NewError(500)
 	}
 
 	return ctx.Redirect(returnPath(ctx, "/admin/submissions"))

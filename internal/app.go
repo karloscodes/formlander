@@ -6,10 +6,9 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/karloscodes/cartridge"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
-
-	"github.com/karloscodes/cartridge"
 
 	"formlander/internal/accounts"
 	"formlander/internal/config"
@@ -32,9 +31,15 @@ type App struct {
 func NewApp() (*App, error) {
 	cfg := config.Get()
 
-	app, err := cartridge.NewSSRApp("formlander",
-		cartridge.WithConfig(cfg.Config),
+	app, err := cartridge.NewApp(cfg,
 		cartridge.WithAssets(web.Templates, web.Static),
+		cartridge.WithServerConfig(func(c *cartridge.ServerConfig) {
+			// kamal-proxy (or the operator's TLS proxy) reaches the app from
+			// a private or loopback address and appends the visitor's address
+			// to X-Forwarded-For. The rate limits key on that address.
+			c.ProxyHeader = "X-Forwarded-For"
+			c.TrustedProxies = []string{"127.0.0.0/8", "::1/128", "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "fc00::/7"}
+		}),
 		cartridge.WithTemplateFuncs(server.TemplateFuncs()),
 		cartridge.WithErrorHandler(server.ErrorHandler(slog.Default(), cfg)),
 		cartridge.WithSession("/admin/login"),

@@ -4,10 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	nethttp "net/http"
 	"strconv"
 	"strings"
 
-	"github.com/gofiber/fiber/v2"
 	"github.com/karloscodes/cartridge"
 
 	"formlander/internal/integrations"
@@ -116,7 +116,7 @@ func renderCaptchaForm(ctx *cartridge.Context, id uint, params integrations.Capt
 	if first.HostPattern == "*" {
 		first.HostPattern = ""
 	}
-	return ctx.Render("layouts/base", fiber.Map{
+	return ctx.Render("layouts/base", cartridge.Map{
 		"Title":       title,
 		"IsEdit":      id != 0,
 		"Profile":     integrations.CaptchaProfile{ID: id, Name: params.Name},
@@ -131,8 +131,8 @@ func renderCaptchaForm(ctx *cartridge.Context, id uint, params integrations.Capt
 
 // renderCaptchaProfile shows one profile, with the result of a test or the
 // reason a delete was refused.
-func renderCaptchaProfile(ctx *cartridge.Context, profile *integrations.CaptchaProfile, extra fiber.Map) error {
-	data := fiber.Map{
+func renderCaptchaProfile(ctx *cartridge.Context, profile *integrations.CaptchaProfile, extra cartridge.Map) error {
+	data := cartridge.Map{
 		"Title":        profile.Name,
 		"Profile":      profile,
 		"SiteKeys":     siteKeys(profile.SiteKeysJSON),
@@ -151,11 +151,11 @@ func renderCaptchaProfile(ctx *cartridge.Context, profile *integrations.CaptchaP
 func captchaProfileFromPath(ctx *cartridge.Context) (*integrations.CaptchaProfile, error) {
 	id, err := strconv.ParseUint(ctx.Params("id"), 10, 32)
 	if err != nil {
-		return nil, fiber.ErrNotFound
+		return nil, cartridge.NewError(404)
 	}
 	profile, err := integrations.GetCaptchaProfileByID(ctx.DB(), uint(id))
 	if err != nil {
-		return nil, fiber.ErrNotFound
+		return nil, cartridge.NewError(404)
 	}
 	return profile, nil
 }
@@ -164,7 +164,7 @@ func captchaProfileFromPath(ctx *cartridge.Context) (*integrations.CaptchaProfil
 func CaptchaProfileList(ctx *cartridge.Context) error {
 	profiles, err := integrations.ListCaptchaProfiles(ctx.DB())
 	if err != nil {
-		return fiber.ErrInternalServerError
+		return cartridge.NewError(500)
 	}
 
 	// Add site key count to each profile
@@ -177,7 +177,7 @@ func CaptchaProfileList(ctx *cartridge.Context) error {
 		profilesWithCount[i] = profileWithCount{CaptchaProfile: profile, SiteKeyCount: len(siteKeys(profile.SiteKeysJSON))}
 	}
 
-	return ctx.Render("layouts/base", fiber.Map{
+	return ctx.Render("layouts/base", cartridge.Map{
 		"Title":       "Captcha Profiles",
 		"Profiles":    profilesWithCount,
 		"ContentView": "admin/captcha/index/content",
@@ -263,15 +263,15 @@ func CaptchaProfileDelete(ctx *cartridge.Context) error {
 	}
 
 	if len(formsUsingCaptcha(ctx.DB(), profile.ID)) > 0 {
-		ctx.Status(fiber.StatusBadRequest)
-		return renderCaptchaProfile(ctx, profile, fiber.Map{
+		ctx.Status(nethttp.StatusBadRequest)
+		return renderCaptchaProfile(ctx, profile, cartridge.Map{
 			"Error": "A form uses this profile. Remove it from the form first.",
 		})
 	}
 
 	if err := integrations.DeleteCaptchaProfile(ctx.Logger, ctx.DB(), profile.ID); err != nil {
 		ctx.Logger.Error("failed to delete captcha profile", slog.Any("error", err), slog.Uint64("profile_id", uint64(profile.ID)))
-		return fiber.ErrInternalServerError
+		return cartridge.NewError(500)
 	}
 
 	return ctx.Redirect("/admin/settings/captcha")
@@ -294,5 +294,5 @@ func CaptchaProfileTest(ctx *cartridge.Context) error {
 	case !accepted:
 		result = testResult{Message: "Cloudflare rejected the Secret Key. Copy it again from your Turnstile widget in the Cloudflare dashboard."}
 	}
-	return renderCaptchaProfile(ctx, profile, fiber.Map{"Test": result})
+	return renderCaptchaProfile(ctx, profile, cartridge.Map{"Test": result})
 }
