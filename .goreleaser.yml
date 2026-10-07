@@ -144,7 +144,7 @@ release:
     ```
 
     Then visit `http://localhost:8080` and sign in as `admin@formlander.local`.
-    The first password is random: find it with `docker logs <container>` or in `storage/initial-admin-password`.
+    The first password is random: find it in `storage/initial-admin-password`, or with `docker exec <container> cat /app/storage/initial-admin-password`.
   footer: |
     ---
     
