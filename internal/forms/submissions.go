@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/mail"
+	"os"
 	"slices"
 	"strings"
 	"time"
@@ -83,22 +84,31 @@ func CreateSubmissionWithFiles(logger *slog.Logger, db *gorm.DB, form *Form, pay
 		IsSpam:    isSpam,
 	}
 
+	// Write files to disk before the transaction, so the write lock only
+	// covers a rename. Spam submissions don't save files: the bot got its
+	// 2xx, but we don't want to give it a free disk-fill vector for forms
+	// that accept uploads.
+	var stagingDir string
+	var fileRecords []*SubmissionFile
+	if !isSpam && len(files) > 0 && dataDir != "" {
+		var err error
+		stagingDir, fileRecords, err = StageFiles(dataDir, files)
+		if err != nil {
+			logger.Error("stage submission files failed", slog.Any("error", err))
+			return nil, fmt.Errorf("failed to save submission: %w", err)
+		}
+	}
+
 	if err := db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(submission).Error; err != nil {
 			return err
 		}
 
-		// Save files to disk and create records.
-		// Spam submissions don't save files: the bot got its 2xx, but we
-		// don't want to give it a free disk-fill vector for forms that
-		// accept uploads.
-		if !isSpam && len(files) > 0 && dataDir != "" {
-			fileRecords, err := SaveFiles(dataDir, form.ID, submission.ID, files)
-			if err != nil {
+		if len(fileRecords) > 0 {
+			if err := MoveStagedFiles(dataDir, stagingDir, form.ID, submission.ID, fileRecords); err != nil {
 				return fmt.Errorf("failed to save files: %w", err)
 			}
 			for _, record := range fileRecords {
-				record.SubmissionID = submission.ID
 				if err := tx.Create(record).Error; err != nil {
 					return err
 				}
@@ -129,8 +139,11 @@ func CreateSubmissionWithFiles(logger *slog.Logger, db *gorm.DB, form *Form, pay
 
 		return nil
 	}); err != nil {
-		// Clean up files on failure
-		if len(files) > 0 && dataDir != "" && submission.ID > 0 {
+		// Clean up files on failure, wherever they are by now
+		if stagingDir != "" {
+			os.RemoveAll(stagingDir)
+		}
+		if len(fileRecords) > 0 && submission.ID > 0 {
 			DeleteSubmissionFiles(dataDir, form.ID, submission.ID)
 		}
 		logger.Error("store submission failed", slog.Any("error", err))
