@@ -43,7 +43,7 @@ Forms work without the SDK via standard HTML POST. The SDK is purely an enhancem
 
 ## Installation
 
-Formlander runs on your own server with [Chasen](https://chasenhq.com): HTTPS, hourly checked backups of the database, and an update each night.
+Formlander runs on your own server with [Chasen](https://chasenhq.com): HTTPS, live backups of the database, and an update each night.
 
 ### On your server
 
@@ -68,7 +68,7 @@ The first deploy installs Chasen on the server through SSH. `--auto-update` give
 
 - The server needs Ubuntu or Debian, ports 80 and 443 open, and an A record for your domain.
 - Sign in at `https://forms.example.com` as `admin@formlander.local`, then change the password in Settings. To read the first password again: `chasen -a formlander run cat /app/storage/initial-admin-password`.
-- No settings needed: Chasen gives Formlander its session secret and keeps `/app/storage` across deploys. Chasen takes a checked snapshot of the database every hour and before each deploy; with a bucket (`chasen bucket`) the snapshots go offsite, and a live replica copies each change as it happens. It does not back up `/app/storage/uploads`: back that up yourself if your forms take files.
+- No settings needed: Chasen gives Formlander its session secret and keeps `/app/storage` across deploys. With a bucket (`chasen bucket`), Chasen copies each change of the database to it as it happens, about a second behind. It also takes a checked snapshot every hour and before each deploy. It does not back up `/app/storage/uploads`: back that up yourself if your forms take files.
 - Everyday commands: `chasen -a formlander status`, `logs`, `backups`, `restore`, `rollback`. See [the Chasen docs](https://chasenhq.com/docs/).
 
 ### The installer (existing servers)
