@@ -125,14 +125,13 @@ release:
 
     Self-hosted form backend with SQLite storage.
 
-    ### Deploy with Chasen (recommended)
+    ### Install on your server
 
     ```bash
-    curl -fsSL https://chasenhq.com/cli | sh
-    chasen deploy karloscodes/formlander --server root@203.0.113.5 --domain forms.example.com --auto-update
+    curl -fsSL https://formlander.com/install | sudo bash
     ```
 
-    The first deploy sets up the server through SSH: HTTPS, hourly checked backups of the database, and nightly updates. Servers set up with the older installer update themselves as before.
+    It installs Chasen and runs Formlander: HTTPS, hourly checked backups of the database, and an update each night. From your computer instead: `chasen deploy karloscodes/formlander --server root@203.0.113.5 --domain forms.example.com --auto-update`. Servers that the older installer set up update themselves as before.
 
     ### Quick Start with Docker (Manual)
 

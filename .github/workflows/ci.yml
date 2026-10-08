@@ -156,3 +156,20 @@ jobs:
 
       - name: Deploy with Chasen, as a new user does
         run: e2e/chasen.sh
+
+  # The test of install.sh, the script behind formlander.com/install: it
+  # installs Chasen and this commit's image on a fresh runner. No secrets.
+  test-installer:
+    name: Installer test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install on the server, as a new user does
+        run: e2e/installer.sh
+

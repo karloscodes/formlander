@@ -43,28 +43,37 @@ Forms work without the SDK via standard HTML POST. The SDK is purely an enhancem
 
 ## Installation
 
-### Deploy with Chasen (recommended)
+Formlander runs on your own server with [Chasen](https://chasenhq.com): HTTPS, hourly checked backups of the database, and an update each night.
 
-[Chasen](https://chasenhq.com) deploys Formlander to your own server from your computer, with HTTPS, hourly checked backups of the database, and nightly updates:
+### On your server
+
+On a fresh Ubuntu or Debian server, as root:
+
+```bash
+curl -fsSL https://formlander.com/install | sudo bash
+```
+
+It asks for your domain, installs Chasen (and Docker, when the server has none), runs Formlander, and prints the admin email and the first password. Run it again to update Formlander now.
+
+### From your computer
 
 ```bash
 curl -fsSL https://chasenhq.com/cli | sh
 chasen deploy karloscodes/formlander --server root@203.0.113.5 --domain forms.example.com --auto-update
 ```
 
-- The first time, `chasen deploy` installs Chasen on the server through SSH. The server needs Ubuntu or Debian, ports 80 and 443 open, and an A record for your domain.
-- `--auto-update` deploys the newest image each night, with a backup first. Without it, run the same line again to update.
-- Sign in at `https://forms.example.com` as `admin@formlander.local`. The first password is in the storage of the app; change it in Settings:
+The first deploy installs Chasen on the server through SSH. `--auto-update` gives the same nightly update.
 
-  ```bash
-  chasen -a formlander run cat /app/storage/initial-admin-password
-  ```
-- Formlander needs no settings on Chasen: Chasen gives it its session secret and keeps `/app/storage` across deploys. Chasen backs up the database, not `/app/storage/uploads`: back that up yourself if your forms take files.
+### After the install
+
+- The server needs Ubuntu or Debian, ports 80 and 443 open, and an A record for your domain.
+- Sign in at `https://forms.example.com` as `admin@formlander.local`, then change the password in Settings. To read the first password again: `chasen -a formlander run cat /app/storage/initial-admin-password`.
+- No settings needed: Chasen gives Formlander its session secret and keeps `/app/storage` across deploys. Chasen takes a checked snapshot of the database every hour and before each deploy; with a bucket (`chasen bucket`) the snapshots go offsite, and a live replica copies each change as it happens. It does not back up `/app/storage/uploads`: back that up yourself if your forms take files.
 - Everyday commands: `chasen -a formlander status`, `logs`, `backups`, `restore`, `rollback`. See [the Chasen docs](https://chasenhq.com/docs/).
 
 ### The installer (existing servers)
 
-Servers set up with the older installer keep working as they are: its nightly update, its backups, and the `formlander` commands on the server (`formlander update`, `reload`, `restore-db`, `change-admin-password`). Their first password is in `/var/matcha/formlander/storage/initial-admin-password` until you change it. See [Servers set up with the installer](https://formlander.com/docs/server-administration/).
+Servers that the older installer set up keep working as they are, and the install line changes nothing on them: its nightly update, its backups, and the `formlander` commands on the server (`formlander update`, `reload`, `restore-db`, `change-admin-password`). Their first password is in `/var/matcha/formlander/storage/initial-admin-password` until you change it. See [Servers set up with the installer](https://formlander.com/docs/server-administration/).
 
 ---
 

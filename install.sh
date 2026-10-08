@@ -1,198 +1,63 @@
 #!/bin/bash
+# Installs Formlander on this server with Chasen (https://chasenhq.com):
+# HTTPS, hourly checked backups of the database, and an update each night.
+#   curl -fsSL https://formlander.com/install | sudo bash
+#
+# It asks for the domain. FORMLANDER_DOMAIN gives it without a question.
+# FORMLANDER_IMAGE deploys another image than karloscodes/formlander:latest,
+# for a test. Run it again to update Formlander now.
+set -euo pipefail
 
-# Script to install Formlander from GitHub releases
-# Run as: curl -fsSL https://formlander.com/install | sudo bash
-
-# Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
-NC='\033[0m' # No Color
+NC='\033[0m'
+image="${FORMLANDER_IMAGE:-karloscodes/formlander:latest}"
 
-# Configuration
-GITHUB_REPO="karloscodes/formlander"
-INSTALL_DIR="/usr/local/bin"
+fail() { echo -e "${RED}Error: $*${NC}" >&2; exit 1; }
 
-run_installer() {
-    # Verify running as root
-    if [ "$(id -u)" -ne 0 ]; then
-        echo -e "${RED}Error: This script requires root privileges. Use 'sudo su' and then re-run the installation command.${NC}"
-        exit 1
-    fi
+[ "$(id -u)" -eq 0 ] || fail "run it as root: curl -fsSL https://formlander.com/install | sudo bash"
+[ "$(uname -s)" = Linux ] || fail "Formlander installs on a Linux server. From your computer, deploy it with Chasen: https://formlander.com/docs/deployment/"
 
-    # Detect architecture
-    ARCH=$(uname -m)
-    case "$ARCH" in
-        x86_64)
-            ARCH="amd64"
-            ;;
-        aarch64|arm64)
-            ARCH="arm64"
-            ;;
-        *)
-            echo -e "${RED}Unsupported architecture: $ARCH. Only amd64 and arm64 are supported.${NC}"
-            exit 1
-            ;;
-    esac
-
-    BINARY_PATH="$INSTALL_DIR/formlander"
-    # A private directory, so no other user can create or swap the file
-    # that root runs.
-    TEMP_DIR=$(mktemp -d)
-    trap 'rm -rf "$TEMP_DIR"' EXIT
-    TEMP_FILE="$TEMP_DIR/formlander-$ARCH"
-
-    # Install dependencies if needed
-    NEED_UPDATE=false
-    if ! command -v jq >/dev/null 2>&1; then
-        NEED_UPDATE=true
-    fi
-    if ! command -v file >/dev/null 2>&1; then
-        NEED_UPDATE=true
-    fi
-    if [ "$NEED_UPDATE" = true ]; then
-        apt-get update -qq > /dev/null 2>&1
-    fi
-    if ! command -v jq >/dev/null 2>&1; then
-        apt-get install -y -qq jq > /dev/null 2>&1 || {
-            echo -e "${RED}Error: Failed to install jq. This script requires jq to parse GitHub API responses.${NC}"
-            exit 1
-        }
-    fi
-    if ! command -v file >/dev/null 2>&1; then
-        apt-get install -y -qq file > /dev/null 2>&1 || {
-            echo -e "${RED}Error: Failed to install 'file'. Binary verification will be skipped.${NC}"
-        }
-    fi
-
-    # Fetch the latest release information
-    echo "Fetching latest release information..."
-    RELEASE_INFO=$(curl -fsSL "https://api.github.com/repos/$GITHUB_REPO/releases/latest")
-
-    # Check for rate limit or other API errors
-    if echo "$RELEASE_INFO" | grep -q "API rate limit exceeded"; then
-        echo -e "${RED}Error: GitHub API rate limit exceeded. Please try again later.${NC}"
-        exit 1
-    fi
-
-    if echo "$RELEASE_INFO" | grep -q "Not Found"; then
-        echo -e "${RED}Error: No releases found in $GITHUB_REPO.${NC}"
-        exit 1
-    fi
-
-    # Extract the latest version
-    LATEST_VERSION=$(echo "$RELEASE_INFO" | jq -r '.tag_name' | sed 's/^v//')
-
-    if [ -z "$LATEST_VERSION" ]; then
-        echo -e "${RED}Error: Could not determine latest version.${NC}"
-        exit 1
-    fi
-
-    echo "Latest version: $LATEST_VERSION"
-
-    # Look for the correct asset
-    ASSET_NAME="formlander-linux-$ARCH"
-    if ! echo "$RELEASE_INFO" | jq -r '.assets[].name' | grep -q "$ASSET_NAME"; then
-        echo -e "${RED}Error: No binary found for $ARCH in release v$LATEST_VERSION.${NC}"
-        echo "Available assets:"
-        echo "$RELEASE_INFO" | jq -r '.assets[].name'
-        exit 1
-    fi
-
-    # Construct download URLs
-    BINARY_URL="https://github.com/$GITHUB_REPO/releases/download/v$LATEST_VERSION/$ASSET_NAME"
-    CHECKSUMS_URL="https://github.com/$GITHUB_REPO/releases/download/v$LATEST_VERSION/checksums.txt"
-    echo "Download URL: $BINARY_URL"
-
-    # Download the binary
-    echo "Downloading Formlander v$LATEST_VERSION for $ARCH..."
-    curl -L --fail --progress-bar -o "$TEMP_FILE" "$BINARY_URL" || {
-        echo -e "${RED}Error: Failed to download binary.${NC}"
-        rm -f "$TEMP_FILE"
-        exit 1
-    }
-
-    # Verify the download
-    if [ ! -s "$TEMP_FILE" ]; then
-        echo -e "${RED}Error: Downloaded file is empty.${NC}"
-        rm -f "$TEMP_FILE"
-        exit 1
-    fi
-
-    # Verify SHA256 checksum
-    echo "Verifying SHA256 checksum..."
-    CHECKSUMS_FILE="$TEMP_DIR/checksums.txt"
-    if ! curl -fsSL -o "$CHECKSUMS_FILE" "$CHECKSUMS_URL"; then
-        echo -e "${RED}Error: Could not download checksums.txt, so the binary cannot be verified.${NC}"
-        exit 1
-    fi
-    EXPECTED_HASH=$(awk -v name="$ASSET_NAME" '$2 == name {print $1}' "$CHECKSUMS_FILE")
-    if [ -z "$EXPECTED_HASH" ]; then
-        echo -e "${RED}Error: checksums.txt has no entry for $ASSET_NAME.${NC}"
-        exit 1
-    fi
-    ACTUAL_HASH=$(sha256sum "$TEMP_FILE" | awk '{print $1}')
-    if [ "$ACTUAL_HASH" != "$EXPECTED_HASH" ]; then
-        echo -e "${RED}Error: SHA256 checksum mismatch!${NC}"
-        echo "  Expected: $EXPECTED_HASH"
-        echo "  Got:      $ACTUAL_HASH"
-        exit 1
-    fi
-    echo -e "${GREEN}Checksum verified.${NC}"
-
-    # Check file type
-    if command -v file >/dev/null 2>&1; then
-        FILE_TYPE=$(file -b "$TEMP_FILE" | cut -d',' -f1-2)
-        echo "Verifying file: $FILE_TYPE"
-        if ! echo "$FILE_TYPE" | grep -q "ELF"; then
-            echo -e "${RED}Error: Downloaded file is not a valid binary.${NC}"
-            rm -f "$TEMP_FILE"
-            exit 1
-        fi
-    fi
-
-    # Install the binary
-    echo "Installing to $BINARY_PATH..."
-    mv "$TEMP_FILE" "$BINARY_PATH" && chmod +x "$BINARY_PATH" || {
-        echo -e "${RED}Error: Failed to install binary.${NC}"
-        rm -f "$TEMP_FILE"
-        exit 1
-    }
-
-    # Run the installer interactively
-    echo -e "${GREEN}Running Formlander installer...${NC}"
-    if "$BINARY_PATH" install; then
-        echo -e "${GREEN}Installation complete!${NC}"
-    else
-        INSTALL_EXIT_CODE=$?
-        echo -e "${RED}Installation failed with exit code $INSTALL_EXIT_CODE.${NC}"
-        exit $INSTALL_EXIT_CODE
-    fi
-}
-
-# Handle piped execution (curl | sudo bash)
-# When piped, stdin is not a TTY, so we need to re-exec with /dev/tty
-if [ ! -t 0 ]; then
-    echo "Detected piped execution. Creating temporary installer for interactive mode..."
-    TEMP_SCRIPT=$(mktemp /tmp/formlander-install-XXXXXX.sh)
-
-    # Export the function and variables to a temp script
-    {
-        echo '#!/bin/bash'
-        echo "RED='$RED'"
-        echo "GREEN='$GREEN'"
-        echo "NC='$NC'"
-        echo "GITHUB_REPO='$GITHUB_REPO'"
-        echo "INSTALL_DIR='$INSTALL_DIR'"
-        declare -f run_installer
-        echo 'run_installer'
-    } > "$TEMP_SCRIPT"
-
-    chmod +x "$TEMP_SCRIPT"
-    bash "$TEMP_SCRIPT" < /dev/tty
-    EXIT_CODE=$?
-    rm -f "$TEMP_SCRIPT"
-    exit $EXIT_CODE
+# A server that the older installer set up keeps it: it updates itself each
+# night. This script never touches a Formlander that runs.
+if [ -f /etc/cron.d/formlander-update ] || grep -qs '^ *formlander:' /etc/matcha/config.yml; then
+	echo "This server runs Formlander from the older installer. It keeps updating itself each night,"
+	echo "and its commands stay: formlander update, restore-db, change-admin-password."
+	echo "Nothing changed."
+	exit 0
 fi
 
-# Run the installer
-run_installer
+# Formlander runs on Chasen already: deploy the newest image, keep the settings.
+if command -v chasen-server >/dev/null 2>&1 && chasen-server list 2>/dev/null | grep -q '^formlander '; then
+	echo "Updating Formlander to the newest $image..."
+	printf '{"image":"%s","keep_settings":true,"env":{}}\n' "$image" | chasen-server deploy formlander latest
+	echo -e "${GREEN}Formlander is up to date.${NC}"
+	exit 0
+fi
+
+domain="${FORMLANDER_DOMAIN:-}"
+if [ -z "$domain" ]; then
+	[ -r /dev/tty ] || fail "no terminal to ask for the domain: set FORMLANDER_DOMAIN=forms.example.com"
+	read -r -p "Domain for Formlander (e.g. forms.example.com): " domain </dev/tty
+fi
+domain="$(echo "$domain" | tr '[:upper:]' '[:lower:]')"
+[[ "$domain" =~ ^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$ && "$domain" == *.* ]] || fail "\"$domain\" is not a domain"
+
+echo "Installing Chasen..."
+curl -fsSL https://chasenhq.com/server | sh
+chasen-server setup >/dev/null # it installs Docker when the server has none
+
+echo "Deploying Formlander at $domain..."
+printf '{"image":"%s","domain":"%s","auto_update":true,"env":{}}\n' "$image" "$domain" | chasen-server deploy formlander latest
+
+password="$(chasen-server run formlander cat /app/storage/initial-admin-password 2>/dev/null || true)"
+echo
+echo -e "${GREEN}Formlander runs at https://$domain${NC}"
+echo "  Sign in as admin@formlander.local${password:+ with the password $password}. Change it in Settings."
+echo "  Point an A record for $domain to this server: HTTPS comes on the first request."
+echo "  It updates itself each night, with a backup of the database first."
+echo
+echo "Manage it from your computer:"
+echo "  curl -fsSL https://chasenhq.com/cli | sh"
+echo "  chasen add server root@<this server>"
+echo "  chasen -a formlander status        # also: logs, backups, restore, rollback"
