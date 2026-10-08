@@ -1097,3 +1097,23 @@ func signInGet(t *testing.T, ts *cartridgetestsupport.TestServer) func(path stri
 		return resp
 	}
 }
+
+// The installer checks /_health, and Chasen checks /up: both answer 200,
+// to GET and HEAD, for any Host, with no login and no redirect.
+func TestHealthPaths(t *testing.T) {
+	ts := mountTestServer(t)
+
+	for _, path := range []string{"/_health", "/up"} {
+		for _, method := range []string{"GET", "HEAD"} {
+			t.Run(method+" "+path, func(t *testing.T) {
+				req := httptest.NewRequest(method, path, nil)
+				req.Host = "formlander.internal"
+
+				resp, err := ts.Server.Test(req)
+
+				assert.NoError(t, err)
+				assert.Equal(t, 200, resp.StatusCode)
+			})
+		}
+	}
+}

@@ -25,6 +25,11 @@ func MountRoutes(s *cartridge.Server, cfg *config.Config) {
 	}
 	s.Get("/_health", healthHandler)
 	s.Head("/_health", healthHandler)
+	// /up is the health path of the Chasen standard, so `chasen deploy
+	// karloscodes/formlander` needs no settings. /_health stays for the
+	// installs of the installer, which check it.
+	s.Get("/up", healthHandler)
+	s.Head("/up", healthHandler)
 
 	s.Get("/", func(ctx *cartridge.Context) error {
 		return ctx.Redirect("/admin")

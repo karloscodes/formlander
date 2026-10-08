@@ -139,3 +139,20 @@ jobs:
           name: playwright-results
           path: e2e/test-results/
           retention-days: 7
+
+  # The install test of the Chasen path: this commit's image, deployed with
+  # the one line of the docs on a fresh runner. No secrets: the image goes to
+  # a registry on the runner.
+  test-chasen:
+    name: Chasen install test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Deploy with Chasen, as a new user does
+        run: e2e/chasen.sh
