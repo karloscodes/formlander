@@ -80,7 +80,8 @@ app restart
 [[ "$(web -o /dev/null -w '%{http_code}' http://127.0.0.1/up)" == 200 ]] || fail "/up does not answer after a restart"
 pass "a restart keeps it up"
 app backup
-app backups | grep -q "Z  server" || fail "no backup on the server"
+backups="$(app backups)"
+grep -q "Z  server" <<<"$backups" || fail "no backup on the server: $backups"
 pass "the backup is on the server"
 
 echo "All checks passed."
