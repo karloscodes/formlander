@@ -49,7 +49,7 @@ Forms work without the SDK via standard HTML POST. The SDK is purely an enhancem
 
 ```bash
 curl -fsSL https://chasenhq.com/cli | sh
-chasen deploy karloscodes/formlander root@203.0.113.5 --domain forms.example.com --auto-update
+chasen deploy karloscodes/formlander --server root@203.0.113.5 --domain forms.example.com --auto-update
 ```
 
 - The first time, `chasen deploy` installs Chasen on the server through SSH. The server needs Ubuntu or Debian, ports 80 and 443 open, and an A record for your domain.
@@ -64,13 +64,7 @@ chasen deploy karloscodes/formlander root@203.0.113.5 --domain forms.example.com
 
 ### The installer (existing servers)
 
-Servers set up with the installer keep working as they are: its nightly update, its backups, and the `formlander` commands on the server.
-
-```bash
-curl -fsSL https://formlander.com/install | sudo bash
-```
-
-It asks for your domain, installs Docker and a reverse proxy with automatic HTTPS, and prints the admin email and a random first password (also in `/var/matcha/formlander/storage/initial-admin-password` until you change it). Server commands: `formlander update`, `reload`, `restore-db`, `change-admin-password`.
+Servers set up with the older installer keep working as they are: its nightly update, its backups, and the `formlander` commands on the server (`formlander update`, `reload`, `restore-db`, `change-admin-password`). Their first password is in `/var/matcha/formlander/storage/initial-admin-password` until you change it. See [Servers set up with the installer](https://formlander.com/docs/server-administration/).
 
 ---
 

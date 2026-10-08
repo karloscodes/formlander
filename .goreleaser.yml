@@ -125,13 +125,14 @@ release:
 
     Self-hosted form backend with SQLite storage.
 
-    ### One-Line Installation (Recommended)
+    ### Deploy with Chasen (recommended)
 
     ```bash
-    curl -fsSL https://raw.githubusercontent.com/karloscodes/formlander/master/install.sh | sudo bash
+    curl -fsSL https://chasenhq.com/cli | sh
+    chasen deploy karloscodes/formlander --server root@203.0.113.5 --domain forms.example.com --auto-update
     ```
 
-    This installs Formlander with Docker, Caddy reverse proxy, and automatic SSL certificates.
+    The first deploy sets up the server through SSH: HTTPS, hourly checked backups of the database, and nightly updates. Servers set up with the older installer update themselves as before.
 
     ### Quick Start with Docker (Manual)
 
