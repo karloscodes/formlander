@@ -46,7 +46,8 @@ chasen deploy "$image:e2e" --domain "$host" --auto-update
 
 [[ "$(web -o /dev/null -w '%{http_code}' http://127.0.0.1/up)" == 200 ]] || fail "/up does not answer 200"
 pass "/up answers 200"
-app status | grep -q "Updates:  each night" || fail "chasen status does not show the nightly updates"
+status="$(app status)" # not in a pipe: grep -q stops early, and pipefail fails the status
+grep -q "Updates:  each night" <<<"$status" || fail "chasen status does not show the nightly updates"
 pass "auto-update is on"
 
 password="$(app run cat /app/storage/initial-admin-password)"

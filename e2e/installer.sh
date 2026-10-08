@@ -37,7 +37,8 @@ echo "$out" | grep -v "with the password" | tail -8 # the password stays out of 
 
 [[ "$(web -o /dev/null -w '%{http_code}' http://127.0.0.1/up)" == 200 ]] || fail "/up does not answer 200"
 pass "/up answers 200"
-sudo chasen-server status formlander | grep -q "Updates:  each night" || fail "the nightly updates are off"
+status="$(sudo chasen-server status formlander)" # not in a pipe: grep -q stops early, and pipefail fails the status
+grep -q "Updates:  each night" <<<"$status" || fail "the nightly updates are off"
 pass "Formlander updates itself each night"
 
 password="$(echo "$out" | grep -o 'with the password [^ .]*' | cut -d' ' -f4)"

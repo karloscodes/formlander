@@ -173,3 +173,21 @@ jobs:
       - name: Install on the server, as a new user does
         run: e2e/installer.sh
 
+  # Moving a server of the older installer to Chasen, with the steps of the
+  # docs: the released formlander binary sets one up, then the move runs.
+  test-move:
+    name: Move to Chasen test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Move a server of the older installer to Chasen
+        run: e2e/move-to-chasen.sh
+        env:
+          FORMLANDER_INSTALLER: file://${{ github.workspace }}/install.sh
+

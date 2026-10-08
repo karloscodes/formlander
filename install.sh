@@ -23,14 +23,16 @@ fail() { echo -e "${RED}Error: $*${NC}" >&2; exit 1; }
 if [ -f /etc/cron.d/formlander-update ] || grep -qs '^ *formlander:' /etc/matcha/config.yml; then
 	echo "This server runs Formlander from the older installer. It keeps updating itself each night,"
 	echo "and its commands stay: formlander update, restore-db, change-admin-password."
-	echo "Nothing changed."
+	echo "Nothing changed. To move it to Chasen: https://formlander.com/docs/move-to-chasen/"
 	exit 0
 fi
 
-# Formlander runs on Chasen already: deploy the newest image, keep the settings.
+# Formlander runs on Chasen already, also after a move from the older
+# installer: deploy the newest image, keep the settings, and update it each
+# night from now on.
 if command -v chasen-server >/dev/null 2>&1 && chasen-server list 2>/dev/null | grep -q '^formlander '; then
 	echo "Updating Formlander to the newest $image..."
-	printf '{"image":"%s","keep_settings":true,"env":{}}\n' "$image" | chasen-server deploy formlander latest
+	printf '{"image":"%s","keep_settings":true,"auto_update":true,"env":{}}\n' "$image" | chasen-server deploy formlander latest
 	echo -e "${GREEN}Formlander is up to date.${NC}"
 	exit 0
 fi
