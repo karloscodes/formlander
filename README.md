@@ -73,7 +73,7 @@ The first deploy installs Chasen on the server through SSH. `--auto-update` give
 
 ### The installer (existing servers)
 
-Servers that the older installer set up keep working as they are, and the install line changes nothing on them: its nightly update, its backups, and the `formlander` commands on the server (`formlander update`, `reload`, `restore-db`, `change-admin-password`). Their first password is in `/var/matcha/formlander/storage/initial-admin-password` until you change it. See [Servers set up with the installer](https://formlander.com/docs/server-administration/).
+Servers that the older installer set up keep working as they are, and the install line changes nothing on them: its nightly update, its backups, and the `formlander` commands on the server (`formlander update`, `reload`, `restore-db`, `change-admin-password`). Their first password is in `/var/matcha/formlander/storage/initial-admin-password` until you change it. To move one to Chasen, see [Move to Chasen](https://formlander.com/docs/move-to-chasen/).
 
 ---
 
