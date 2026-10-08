@@ -1,0 +1,26 @@
+name: govulncheck
+
+# Vulnerabilities that the code of this repository actually calls, from the Go
+# team's database. Weekly, and when the modules change. A red run emails you.
+on:
+  push:
+    branches: [main]
+    paths: [go.mod, go.sum]
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  govulncheck:
+    name: Scan for reachable vulnerabilities
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Run govulncheck
+        run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...

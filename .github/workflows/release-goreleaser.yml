@@ -4,6 +4,8 @@ on:
   push:
     tags:
       - 'v*'
+  # Release on fix starts it for a tag it pushed: see release-on-fix.yml.
+  workflow_dispatch:
 
 # Each job asks for what it needs. Only the job that publishes can write.
 permissions:
