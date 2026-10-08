@@ -128,7 +128,7 @@ release:
     ### Install on your server
 
     ```bash
-    curl -fsSL https://formlander.com/install | sudo bash
+    curl -fsSL https://formlander.com/install | sudo bash -s forms.example.com
     ```
 
     It installs Chasen and runs Formlander: HTTPS, live backups of the database, and an update each night. From your computer instead: `chasen deploy karloscodes/formlander --server root@203.0.113.5 --domain forms.example.com --auto-update`. Servers that the older installer set up update themselves as before.

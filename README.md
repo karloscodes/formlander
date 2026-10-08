@@ -50,10 +50,10 @@ Formlander runs on your own server with [Chasen](https://chasenhq.com): HTTPS, l
 On a fresh Ubuntu or Debian server, as root:
 
 ```bash
-curl -fsSL https://formlander.com/install | sudo bash
+curl -fsSL https://formlander.com/install | sudo bash -s forms.example.com
 ```
 
-It asks for your domain, installs Chasen (and Docker, when the server has none), runs Formlander, and prints the admin email and the first password. Run it again to update Formlander now.
+Put your domain in place of `forms.example.com`. It installs Chasen (and Docker, when the server has none), runs Formlander, and prints the admin email and the first password. Run it again to update Formlander now.
 
 ### From your computer
 
