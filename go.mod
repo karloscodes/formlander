@@ -3,7 +3,7 @@ module formlander
 go 1.26
 
 require (
-	github.com/karloscodes/cartridge v1.6.2
+	github.com/karloscodes/cartridge v1.6.3
 	github.com/karloscodes/matcha v0.12.18
 	github.com/spf13/viper v1.21.0
 	github.com/stretchr/testify v1.11.1

@@ -87,6 +87,20 @@ func TestEnvironmentVariableOverrides(t *testing.T) {
 			},
 		},
 		{
+			name:     "FORMLANDER_LOGS_DIR",
+			envVar:   "FORMLANDER_LOGS_DIR",
+			envValue: "/app/logs",
+			setup: func() {
+				os.Setenv("FORMLANDER_ENV", "development")
+			},
+			check: func(c *Config) error {
+				if c.LogsDirectory != "/app/logs" {
+					t.Errorf("Expected LogsDirectory=/app/logs, got %s", c.LogsDirectory)
+				}
+				return nil
+			},
+		},
+		{
 			name:     "FORMLANDER_PORT",
 			envVar:   "FORMLANDER_PORT",
 			envValue: "3000",
@@ -242,19 +256,6 @@ func TestSessionSecret(t *testing.T) {
 
 		if cfg.SessionTimeout != 7776000 {
 			t.Errorf("Expected SessionTimeout=7776000, got %d", cfg.SessionTimeout)
-		}
-	})
-
-	t.Run("reads the session timeout from the environment", func(t *testing.T) {
-		Reset()
-		os.Clearenv()
-		os.Setenv("FORMLANDER_ENV", "test")
-		os.Setenv("FORMLANDER_SESSION_TIMEOUT_SECONDS", "86400")
-
-		cfg := Get()
-
-		if cfg.SessionTimeout != 86400 {
-			t.Errorf("Expected SessionTimeout=86400, got %d", cfg.SessionTimeout)
 		}
 	})
 

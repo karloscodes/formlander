@@ -51,14 +51,14 @@ WORKDIR /app
 
 # Install minimal runtime dependencies
 RUN apk add --no-cache ca-certificates tzdata curl && \
-  mkdir -p /app/storage /app/storage/logs
+  mkdir -p /app/storage /app/logs
 
 COPY --from=builder /src/formlander /usr/local/bin/formlander
 
 ENV FORMLANDER_ENV=production \
   FORMLANDER_PORT=8080 \
   FORMLANDER_DATA_DIR=/app/storage \
-  FORMLANDER_LOGS_DIR=/app/storage/logs
+  FORMLANDER_LOGS_DIR=/app/logs
 
 EXPOSE 8080
 

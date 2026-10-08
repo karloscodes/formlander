@@ -135,6 +135,7 @@ Formlander uses [Viper](https://github.com/spf13/viper) for flexible configurati
 - `FORMLANDER_PORT` - HTTP port (default: `8080`)
 - `FORMLANDER_LOG_LEVEL` - Log level: `debug`, `info`, `warn`, `error` (default: `error`)
 - `FORMLANDER_DATA_DIR` - Data directory path (default: `./storage`)
+- `FORMLANDER_LOGS_DIR` - Log files (default: `./storage/logs`; the Docker image sets `/app/logs`). Every line also goes to stdout
 
 > **Note:** In development/test, a fixed default secret is used if not set, allowing sessions to persist across restarts.
 

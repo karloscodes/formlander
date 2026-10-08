@@ -52,6 +52,8 @@ pass "auto-update is on"
 password="$(app run cat /app/storage/initial-admin-password)"
 [[ -n "$password" ]] || fail "no first admin password in /app/storage/initial-admin-password"
 pass "the first admin password is in /app/storage/initial-admin-password"
+[[ -z "$(app run find /app/storage -name '*.log')" ]] || fail "log files in the storage: logs go to stdout and /app/logs"
+pass "no log files in the storage"
 
 login() {
 	web -o /dev/null -w '%{http_code} %{redirect_url}' -d "email=admin@formlander.local" --data-urlencode "password=$1" http://127.0.0.1/admin/login

@@ -74,14 +74,8 @@ func Get() *Config {
 		v.SetDefault("webhook.retrylimit", 3)
 		v.SetDefault("webhook.backoffschedule", "1,5,15,60")
 
-		// A login lasts 90 days, unless the environment sets another time.
-		// Cartridge does not bind this variable, so it is read here.
+		// A login lasts 90 days.
 		base.SessionTimeout = defaultSessionTimeout
-		if raw := os.Getenv("FORMLANDER_SESSION_TIMEOUT_SECONDS"); raw != "" {
-			if seconds, err := strconv.Atoi(raw); err == nil && seconds > 0 {
-				base.SessionTimeout = seconds
-			}
-		}
 
 		ensureSessionSecret(base)
 
