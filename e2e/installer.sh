@@ -19,7 +19,7 @@ host=formlander.localhost
 pass() { echo "ok   - $*"; }
 fail() { echo "FAIL - $*" >&2; exit 1; }
 web() { curl -s -H "Host: $host" "$@"; } # through the proxy of Chasen
-install() { sudo FORMLANDER_DOMAIN="$host" FORMLANDER_IMAGE="$image" bash install.sh; }
+install() { sudo FORMLANDER_IMAGE="$image" bash install.sh "$host"; } # the domain as the docs pass it: bash -s <domain>
 
 docker rm -f formlander-e2e-registry >/dev/null 2>&1 || true
 docker run -d --name formlander-e2e-registry -p 127.0.0.1:5000:5000 registry:2 >/dev/null

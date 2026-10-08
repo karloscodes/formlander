@@ -1,9 +1,9 @@
 #!/bin/bash
 # Installs Formlander on this server with Chasen (https://chasenhq.com):
 # HTTPS, live backups of the database, and an update each night.
-#   curl -fsSL https://formlander.com/install | sudo bash
+#   curl -fsSL https://formlander.com/install | sudo bash -s forms.example.com
 #
-# It asks for the domain. FORMLANDER_DOMAIN gives it without a question.
+# The domain is the first argument, or FORMLANDER_DOMAIN. Without either, it asks.
 # FORMLANDER_IMAGE deploys another image than karloscodes/formlander:latest,
 # for a test. Run it again to update Formlander now.
 set -euo pipefail
@@ -15,7 +15,7 @@ image="${FORMLANDER_IMAGE:-karloscodes/formlander:latest}"
 
 fail() { echo -e "${RED}Error: $*${NC}" >&2; exit 1; }
 
-[ "$(id -u)" -eq 0 ] || fail "run it as root: curl -fsSL https://formlander.com/install | sudo bash"
+[ "$(id -u)" -eq 0 ] || fail "run it as root: curl -fsSL https://formlander.com/install | sudo bash -s forms.example.com"
 [ "$(uname -s)" = Linux ] || fail "Formlander installs on a Linux server. From your computer, deploy it with Chasen: https://formlander.com/docs/deployment/"
 
 # A server that the older installer set up keeps it: it updates itself each
@@ -37,9 +37,9 @@ if command -v chasen-server >/dev/null 2>&1 && chasen-server list 2>/dev/null | 
 	exit 0
 fi
 
-domain="${FORMLANDER_DOMAIN:-}"
+domain="${1:-${FORMLANDER_DOMAIN:-}}"
 if [ -z "$domain" ]; then
-	[ -r /dev/tty ] || fail "no terminal to ask for the domain: set FORMLANDER_DOMAIN=forms.example.com"
+	[ -r /dev/tty ] || fail "no domain: curl -fsSL https://formlander.com/install | sudo bash -s forms.example.com"
 	read -r -p "Domain for Formlander (e.g. forms.example.com): " domain </dev/tty
 fi
 domain="$(echo "$domain" | tr '[:upper:]' '[:lower:]')"
