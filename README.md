@@ -43,30 +43,34 @@ Forms work without the SDK via standard HTML POST. The SDK is purely an enhancem
 
 ## Installation
 
-### One-Line Install (Recommended for VPS/Servers)
+### Deploy with Chasen (recommended)
 
-Install Formlander with Docker, Caddy reverse proxy, and automatic SSL certificates:
+[Chasen](https://chasenhq.com) deploys Formlander to your own server from your computer, with HTTPS, hourly checked backups of the database, and nightly updates:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/karloscodes/formlander/master/install.sh | sudo bash
+curl -fsSL https://chasenhq.com/cli | sh
+chasen deploy karloscodes/formlander root@203.0.113.5 --domain forms.example.com --auto-update
 ```
 
-This interactive installer will:
-- Check system requirements (Docker, ports 80/443)
-- Prompt for your domain name
-- Set up Caddy as a reverse proxy with automatic HTTPS
-- Configure automatic daily backups
-- Start the Formlander container
+- The first time, `chasen deploy` installs Chasen on the server through SSH. The server needs Ubuntu or Debian, ports 80 and 443 open, and an A record for your domain.
+- `--auto-update` deploys the newest image each night, with a backup first. Without it, run the same line again to update.
+- Sign in at `https://forms.example.com` as `admin@formlander.local`. The first password is in the storage of the app; change it in Settings:
 
-After installation, access your dashboard at `https://your-domain.com`. The installer prints the admin email and a random first password. The password is also in `/var/matcha/formlander/storage/initial-admin-password` until you change it in Settings.
+  ```bash
+  chasen -a formlander run cat /app/storage/initial-admin-password
+  ```
+- Formlander needs no settings on Chasen: Chasen gives it its session secret and keeps `/app/storage` across deploys. Chasen backs up the database, not `/app/storage/uploads`: back that up yourself if your forms take files.
+- Everyday commands: `chasen -a formlander status`, `logs`, `backups`, `restore`, `rollback`. See [the Chasen docs](https://chasenhq.com/docs/).
 
-**Management commands:**
+### The installer (existing servers)
+
+Servers set up with the installer keep working as they are: its nightly update, its backups, and the `formlander` commands on the server.
+
 ```bash
-formlander update              # Update to latest version
-formlander reload              # Reload containers
-formlander restore-db          # Restore from backup
-formlander change-admin-password  # Reset admin password
+curl -fsSL https://formlander.com/install | sudo bash
 ```
+
+It asks for your domain, installs Docker and a reverse proxy with automatic HTTPS, and prints the admin email and a random first password (also in `/var/matcha/formlander/storage/initial-admin-password` until you change it). Server commands: `formlander update`, `reload`, `restore-db`, `change-admin-password`.
 
 ---
 
