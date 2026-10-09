@@ -122,7 +122,7 @@
                     if (panels.length && !window.hljs && !formCode.loading) {
                         formCode.loading = true;
                         var script = document.createElement('script');
-                        script.src = '/assets/vendor/highlight.min.js';
+                        script.src = '/assets/vendor/highlight.min.js?v={{ assetVersion }}';
                         script.onload = function () { document.querySelectorAll('[data-code-panel]').forEach(formCode.render); };
                         document.head.appendChild(script);
                     }

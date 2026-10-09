@@ -1098,6 +1098,24 @@ func signInGet(t *testing.T, ts *cartridgetestsupport.TestServer) func(path stri
 	}
 }
 
+// The SDK loads on the sites of the users: a browser refuses a script from
+// another site when it says Cross-Origin-Resource-Policy: same-origin.
+func TestSDKLoadsOnOtherSites(t *testing.T) {
+	ts := mountTestServer(t)
+	req := httptest.NewRequest("GET", "/assets/formlander.js", nil)
+	req.Header.Set("Sec-Fetch-Site", "cross-site")
+
+	resp, err := ts.Server.Test(req)
+
+	require.NoError(t, err)
+	assert.Equal(t, 200, resp.StatusCode)
+	assert.Equal(t, "cross-origin", resp.Header.Get("Cross-Origin-Resource-Policy"))
+	assert.Equal(t, "public, max-age=14400", resp.Header.Get("Cache-Control"))
+	assert.Contains(t, resp.Header.Get("Content-Type"), "javascript")
+	body, _ := io.ReadAll(resp.Body)
+	assert.NotEmpty(t, body)
+}
+
 // The installer checks /_health, and Chasen checks /up: both answer 200,
 // to GET and HEAD, for any Host, with no login and no redirect.
 func TestHealthPaths(t *testing.T) {

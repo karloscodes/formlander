@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"io/fs"
 	"net/http"
 	"time"
 
@@ -9,6 +10,7 @@ import (
 
 	"formlander/internal/config"
 	httphandlers "formlander/internal/http"
+	"formlander/web"
 )
 
 // MountRoutes registers all application routes.
@@ -33,6 +35,20 @@ func MountRoutes(s *cartridge.Server, cfg *config.Config) {
 
 	s.Get("/", func(ctx *cartridge.Context) error {
 		return ctx.Redirect("/admin")
+	})
+
+	// The SDK runs on the sites of the users, from a URL they paste once.
+	// Other sites may load it, and a new version reaches them within 4 hours:
+	// the other assets carry ?v= and keep the cache of a year.
+	sdk, err := fs.ReadFile(web.Static, "formlander.js")
+	if err != nil {
+		panic(err)
+	}
+	s.Get("/assets/formlander.js", func(ctx *cartridge.Context) error {
+		ctx.Set("Cross-Origin-Resource-Policy", "cross-origin")
+		ctx.Set("Cache-Control", "public, max-age=14400")
+		ctx.Set("Content-Type", "text/javascript; charset=utf-8")
+		return ctx.Send(sdk)
 	})
 
 	// Public demo page
