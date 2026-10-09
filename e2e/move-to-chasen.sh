@@ -51,7 +51,7 @@ grep -qE "^URL: +.*$host" <<<"$status" || fail "the domain changed: $status"
 pass "the domain stays"
 
 echo "--- the install line on the moved server: an update"
-again="$(curl -fsSL "$installer" | sudo bash 2>&1)"
+again="$(curl -fsSL "$installer" | sudo bash 2>&1)" || { echo "$again"; fail "the install line failed on the moved server"; }
 grep -q "Formlander is up to date" <<<"$again" || fail "the install line did not update the moved server: $again"
 [[ "$(login "$password")" == 30?" "*/admin ]] || fail "the login fails after the update"
 pass "the install line updates the moved server"
