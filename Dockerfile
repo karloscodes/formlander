@@ -3,7 +3,7 @@
 ###############################################################################
 # Build stage
 ###############################################################################
-FROM golang:1.26.9-alpine AS builder
+FROM golang:1.27.0-alpine AS builder
 
 ARG TARGETARCH
 ARG COMMIT_SHA=dev
@@ -45,7 +45,7 @@ RUN CGO_ENABLED=1 GOOS=linux go build \
   ./cmd/formlander
 # Runtime stage
 ###############################################################################
-FROM alpine:3.23
+FROM alpine:3.24
 
 WORKDIR /app
 
