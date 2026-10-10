@@ -4,7 +4,7 @@ on:
   push:
     tags:
       - 'v*'
-  # Release on fix starts it for a tag it pushed: see release-on-fix.yml.
+  # Release candidate starts it for a tag it pushed: see release-candidate.yml.
   workflow_dispatch:
 
 # Each job asks for what it needs. Only the job that publishes can write.
@@ -118,10 +118,8 @@ jobs:
           echo "- Docker Hub: https://hub.docker.com/r/karloscodes/formlander" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Docker Tags Published" >> $GITHUB_STEP_SUMMARY
-          echo "- \`karloscodes/formlander:latest\`" >> $GITHUB_STEP_SUMMARY
           echo "- \`karloscodes/formlander:${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- \`karloscodes/formlander:v<major>\` (e.g., v1)" >> $GITHUB_STEP_SUMMARY
-          echo "- \`karloscodes/formlander:v<major>.<minor>\` (e.g., v1.0)" >> $GITHUB_STEP_SUMMARY
+          echo "- A stable release also moves \`latest\`, \`v<major>\`, and \`v<major>.<minor>\`. A release candidate does not." >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Platforms" >> $GITHUB_STEP_SUMMARY
           echo "**Binaries:**" >> $GITHUB_STEP_SUMMARY

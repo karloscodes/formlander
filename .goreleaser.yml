@@ -54,7 +54,6 @@ changelog:
 dockers:
   - image_templates:
       - "karloscodes/formlander:{{ .Version }}-amd64"
-      - "karloscodes/formlander:latest-amd64"
     use: buildx
     dockerfile: Dockerfile
     build_flag_templates:
@@ -74,7 +73,6 @@ dockers:
 
   - image_templates:
       - "karloscodes/formlander:{{ .Version }}-arm64"
-      - "karloscodes/formlander:latest-arm64"
     use: buildx
     goarch: arm64
     dockerfile: Dockerfile
@@ -93,26 +91,31 @@ dockers:
       - web
       - tailwind.config.js
 
+# A tag with a hyphen (v3.8.0-rc.1) is a release candidate. It publishes its own
+# version only: `skip_push: auto` keeps it off the tags that servers follow.
 docker_manifests:
   - name_template: "karloscodes/formlander:{{ .Version }}"
     image_templates:
       - "karloscodes/formlander:{{ .Version }}-amd64"
       - "karloscodes/formlander:{{ .Version }}-arm64"
-  
+
   - name_template: "karloscodes/formlander:v{{ .Major }}"
+    skip_push: auto
     image_templates:
       - "karloscodes/formlander:{{ .Version }}-amd64"
       - "karloscodes/formlander:{{ .Version }}-arm64"
-  
+
   - name_template: "karloscodes/formlander:v{{ .Major }}.{{ .Minor }}"
+    skip_push: auto
     image_templates:
       - "karloscodes/formlander:{{ .Version }}-amd64"
       - "karloscodes/formlander:{{ .Version }}-arm64"
-  
+
   - name_template: "karloscodes/formlander:latest"
+    skip_push: auto
     image_templates:
-      - "karloscodes/formlander:latest-amd64"
-      - "karloscodes/formlander:latest-arm64"
+      - "karloscodes/formlander:{{ .Version }}-amd64"
+      - "karloscodes/formlander:{{ .Version }}-arm64"
 
 release:
   github:
