@@ -90,6 +90,10 @@ func RunMigrations(app *App) error {
 		app.Logger.Warn("failed to upgrade old starter templates", slog.Any("error", err))
 	}
 
+	// Read connections that were open during the migration would plan
+	// their next query with the old schema once.
+	app.DBManager.SchemaChanged()
+
 	if err := app.DBManager.CheckpointWAL("FULL"); err != nil {
 		app.Logger.Warn("failed to checkpoint WAL after migration", slog.Any("error", err))
 	}
