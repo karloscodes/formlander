@@ -35,6 +35,10 @@ func NewApp() (*App, error) {
 	var app *cartridge.App
 	app, err := cartridge.NewApp(cfg,
 		cartridge.WithAssets(web.Templates, web.Static),
+		// One write connection and a pool of read-only ones. Submissions
+		// then cannot fail with "database is locked" against each other,
+		// and the admin pages do not wait for a write.
+		cartridge.WithReadPool(),
 		cartridge.WithServerConfig(func(c *cartridge.ServerConfig) {
 			// kamal-proxy (or the operator's TLS proxy) reaches the app from
 			// a private or loopback address and appends the visitor's address
