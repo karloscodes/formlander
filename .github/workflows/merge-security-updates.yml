@@ -1,44 +1,42 @@
-name: Release on fix
+name: Merge security updates
 
-# When a Dependabot update that touches what ships (go.mod, go.sum, Dockerfile)
-# is merged and "CI" passes on main, tag the next patch version and start
-# the release. The release still runs its own end-to-end tests before it
-# publishes, and servers take the new version on their next nightly update.
-# Updates of tests, CI, or the website merge with no release.
+# A Dependabot security update merges by itself when the tests pass on its
+# pull request. The merge starts no release: the fix ships with the next
+# release candidate, as all other work on main does (release-candidate.yml).
+#
+# How it knows a security update: .github/dependabot.yml puts security updates
+# in a group named "security", and Dependabot puts the group name in the branch
+# name, for example dependabot/go_modules/security-1a2b3c4d5e.
+#
+# To adapt:
+#   - Merge every Dependabot update: delete the last line of `if`.
+#   - Merge nothing: delete this file.
+# This file is the same in Formlander, LogNorth, and Fusionaly. `workflows`
+# names the test workflow of each one.
 on:
   workflow_run:
-    workflows: ["CI"]
+    workflows: ["CI", "Test", "PR Checks"]
     types: [completed]
-    branches: [main]
-
-permissions:
-  contents: write
-  actions: write
 
 jobs:
-  release:
-    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
+  merge:
+    # The tests passed, on a pull request, from a branch of this repository
+    # (not of a fork), that Dependabot made for the "security" group.
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.head_repository.full_name == github.repository &&
+      startsWith(github.event.workflow_run.head_branch, 'dependabot/') &&
+      contains(github.event.workflow_run.head_branch, '/security-')
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
     steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.workflow_run.head_sha }}
-          fetch-depth: 0
-
-      - name: Tag the next patch version when a shipped dependency changed
+      # --match-head-commit: merge only the commit that the tests ran on.
+      - run: gh pr merge "$BRANCH" --rebase --match-head-commit "$SHA"
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          author="$(git log -1 --format='%an')"
-          case "$author" in *dependabot*) ;; *) echo "Not a Dependabot commit ($author): no release."; exit 0 ;; esac
-          if git describe --exact-match --tags HEAD >/dev/null 2>&1; then echo "Already tagged."; exit 0; fi
-          if ! git diff --name-only HEAD~1 HEAD -- go.mod go.sum Dockerfile | grep -q .; then echo "Nothing that ships changed: no release."; exit 0; fi
-          last="$(git tag --list 'v[0-9]*' --sort=-v:refname | grep -v -- - | head -1)"
-          [ -n "$last" ] || { echo "No release tag yet."; exit 1; }
-          IFS=. read -r major minor patch <<<"${last#v}"
-          next="v$major.$minor.$((patch + 1))"
-          echo "Releasing $next after $last: $(git log -1 --format=%s)"
-          git tag "$next"
-          git push origin "$next"
-          # A tag pushed with this token starts no workflow by itself: start the release.
-          gh workflow run release-goreleaser.yml --ref "$next"
+          GH_REPO: ${{ github.repository }}
+          BRANCH: ${{ github.event.workflow_run.head_branch }}
+          SHA: ${{ github.event.workflow_run.head_sha }}

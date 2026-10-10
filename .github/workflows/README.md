@@ -23,42 +23,25 @@ Runs when a version tag (e.g., `v1.0.0`) is pushed:
 
 **Trigger:** Push tag matching `v*` pattern
 
-### Docker Tag Strategy
+A tag with a hyphen (`v1.3.0-rc.1`) is a release candidate. It publishes
+`karloscodes/formlander:1.3.0-rc.1` only. It does not move `latest`, `v1`, or
+`v1.3`, so no server takes it on its nightly update.
 
-When you release `v1.2.3`, the following tags are created:
-- `karloscodes/formlander:latest` - Always points to newest stable
-- `karloscodes/formlander:v1.2.3` - Exact version pin
-- `karloscodes/formlander:v1.2` - Receives patch updates (1.2.x)
-- `karloscodes/formlander:v1` - Receives minor + patch updates (1.x.x)
+## Release Candidate Workflow (`release-candidate.yml`)
 
-This allows users to choose their update strategy:
-```bash
-# Always get latest stable
-docker pull karloscodes/formlander:latest
-
-# Pin to major version (get features + patches)
-docker pull karloscodes/formlander:v1
-
-# Pin to minor version (get patches only)
-docker pull karloscodes/formlander:v1.2
-
-# Pin to exact version (no updates)
-docker pull karloscodes/formlander:v1.2.3
-```
-
-### Creating a Release
+Runs every Monday. When main holds changes after the last stable release, it
+tags the next release candidate and starts the release.
 
 ```bash
-# Tag the release
-git tag -a v1.0.0 -m "Release v1.0.0"
+# Run the candidate on a server
+chasen deploy --tag 1.3.0-rc.1
 
-# Push the tag
-git push origin v1.0.0
+# Promote the candidate to a stable release
+git tag v1.3.0 v1.3.0-rc.1 && git push origin v1.3.0
 ```
 
-GoReleaser will automatically:
-1. Build binaries for all platforms
-2. Generate checksums
-3. Create GitHub release with changelog
-4. Upload release artifacts
-5. Build and push multi-arch Docker images
+## Merge Security Updates Workflow (`merge-security-updates.yml`)
+
+A Dependabot security update merges by itself when the tests pass on its pull
+request. The merge starts no release: the fix ships with the next release
+candidate. A person merges all other Dependabot updates.
