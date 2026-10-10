@@ -77,7 +77,7 @@ tags the next release candidate and starts the release.
 chasen deploy --tag 1.3.0-rc.1
 
 # Promote the candidate to a stable release
-git tag v1.3.0 v1.3.0-rc.1 && git push origin v1.3.0
+gh workflow run "Release candidate" -f promote=v1.3.0-rc.1
 ```
 
 ## Merge Security Updates Workflow (`merge-security-updates.yml`)

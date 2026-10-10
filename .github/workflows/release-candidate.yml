@@ -5,7 +5,10 @@ name: Release candidate
 # its own version only. It never moves `latest`, so no server takes it at night.
 #
 #   Run it on a server:  chasen deploy --tag 1.5.0-rc.1
-#   Promote it:          git tag v1.5.0 v1.5.0-rc.1 && git push origin v1.5.0
+#   Promote it:          gh workflow run "Release candidate" -f promote=v1.5.0-rc.1
+#
+# To promote is to release the commit of the candidate as v1.5.0, the stable
+# version. This moves `latest`, so servers take it at night.
 #
 # To adapt:
 #   - Another day or time: change `cron` (minute hour * * weekday, in UTC).
@@ -16,6 +19,9 @@ on:
   schedule:
     - cron: "17 4 * * 1"
   workflow_dispatch:
+    inputs:
+      promote:
+        description: "Candidate to promote to a stable release, for example v1.5.0-rc.1. Empty: tag a new candidate."
 
 permissions:
   contents: write
@@ -29,7 +35,22 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Promote the candidate to a stable release
+        if: inputs.promote
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CANDIDATE: ${{ inputs.promote }}
+        run: |
+          case "$CANDIDATE" in v*-rc.*) ;; *) echo "$CANDIDATE is not a candidate: give a tag such as v1.5.0-rc.1."; exit 1 ;; esac
+          stable="${CANDIDATE%-rc.*}"
+          echo "Releasing $stable: the commit of $CANDIDATE"
+          git tag "$stable" "$CANDIDATE^{commit}"
+          git push origin "$stable"
+          # A tag that a workflow pushes starts no other workflow: start the release here.
+          gh workflow run Release --ref "$stable"
+
       - name: Tag the next release candidate when main has unreleased changes
+        if: ${{ !inputs.promote }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
