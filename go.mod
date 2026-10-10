@@ -2,6 +2,8 @@ module formlander
 
 go 1.26.0
 
+toolchain go1.26.9
+
 require (
 	github.com/karloscodes/cartridge v1.9.0
 	github.com/karloscodes/matcha v0.12.18
