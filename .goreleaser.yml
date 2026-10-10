@@ -91,8 +91,10 @@ dockers:
       - web
       - tailwind.config.js
 
-# A tag with a hyphen (v3.8.0-rc.1) is a release candidate. It publishes its own
-# version only: `skip_push: auto` keeps it off the tags that servers follow.
+# A tag with a hyphen (v3.8.0-rc.1) is a release candidate. `skip_push: auto`
+# keeps it off the tags of stable releases, and it moves `rc`:
+#   latest, v3, v3.8   the newest stable release   customer servers follow `latest`
+#   rc                 the newest candidate        your own server follows it
 docker_manifests:
   - name_template: "karloscodes/formlander:{{ .Version }}"
     image_templates:
@@ -113,6 +115,12 @@ docker_manifests:
 
   - name_template: "karloscodes/formlander:latest"
     skip_push: auto
+    image_templates:
+      - "karloscodes/formlander:{{ .Version }}-amd64"
+      - "karloscodes/formlander:{{ .Version }}-arm64"
+
+  - name_template: "karloscodes/formlander:rc"
+    skip_push: "{{ if .Prerelease }}false{{ else }}true{{ end }}"
     image_templates:
       - "karloscodes/formlander:{{ .Version }}-amd64"
       - "karloscodes/formlander:{{ .Version }}-arm64"

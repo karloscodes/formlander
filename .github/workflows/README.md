@@ -24,8 +24,8 @@ Runs when a version tag (e.g., `v1.0.0`) is pushed:
 **Trigger:** Push tag matching `v*` pattern
 
 A tag with a hyphen (`v1.3.0-rc.1`) is a release candidate. It publishes
-`karloscodes/formlander:1.3.0-rc.1` only. It does not move `latest`, `v1`, or
-`v1.3`, so no server takes it on its nightly update.
+`karloscodes/formlander:1.3.0-rc.1` and moves `rc`. It does not move `latest`,
+`v1`, or `v1.3`, so no customer server takes it on its nightly update.
 
 ### Docker Tag Strategy
 
@@ -69,15 +69,30 @@ GoReleaser will automatically:
 
 ## Release Candidate Workflow (`release-candidate.yml`)
 
-Runs every Monday. When main holds changes after the last stable release, it
-tags the next release candidate and starts the release.
+The release train. Every Monday:
+
+1. The candidate that waited 6 days becomes the stable release (`v1.3.0-rc.2` becomes `v1.3.0`).
+2. When main holds changes after the stable release, main becomes the next candidate (`v1.4.0-rc.1`).
+
+Servers update each night from one of two image tags:
+
+| Tag | Holds | Who follows it |
+|---|---|---|
+| `latest` | the newest stable release | customer servers |
+| `rc` | the newest candidate | your own server |
 
 ```bash
-# Run the candidate on a server
-chasen deploy --tag 1.3.0-rc.1
+# A candidate now
+gh workflow run "Release candidate"
 
-# Promote the candidate to a stable release
+# Promote a candidate now, without the wait
 gh workflow run "Release candidate" -f promote=v1.3.0-rc.1
+
+# Stop a bad candidate: fix main, then make a candidate now.
+# The new one replaces it and waits its own 6 days.
+
+# Stop the train
+gh workflow disable "Release candidate"
 ```
 
 ## Merge Security Updates Workflow (`merge-security-updates.yml`)
