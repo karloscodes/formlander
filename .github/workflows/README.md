@@ -10,7 +10,7 @@ Runs on every pull request and push to main:
 
 **Note:** Pushing to main does NOT publish any artifacts or Docker images.
 
-## Production Release Workflow (`release-goreleaser.yml`)
+## Production Release Workflow (`release.yml`)
 
 Runs when a version tag (e.g., `v1.0.0`) is pushed:
 - Uses [GoReleaser](https://goreleaser.com/) for artifact generation
