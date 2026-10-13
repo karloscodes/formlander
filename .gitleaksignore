@@ -1,0 +1,3 @@
+# Fake values in tests. Each line is a gitleaks fingerprint.
+07be2ef85b1a438210592e875b2bc9c2d6c338f5:internal/installer/config/config_test.go:generic-api-key:195
+45afc7a4d30e700d4c807378b4142f2ce3b549d8:internal/auth/session_test.go:generic-api-key:195
