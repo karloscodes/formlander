@@ -191,3 +191,24 @@ jobs:
         env:
           FORMLANDER_INSTALLER: file://${{ github.workspace }}/install.sh
 
+
+  gitleaks:
+    name: gitleaks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Scan the history for secrets
+        run: |
+          curl -sSfL https://github.com/gitleaks/gitleaks/releases/download/v8.28.0/gitleaks_8.28.0_linux_x64.tar.gz | tar -xz gitleaks
+          ./gitleaks git --redact --verbose .
+  # The one check to require on main: it passes when every job above passed
+  # (or was skipped on a fork).
+  test:
+    name: test
+    if: always()
+    needs: [gitleaks, security-scan, test-unit, test-e2e, test-chasen, test-installer, test-move]
+    runs-on: ubuntu-latest
+    steps:
+      - run: '! grep -qE "failure|cancelled" <<<"${{ join(needs.*.result, ' ') }}"'
