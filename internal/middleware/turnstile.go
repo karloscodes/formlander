@@ -16,8 +16,8 @@ var turnstileVerifyURL = "https://challenges.cloudflare.com/turnstile/v0/sitever
 
 // Retry configuration
 const (
-	maxRetries    = 3
-	baseBackoff   = 500 * time.Millisecond
+	maxRetries     = 3
+	baseBackoff    = 500 * time.Millisecond
 	requestTimeout = 10 * time.Second
 )
 
@@ -88,32 +88,18 @@ func VerifyTurnstileToken(secret, token, remoteIP string) (*TurnstileResult, err
 }
 
 func doVerifyRequest(jsonData []byte) (*TurnstileResult, error) {
-	client := &http.Client{
-		Timeout: requestTimeout,
-	}
-
-	resp, err := client.Post(turnstileVerifyURL, "application/json", bytes.NewBuffer(jsonData))
+	status, body, err := postVerify(jsonData)
 	if err != nil {
-		// Network errors are retryable
-		return nil, fmt.Errorf("%w: %v", ErrTurnstileUnavailable, err)
-	}
-	defer resp.Body.Close()
-
-	// Check HTTP status code
-	if resp.StatusCode >= 500 {
-		// Server errors are retryable
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("%w: status %d: %s", ErrTurnstileUnavailable, resp.StatusCode, string(body))
+		return nil, err
 	}
 
-	if resp.StatusCode != http.StatusOK {
+	if status != http.StatusOK {
 		// Client errors (4xx) are not retryable
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("verification request failed with status %d: %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("verification request failed with status %d: %s", status, string(body))
 	}
 
 	var verifyResp turnstileVerifyResponse
-	if err := json.NewDecoder(resp.Body).Decode(&verifyResp); err != nil {
+	if err := json.Unmarshal(body, &verifyResp); err != nil {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 
@@ -129,4 +115,55 @@ func doVerifyRequest(jsonData []byte) (*TurnstileResult, error) {
 		Hostname: verifyResp.Hostname,
 		Action:   verifyResp.Action,
 	}, nil
+}
+
+// postVerify sends one request to the verification endpoint and returns the
+// status and the body of the answer. A network error and a server error (5xx)
+// are ErrTurnstileUnavailable: a retry can help.
+func postVerify(jsonData []byte) (status int, body []byte, err error) {
+	client := &http.Client{
+		Timeout: requestTimeout,
+	}
+
+	resp, err := client.Post(turnstileVerifyURL, "application/json", bytes.NewBuffer(jsonData))
+	if err != nil {
+		return 0, nil, fmt.Errorf("%w: %v", ErrTurnstileUnavailable, err)
+	}
+	defer resp.Body.Close()
+
+	body, _ = io.ReadAll(resp.Body)
+	if resp.StatusCode >= 500 {
+		return resp.StatusCode, body, fmt.Errorf("%w: status %d: %s", ErrTurnstileUnavailable, resp.StatusCode, string(body))
+	}
+	return resp.StatusCode, body, nil
+}
+
+// CheckTurnstileSecret asks Cloudflare whether it knows a secret key. Nobody
+// can solve a captcha on the server, so the request carries a token that is
+// not real. Cloudflare then names what it rejects: the secret
+// (invalid-input-secret, with status 400) or only the token
+// (invalid-input-response). The second answer means the secret is good.
+func CheckTurnstileSecret(secret string) (accepted bool, err error) {
+	jsonData, err := json.Marshal(turnstileVerifyRequest{Secret: secret, Response: "formlander-secret-check"})
+	if err != nil {
+		return false, err
+	}
+
+	status, body, err := postVerify(jsonData)
+	if err != nil {
+		return false, err
+	}
+	var verifyResp turnstileVerifyResponse
+	if err := json.Unmarshal(body, &verifyResp); err != nil {
+		return false, fmt.Errorf("Cloudflare answered with status %d and no JSON", status)
+	}
+	for _, code := range verifyResp.ErrorCodes {
+		if code == "invalid-input-secret" || code == "missing-input-secret" {
+			return false, nil
+		}
+	}
+	if status != http.StatusOK {
+		return false, fmt.Errorf("Cloudflare answered with status %d: %v", status, verifyResp.ErrorCodes)
+	}
+	return true, nil
 }

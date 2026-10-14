@@ -1,58 +1,86 @@
-# Dependabot configuration for automated dependency updates
-# Docs: https://docs.github.com/en/code-security/dependabot
-
+# Monthly, grouped version updates, each a week old at least. A person merges
+# them, and they ship with the next release candidate.
+# Security updates come as soon as an advisory is out, in the "security" group.
+# They merge by themselves when the tests pass, and ship with the next release
+# candidate too: .github/workflows/merge-security-updates.yml.
 version: 2
 updates:
-  # Go modules
   - package-ecosystem: "gomod"
     directory: "/"
     schedule:
       interval: "monthly"
-      day: "monday"
-    open-pull-requests-limit: 2
-    labels:
-      - "dependencies"
-      - "go"
-    commit-message:
-      prefix: "deps(go)"
+    # A new version waits a week: a compromised release is usually pulled by then.
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 3
+    groups:
+      # Patch updates in their own group, so one minor bump does not hold them.
+      go-patch:
+        update-types: ["patch"]
+        patterns: ["*"]
+      go:
+        patterns: ["*"]
+      # merge-security-updates.yml knows a security update by this group name.
+      security:
+        applies-to: security-updates
+        patterns: ["*"]
     ignore:
-      - dependency-name: "*"
-        update-types: ["version-update:semver-minor", "version-update:semver-patch"]
+      # First-party modules: bumped by hand when a new version is cut.
       - dependency-name: "github.com/karloscodes/*"
-        update-types: []
-
-  # Docker base images
   - package-ecosystem: "docker"
     directory: "/"
     schedule:
       interval: "monthly"
-    open-pull-requests-limit: 1
-    labels:
-      - "dependencies"
-      - "docker"
-    commit-message:
-      prefix: "deps(docker)"
-
-  # GitHub Actions
+    # A new version waits a week: a compromised release is usually pulled by then.
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 3
+    groups:
+      # Patch updates in their own group, so one minor bump does not hold them.
+      docker-patch:
+        update-types: ["patch"]
+        patterns: ["*"]
+      docker:
+        patterns: ["*"]
+      # merge-security-updates.yml knows a security update by this group name.
+      security:
+        applies-to: security-updates
+        patterns: ["*"]
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "monthly"
-    open-pull-requests-limit: 1
-    labels:
-      - "dependencies"
-      - "github-actions"
-    commit-message:
-      prefix: "deps(actions)"
-
-  # NPM (E2E tests)
+    # A new version waits a week: a compromised release is usually pulled by then.
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 3
+    groups:
+      # Patch updates in their own group, so one minor bump does not hold them.
+      actions-patch:
+        update-types: ["patch"]
+        patterns: ["*"]
+      actions:
+        patterns: ["*"]
+      # merge-security-updates.yml knows a security update by this group name.
+      security:
+        applies-to: security-updates
+        patterns: ["*"]
   - package-ecosystem: "npm"
     directory: "/e2e"
     schedule:
       interval: "monthly"
-    open-pull-requests-limit: 2
-    labels:
-      - "dependencies"
-      - "npm"
-    commit-message:
-      prefix: "deps(npm)"
+    # A new version waits a week: a compromised release is usually pulled by then.
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 3
+    groups:
+      # Patch updates in their own group, so one minor bump does not hold them.
+      npm-e2e-patch:
+        update-types: ["patch"]
+        patterns: ["*"]
+      npm-e2e:
+        patterns: ["*"]
+      # merge-security-updates.yml knows a security update by this group name.
+      security:
+        applies-to: security-updates
+        patterns: ["*"]

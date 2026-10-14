@@ -6,7 +6,7 @@ TAILWIND = $(BIN_DIR)/tailwindcss
 WATCHEXEC ?= $(shell command -v watchexec 2>/dev/null)
 GOTESTSUM ?= $(shell command -v gotestsum 2>/dev/null)
 
-.PHONY: help build run seed dev test test-unit test-e2e test-e2e-setup tidy fmt clean deps release vendor css css-watch
+.PHONY: help build run seed dev test test-unit test-e2e test-e2e-setup tidy fmt clean deps vendor css css-watch
 
 	help:
 	@echo "Available targets:"
@@ -79,7 +79,9 @@ test-e2e-setup:
 	@echo ">> installing Playwright dependencies"
 	cd e2e && npm install && npx playwright install --with-deps chromium
 
-test-e2e: deps
+# The test server embeds web/static when it compiles, and Playwright starts it
+# before its own build step. So the stylesheet must exist first.
+test-e2e: deps css
 	@echo ">> running Playwright E2E tests"
 	cd e2e && npm test
 
@@ -93,17 +95,3 @@ fmt:
 clean:
 	@echo ">> removing build artifacts"
 	rm -rf $(BIN_DIR)/$(APP)
-
-release:
-	@if [ -z "$(v)" ]; then \
-		echo "Usage: make release v=3.0.5"; \
-		exit 1; \
-	fi
-	@echo "Creating release v$(v)..."
-	@git diff --quiet || (echo "Error: Uncommitted changes. Commit first." && exit 1)
-	git tag -a "v$(v)" -m "Release v$(v)"
-	git push origin "v$(v)"
-	@echo ""
-	@echo "Release v$(v) triggered!"
-	@echo "GoReleaser will build: binaries + multi-arch Docker images + GitHub release"
-	@echo "Watch: https://github.com/$$(gh repo view --json nameWithOwner -q .nameWithOwner)/actions"

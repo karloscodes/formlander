@@ -7,7 +7,6 @@ import (
 	"gorm.io/gorm"
 
 	"formlander/internal/forms"
-	"formlander/internal/pkg/dbtxn"
 )
 
 // oldTemplateMarker appears only in the starter templates shipped before
@@ -40,7 +39,7 @@ func UpgradeOldStarterHTML(logger *slog.Logger, db *gorm.DB) error {
 			continue
 		}
 		html := template.RenderHTML(liveFormAction(form.Slug, form.Token))
-		if err := dbtxn.WithRetry(logger, db, func(tx *gorm.DB) error {
+		if err := db.Transaction(func(tx *gorm.DB) error {
 			return tx.Model(&forms.Form{}).Where("id = ?", form.ID).Update("generated_html", html).Error
 		}); err != nil {
 			return err

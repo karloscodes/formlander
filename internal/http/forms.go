@@ -9,14 +9,12 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/gofiber/fiber/v2"
 	"github.com/karloscodes/cartridge"
 	htmlnode "golang.org/x/net/html"
 	"gorm.io/gorm"
 
 	"formlander/internal/forms"
 	"formlander/internal/integrations"
-	"formlander/internal/pkg/dbtxn"
 )
 
 // AdminFormsIndex renders the list of forms.
@@ -25,7 +23,7 @@ func AdminFormsIndex(ctx *cartridge.Context) error {
 
 	formsList, err := forms.List(db)
 	if err != nil {
-		return fiber.ErrInternalServerError
+		return cartridge.NewError(500)
 	}
 
 	// Load relations for display
@@ -33,75 +31,166 @@ func AdminFormsIndex(ctx *cartridge.Context) error {
 		db.Preload("EmailDelivery").Preload("WebhookDelivery").First(&formsList[i], formsList[i].ID)
 	}
 
-	return ctx.Render("layouts/base", fiber.Map{
+	// How many submissions each form has.
+	var rows []struct {
+		FormID uint
+		Count  int64
+	}
+	db.Model(&forms.Submission{}).Select("form_id, COUNT(*) AS count").Group("form_id").Scan(&rows)
+	counts := make(map[uint]int64, len(formsList))
+	for _, form := range formsList {
+		counts[form.ID] = 0
+	}
+	for _, row := range rows {
+		counts[row.FormID] = row.Count
+	}
+
+	return ctx.Render("layouts/base", cartridge.Map{
 		"Title":       "Forms",
 		"Forms":       formsList,
+		"Counts":      counts,
 		"CreateRoute": "/admin/forms/new",
 		"ContentView": "admin/forms/index/content",
 	}, "")
 }
 
+// formInput is what the form screen shows in its fields: the defaults of a
+// starter template, the saved form, or what the owner typed before an error.
+type formInput struct {
+	Name             string
+	Slug             string
+	AllowedOrigins   string
+	UseSDK           bool
+	CaptchaProfileID uint
+	EmailEnabled     bool
+	MailerProfileID  uint
+	EmailRecipient   string
+	EmailSubject     string
+	WebhookEnabled   bool
+	WebhookProfileID uint
+}
+
+// postedProfileID reads the ID of a profile from a select. An empty select
+// gives nil.
+func postedProfileID(ctx *cartridge.Context, field string) *uint {
+	id, err := strconv.ParseUint(ctx.FormValue(field), 10, 32)
+	if err != nil || id == 0 {
+		return nil
+	}
+	uid := uint(id)
+	return &uid
+}
+
+func profileID(id *uint) uint {
+	if id == nil {
+		return 0
+	}
+	return *id
+}
+
+// formInputFromPost reads the fields of the form screen from the request.
+func formInputFromPost(ctx *cartridge.Context) formInput {
+	return formInput{
+		Name:             ctx.FormValue("name"),
+		Slug:             ctx.FormValue("slug"),
+		AllowedOrigins:   ctx.FormValue("allowed_origins"),
+		UseSDK:           ctx.FormValue("use_sdk") == "on",
+		CaptchaProfileID: profileID(postedProfileID(ctx, "captcha_profile_id")),
+		EmailEnabled:     ctx.FormValue("email_enabled") == "on",
+		MailerProfileID:  profileID(postedProfileID(ctx, "mailer_profile_id")),
+		EmailRecipient:   ctx.FormValue("email_recipient"),
+		EmailSubject:     ctx.FormValue("email_subject"),
+		WebhookEnabled:   ctx.FormValue("webhook_enabled") == "on",
+		WebhookProfileID: profileID(postedProfileID(ctx, "webhook_profile_id")),
+	}
+}
+
+// formInputFromForm reads the fields of the form screen from a saved form.
+func formInputFromForm(form *forms.Form) formInput {
+	input := formInput{
+		Name:             form.Name,
+		Slug:             form.Slug,
+		AllowedOrigins:   form.AllowedOrigins,
+		UseSDK:           form.UseSDK,
+		CaptchaProfileID: profileID(form.CaptchaProfileID),
+	}
+	if email := form.EmailDelivery; email != nil {
+		input.EmailEnabled = email.Enabled
+		input.MailerProfileID = profileID(email.MailerProfileID)
+		overrides := email.Overrides()
+		input.EmailRecipient = overrides.To
+		input.EmailSubject = overrides.Subject
+	}
+	if webhook := form.WebhookDelivery; webhook != nil {
+		input.WebhookEnabled = webhook.Enabled
+		input.WebhookProfileID = profileID(webhook.WebhookProfileID)
+	}
+	return input
+}
+
+// renderFormScreen shows the screen that makes or edits a form. form is nil
+// for a new form.
+func renderFormScreen(ctx *cartridge.Context, form *forms.Form, templateID string, input formInput, message string) error {
+	db := ctx.DB()
+	mailerProfiles, _ := integrations.ListMailerProfiles(db)
+	captchaProfiles, _ := integrations.ListCaptchaProfiles(db)
+	webhookProfiles, _ := integrations.ListWebhookProfiles(db)
+
+	data := cartridge.Map{
+		"Title":           "New Form",
+		"Error":           message,
+		"Input":           input,
+		"TemplateID":      templateID,
+		"MailerProfiles":  mailerProfiles,
+		"CaptchaProfiles": captchaProfiles,
+		"WebhookProfiles": webhookProfiles,
+		"ContentView":     "admin/forms/new/content",
+	}
+	// The example on the right: the code of the form, or of its starter.
+	if form != nil {
+		data["Title"] = "Edit Form"
+		data["IsEdit"] = true
+		data["Form"] = form
+		_, data["FormCode"] = formCodeFor(ctx, form)
+	} else if starter := GetTemplateByID(templateID); starter != nil {
+		data["FormCode"] = starter.RenderHTML("")
+	}
+	return ctx.Render("layouts/base", data, "")
+}
+
 // AdminFormsNew renders the new form view or template selector.
 func AdminFormsNew(ctx *cartridge.Context) error {
-	db := ctx.DB()
-
 	// Check if a template is selected
 	templateID := ctx.Query("template")
 	if templateID == "" {
 		// Show template selector
-		templates := GetFormTemplates()
-		return ctx.Render("layouts/base", fiber.Map{
+		return ctx.Render("layouts/base", cartridge.Map{
 			"Title":       "Choose a Template",
-			"Templates":   templates,
+			"Templates":   GetFormTemplates(),
 			"ContentView": "admin/forms/templates/content",
 		}, "")
 	}
 
-	// Load template
 	template := GetTemplateByID(templateID)
 	if template == nil {
 		return ctx.Redirect("/admin/forms/new")
 	}
 
-	// Load profiles for dropdowns
-	mailerProfiles, _ := integrations.ListMailerProfiles(db)
-	captchaProfiles, _ := integrations.ListCaptchaProfiles(db)
-
-	// Pre-fill form with template data
-	emailDelivery := template.EmailDelivery
-	webhookDelivery := template.WebhookDelivery
-
-	// Extract email recipient from overrides for display
-	emailRecipient := ""
-	if emailDelivery.OverridesJSON != "" {
-		var overrides map[string]interface{}
-		if err := json.Unmarshal([]byte(emailDelivery.OverridesJSON), &overrides); err == nil {
-			if to, ok := overrides["to"].(string); ok {
-				emailRecipient = to
-			}
-		}
+	// A starter template sends email by default. That needs a mailer
+	// profile, so the box starts off when there is none.
+	mailerProfiles, _ := integrations.ListMailerProfiles(ctx.DB())
+	input := formInput{
+		Name:           template.Name,
+		Slug:           template.Slug,
+		UseSDK:         true,
+		EmailEnabled:   template.EmailDelivery.Enabled && len(mailerProfiles) > 0,
+		EmailRecipient: adminEmail(ctx),
+	}
+	if len(mailerProfiles) == 1 {
+		input.MailerProfileID = mailerProfiles[0].ID
 	}
 
-	previewHTML := template.RenderHTML(exampleFormAction(template.Slug))
-
-	return ctx.Render("layouts/base", fiber.Map{
-		"Title":                    "New Form",
-		"DefaultSlug":              template.Slug,
-		"FormName":                 template.Name,
-		"EmailDelivery":            &emailDelivery,
-		"WebhookDelivery":          &webhookDelivery,
-		"EmailRecipient":           emailRecipient,
-		"EmailEnabled":             emailDelivery.Enabled,
-		"WebhookEnabled":           webhookDelivery.Enabled,
-		"Template":                 template,
-		"TemplateID":               template.ID,
-		"PreviewHTML":              previewHTML,
-		"MailerProfiles":           mailerProfiles,
-		"CaptchaProfiles":          captchaProfiles,
-		"SelectedMailerProfileID":  uint(0),
-		"SelectedCaptchaProfileID": uint(0),
-		"ContentView":              "admin/forms/new/content",
-	}, "")
+	return renderFormScreen(ctx, nil, template.ID, input, "")
 }
 
 // AdminFormsCreate persists a new form configuration.
@@ -111,58 +200,39 @@ func AdminFormsCreate(ctx *cartridge.Context) error {
 	templateID := strings.TrimSpace(ctx.FormValue("template_id"))
 	selectedTemplate := GetTemplateByID(templateID)
 
-	// Parse mailer profile ID if provided
-	var mailerProfileID *uint
-	if mailerIDStr := ctx.FormValue("mailer_profile_id"); mailerIDStr != "" {
-		if id, err := strconv.ParseUint(mailerIDStr, 10, 32); err == nil {
-			uid := uint(id)
-			mailerProfileID = &uid
-		}
-	}
-
-	// Parse captcha profile ID if provided
-	var captchaProfileID *uint
-	if captchaIDStr := ctx.FormValue("captcha_profile_id"); captchaIDStr != "" {
-		if id, err := strconv.ParseUint(captchaIDStr, 10, 32); err == nil {
-			uid := uint(id)
-			captchaProfileID = &uid
-		}
-	}
-
 	// Use forms context for business logic
 	params := forms.CreateParams{
-		Name:               ctx.FormValue("name"),
-		Slug:               ctx.FormValue("slug"),
-		AllowedOrigins:     ctx.FormValue("allowed_origins"),
-		ServerHost:         ctx.Hostname(),
-		UseSDK:             ctx.FormValue("use_sdk") == "on",
-		GeneratedHTML:      ctx.FormValue("generated_html"),
-		MailerProfileID:    mailerProfileID,
-		CaptchaProfileID:   captchaProfileID,
-		EmailRecipient:     ctx.FormValue("email_recipient"),
-		EmailEnabled:       ctx.FormValue("email_enabled") == "on",
-		WebhookEnabled:     ctx.FormValue("webhook_enabled") == "on",
-		WebhookURL:         ctx.FormValue("webhook_url"),
-		WebhookSecret:      ctx.FormValue("webhook_secret"),
-		WebhookHeadersJSON: ctx.FormValue("webhook_headers"),
-		TemplateID:         templateID,
+		Name:             ctx.FormValue("name"),
+		Slug:             ctx.FormValue("slug"),
+		AllowedOrigins:   ctx.FormValue("allowed_origins"),
+		ServerHost:       ctx.Hostname(),
+		UseSDK:           ctx.FormValue("use_sdk") == "on",
+		GeneratedHTML:    ctx.FormValue("generated_html"),
+		MailerProfileID:  postedProfileID(ctx, "mailer_profile_id"),
+		CaptchaProfileID: postedProfileID(ctx, "captcha_profile_id"),
+		EmailRecipient:   ctx.FormValue("email_recipient"),
+		EmailSubject:     ctx.FormValue("email_subject"),
+		EmailEnabled:     ctx.FormValue("email_enabled") == "on",
+		WebhookEnabled:   ctx.FormValue("webhook_enabled") == "on",
+		WebhookProfileID: postedProfileID(ctx, "webhook_profile_id"),
+		TemplateID:       templateID,
 	}
 
 	form, err := forms.Create(ctx.Logger, db, params)
 	if err != nil {
 		// Handle validation errors
 		if validationErr, ok := err.(*forms.ValidationError); ok {
-			return renderFormError(ctx, validationErr.Message, nil, nil, nil, false, selectedTemplate)
+			return renderFormScreen(ctx, nil, templateID, formInputFromPost(ctx), validationErr.Message)
 		}
 		ctx.Logger.Error("failed to create form", slog.Any("error", err))
-		return fiber.ErrInternalServerError
+		return cartridge.NewError(500)
 	}
 
 	// Update generated HTML if template was selected
 	if selectedTemplate != nil {
 		if html := selectedTemplate.RenderHTML(liveFormAction(form.Slug, form.Token)); strings.TrimSpace(html) != "" {
 			form.GeneratedHTML = html
-			if err := dbtxn.WithRetry(ctx.Logger, db, func(tx *gorm.DB) error {
+			if err := db.Transaction(func(tx *gorm.DB) error {
 				return tx.Model(form).Update("generated_html", html).Error
 			}); err != nil {
 				ctx.Logger.Error("failed to update generated HTML", slog.Any("error", err))
@@ -180,15 +250,15 @@ func AdminFormShow(ctx *cartridge.Context) error {
 
 	id, err := strconv.Atoi(ctx.Params("id"))
 	if err != nil {
-		return fiber.ErrNotFound
+		return cartridge.NewError(404)
 	}
 
 	form, err := forms.GetByID(db, uint(id))
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return fiber.ErrNotFound
+			return cartridge.NewError(404)
 		}
-		return fiber.ErrInternalServerError
+		return cartridge.NewError(500)
 	}
 
 	// Ensure delivery records exist
@@ -199,64 +269,55 @@ func AdminFormShow(ctx *cartridge.Context) error {
 
 	submissions, err := forms.GetSubmissions(db, form.ID, 25)
 	if err != nil {
-		return fiber.ErrInternalServerError
+		return cartridge.NewError(500)
 	}
 
 	webhookEvents, err := forms.GetWebhookEvents(db, form.ID, 20)
 	if err != nil {
-		return fiber.ErrInternalServerError
+		return cartridge.NewError(500)
 	}
 
 	emailEvents, err := forms.GetEmailEvents(db, form.ID, 20)
 	if err != nil {
-		return fiber.ErrInternalServerError
-	}
-
-	// Extract email recipient from overrides for display
-	emailRecipient := ""
-	if form.EmailDelivery != nil && form.EmailDelivery.OverridesJSON != "" {
-		var overrides map[string]interface{}
-		if err := json.Unmarshal([]byte(form.EmailDelivery.OverridesJSON), &overrides); err == nil {
-			if to, ok := overrides["to"].(string); ok {
-				emailRecipient = to
-			}
-		}
+		return cartridge.NewError(500)
 	}
 
 	endpoint := fmt.Sprintf("/forms/%s/submit", form.Slug)
-	// The code is pasted on other sites, so the action must be absolute.
-	actionURL := ctx.BaseURL() + liveFormAction(form.Slug, form.Token)
-	captchaEmbed := buildCaptchaEmbed(form)
-	formCode := ""
-	hasGeneratedHTML := strings.TrimSpace(form.GeneratedHTML) != ""
+	actionURL, formCode := formCodeFor(ctx, form)
 
-	if hasGeneratedHTML {
-		var prepared string
-		var err error
-		if prepared, err = normalizeFormHTML(form.GeneratedHTML, actionURL, form); err != nil {
-			if logger != nil {
-				logger.Warn("failed to normalize generated form HTML", slog.Any("error", err), slog.Uint64("form_id", uint64(form.ID)))
-			}
-			prepared = form.GeneratedHTML
-		}
-		formCode = injectCaptchaSnippet(prepared, captchaEmbed)
-	} else {
-		formCode = buildDefaultFormCode(actionURL, form, captchaEmbed)
-	}
-
-	return ctx.Render("layouts/base", fiber.Map{
-		"Title":            form.Name,
-		"Form":             form,
-		"Submissions":      submissions,
-		"Endpoint":         endpoint,
-		"Token":            form.Token,
-		"WebhookEvents":    webhookEvents,
-		"EmailEvents":      emailEvents,
-		"EmailRecipient":   emailRecipient,
-		"FormCode":         formCode,
-		"HasGeneratedHTML": hasGeneratedHTML,
-		"ContentView":      "admin/forms/show/content",
+	return ctx.Render("layouts/base", cartridge.Map{
+		"Title":          form.Name,
+		"Form":           form,
+		"Submissions":    submissions,
+		"ReturnTo":       fmt.Sprintf("/admin/forms/%d", form.ID),
+		"Endpoint":       endpoint,
+		"ActionURL":      actionURL,
+		"CaptchaSiteKey": captchaSiteKey(form),
+		"Token":          form.Token,
+		"WebhookEvents":  webhookEvents,
+		"EmailEvents":    emailEvents,
+		"EmailRecipient": form.EmailDelivery.Overrides().To,
+		"FormCode":       formCode,
+		"CodeSplit":      true,
+		"UseSDK":         form.UseSDK,
+		"ContentView":    "admin/forms/show/content",
 	}, "")
+}
+
+// formCodeFor returns the address a form posts to and the HTML to paste into
+// a site. The code is pasted on other sites, so the address is absolute.
+func formCodeFor(ctx *cartridge.Context, form *forms.Form) (actionURL, code string) {
+	actionURL = ctx.BaseURL() + liveFormAction(form.Slug, form.Token)
+	embed := buildCaptchaEmbed(form)
+	if strings.TrimSpace(form.GeneratedHTML) == "" {
+		return actionURL, buildDefaultFormCode(actionURL, form, embed)
+	}
+	prepared, err := normalizeFormHTML(form.GeneratedHTML, actionURL, form)
+	if err != nil {
+		ctx.Logger.Warn("failed to normalize generated form HTML", slog.Any("error", err), slog.Uint64("form_id", uint64(form.ID)))
+		prepared = form.GeneratedHTML
+	}
+	return actionURL, injectCaptchaSnippet(prepared, embed)
 }
 
 // AdminFormsEdit renders the edit form.
@@ -265,70 +326,23 @@ func AdminFormsEdit(ctx *cartridge.Context) error {
 
 	id, err := strconv.Atoi(ctx.Params("id"))
 	if err != nil {
-		return fiber.ErrNotFound
+		return cartridge.NewError(404)
 	}
 
 	form, err := forms.GetByID(db, uint(id))
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return fiber.ErrNotFound
+			return cartridge.NewError(404)
 		}
-		return fiber.ErrInternalServerError
+		return cartridge.NewError(500)
 	}
 
 	// Initialize deliveries if they don't exist
-	logger := ctx.Logger
-	if err := forms.EnsureDeliveryRecords(logger, db, form); err != nil {
-		logger.Error("failed to ensure delivery records", slog.Any("error", err))
+	if err := forms.EnsureDeliveryRecords(ctx.Logger, db, form); err != nil {
+		ctx.Logger.Error("failed to ensure delivery records", slog.Any("error", err))
 	}
 
-	// Load profiles for dropdowns
-	mailerProfiles, _ := integrations.ListMailerProfiles(db)
-	captchaProfiles, _ := integrations.ListCaptchaProfiles(db)
-
-	// Extract email recipient from overrides for display
-	emailRecipient := ""
-	if form.EmailDelivery != nil && form.EmailDelivery.OverridesJSON != "" {
-		var overrides map[string]interface{}
-		if err := json.Unmarshal([]byte(form.EmailDelivery.OverridesJSON), &overrides); err == nil {
-			if to, ok := overrides["to"].(string); ok {
-				emailRecipient = to
-			}
-		}
-	}
-
-	// Extract selected profile IDs
-	selectedMailerProfileID := uint(0)
-	if form.EmailDelivery != nil && form.EmailDelivery.MailerProfileID != nil {
-		selectedMailerProfileID = *form.EmailDelivery.MailerProfileID
-	}
-
-	selectedCaptchaProfileID := uint(0)
-	if form.CaptchaProfileID != nil {
-		selectedCaptchaProfileID = *form.CaptchaProfileID
-	}
-
-	previewHTML := form.GeneratedHTML
-	if strings.TrimSpace(previewHTML) == "" {
-		if blank := GetTemplateByID("blank"); blank != nil {
-			previewHTML = blank.RenderHTML(liveFormAction(form.Slug, form.Token))
-		}
-	}
-
-	return ctx.Render("layouts/base", fiber.Map{
-		"Title":                    "Edit Form",
-		"Form":                     form,
-		"EmailDelivery":            form.EmailDelivery,
-		"WebhookDelivery":          form.WebhookDelivery,
-		"EmailRecipient":           emailRecipient,
-		"IsEdit":                   true,
-		"MailerProfiles":           mailerProfiles,
-		"CaptchaProfiles":          captchaProfiles,
-		"SelectedMailerProfileID":  selectedMailerProfileID,
-		"SelectedCaptchaProfileID": selectedCaptchaProfileID,
-		"PreviewHTML":              previewHTML,
-		"ContentView":              "admin/forms/new/content",
-	}, "")
+	return renderFormScreen(ctx, form, "", formInputFromForm(form), "")
 }
 
 // AdminFormsUpdate persists changes to an existing form.
@@ -338,138 +352,43 @@ func AdminFormsUpdate(ctx *cartridge.Context) error {
 
 	id, err := strconv.Atoi(ctx.Params("id"))
 	if err != nil {
-		return fiber.ErrNotFound
-	}
-
-	// Parse mailer profile ID
-	var mailerProfileID *uint
-	if mailerIDStr := ctx.FormValue("mailer_profile_id"); mailerIDStr != "" {
-		if pid, err := strconv.ParseUint(mailerIDStr, 10, 32); err == nil {
-			uid := uint(pid)
-			mailerProfileID = &uid
-		}
-	}
-
-	// Parse captcha profile ID
-	var captchaProfileID *uint
-	if captchaIDStr := ctx.FormValue("captcha_profile_id"); captchaIDStr != "" {
-		if pid, err := strconv.ParseUint(captchaIDStr, 10, 32); err == nil {
-			uid := uint(pid)
-			captchaProfileID = &uid
-		}
+		return cartridge.NewError(404)
 	}
 
 	params := forms.UpdateParams{
-		ID:                 uint(id),
-		Name:               ctx.FormValue("name"),
-		AllowedOrigins:     ctx.FormValue("allowed_origins"),
-		ServerHost:         ctx.Hostname(),
-		UseSDK:             ctx.FormValue("use_sdk") == "on",
-		MailerProfileID:    mailerProfileID,
-		CaptchaProfileID:   captchaProfileID,
-		EmailRecipient:     ctx.FormValue("email_recipient"),
-		EmailEnabled:       ctx.FormValue("email_enabled") == "on",
-		WebhookEnabled:     ctx.FormValue("webhook_enabled") == "on",
-		WebhookURL:         ctx.FormValue("webhook_url"),
-		WebhookSecret:      ctx.FormValue("webhook_secret"),
-		WebhookHeadersJSON: ctx.FormValue("webhook_headers"),
+		ID:               uint(id),
+		Name:             ctx.FormValue("name"),
+		AllowedOrigins:   ctx.FormValue("allowed_origins"),
+		ServerHost:       ctx.Hostname(),
+		UseSDK:           ctx.FormValue("use_sdk") == "on",
+		MailerProfileID:  postedProfileID(ctx, "mailer_profile_id"),
+		CaptchaProfileID: postedProfileID(ctx, "captcha_profile_id"),
+		EmailRecipient:   ctx.FormValue("email_recipient"),
+		EmailSubject:     ctx.FormValue("email_subject"),
+		EmailEnabled:     ctx.FormValue("email_enabled") == "on",
+		WebhookEnabled:   ctx.FormValue("webhook_enabled") == "on",
+		WebhookProfileID: postedProfileID(ctx, "webhook_profile_id"),
 	}
 
 	updatedForm, err := forms.Update(logger, db, params)
 	if err != nil {
 		// Handle validation errors
 		if valErr, ok := err.(*forms.ValidationError); ok {
-			form, _ := forms.GetByID(db, uint(id))
-			return renderFormError(ctx, valErr.Message, form, form.EmailDelivery, form.WebhookDelivery, true, nil)
+			form, loadErr := forms.GetByID(db, uint(id))
+			if loadErr != nil {
+				return cartridge.NewError(404)
+			}
+			input := formInputFromPost(ctx)
+			input.Slug = form.Slug
+			return renderFormScreen(ctx, form, "", input, valErr.Message)
 		}
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return fiber.ErrNotFound
+			return cartridge.NewError(404)
 		}
-		return fiber.ErrInternalServerError
+		return cartridge.NewError(500)
 	}
 
 	return ctx.Redirect(fmt.Sprintf("/admin/forms/%d", updatedForm.ID))
-}
-
-func renderFormError(ctx *cartridge.Context, message string, form *forms.Form, emailDelivery *forms.EmailDelivery, webhookDelivery *forms.WebhookDelivery, isEdit bool, template *FormTemplate) error {
-	// Load profiles for dropdowns
-	db := ctx.DB()
-	mailerProfiles, _ := integrations.ListMailerProfiles(db)
-	captchaProfiles, _ := integrations.ListCaptchaProfiles(db)
-
-	// Extract email recipient from overrides for display
-	emailRecipient := ""
-	if emailDelivery != nil && emailDelivery.OverridesJSON != "" {
-		var overrides map[string]interface{}
-		if err := json.Unmarshal([]byte(emailDelivery.OverridesJSON), &overrides); err == nil {
-			if to, ok := overrides["to"].(string); ok {
-				emailRecipient = to
-			}
-		}
-	}
-
-	// Extract selected profile IDs
-	selectedMailerProfileID := uint(0)
-	if emailDelivery != nil && emailDelivery.MailerProfileID != nil {
-		selectedMailerProfileID = *emailDelivery.MailerProfileID
-	}
-
-	selectedCaptchaProfileID := uint(0)
-	if form != nil && form.CaptchaProfileID != nil {
-		selectedCaptchaProfileID = *form.CaptchaProfileID
-	}
-
-	data := fiber.Map{
-		"Title":                    "New Form",
-		"Error":                    message,
-		"DefaultSlug":              forms.Slugify("New Form"),
-		"EmailDelivery":            emailDelivery,
-		"WebhookDelivery":          webhookDelivery,
-		"EmailRecipient":           emailRecipient,
-		"IsEdit":                   isEdit,
-		"MailerProfiles":           mailerProfiles,
-		"CaptchaProfiles":          captchaProfiles,
-		"SelectedMailerProfileID":  selectedMailerProfileID,
-		"SelectedCaptchaProfileID": selectedCaptchaProfileID,
-		"PreviewHTML":              "",
-		"ContentView":              "admin/forms/new/content",
-	}
-	if form != nil {
-		data["Form"] = form
-		if isEdit {
-			data["Title"] = "Edit Form"
-			data["DefaultSlug"] = form.Slug
-		}
-	}
-	if template != nil {
-		data["Template"] = template
-		data["TemplateID"] = template.ID
-		data["FormName"] = template.Name
-		if !isEdit && template.Slug != "" {
-			data["DefaultSlug"] = template.Slug
-		}
-		if data["PreviewHTML"] == "" {
-			data["PreviewHTML"] = template.RenderHTML(exampleFormAction(template.Slug))
-		}
-	}
-
-	if form != nil && strings.TrimSpace(form.GeneratedHTML) != "" {
-		data["PreviewHTML"] = form.GeneratedHTML
-	}
-
-	if preview, ok := data["PreviewHTML"].(string); ok && strings.TrimSpace(preview) == "" {
-		if blank := GetTemplateByID("blank"); blank != nil {
-			action := ""
-			if form != nil {
-				action = liveFormAction(form.Slug, form.Token)
-			} else if template != nil {
-				action = exampleFormAction(template.Slug)
-			}
-			data["PreviewHTML"] = blank.RenderHTML(action)
-		}
-	}
-
-	return ctx.Render("layouts/base", data, "")
 }
 
 func buildDefaultFormCode(actionURL string, form *forms.Form, embed *captchaEmbed) string {
@@ -728,14 +647,23 @@ func buildCaptchaEmbed(form *forms.Form) *captchaEmbed {
 	}
 }
 
+// captchaSiteKey returns the public site key that the captcha of a form uses
+// on its allowed sites, or "" when the form has no captcha or no key fits.
+func captchaSiteKey(form *forms.Form) string {
+	if form == nil || form.CaptchaProfile == nil {
+		return ""
+	}
+	policy := parseCaptchaPolicy(form.CaptchaProfile.PolicyJSON, form.CaptchaOverridesJSON)
+	if key := strings.TrimSpace(policy.SiteKey); key != "" {
+		return key
+	}
+	return selectCaptchaSiteKey(form, parseCaptchaSiteKeys(form.CaptchaProfile.SiteKeysJSON))
+}
+
 func buildTurnstileEmbed(form *forms.Form) *captchaEmbed {
 	profile := form.CaptchaProfile
 	policy := parseCaptchaPolicy(profile.PolicyJSON, form.CaptchaOverridesJSON)
-	siteKey := strings.TrimSpace(policy.SiteKey)
-	if siteKey == "" {
-		siteKeys := parseCaptchaSiteKeys(profile.SiteKeysJSON)
-		siteKey = selectCaptchaSiteKey(form, siteKeys)
-	}
+	siteKey := captchaSiteKey(form)
 	if siteKey == "" {
 		siteKey = "YOUR_TURNSTILE_SITE_KEY"
 	}
@@ -916,14 +844,6 @@ func findSiteKeyForHost(host string, entries []captchaSiteKeyEntry) string {
 		}
 	}
 	return ""
-}
-
-func exampleFormAction(slug string) string {
-	slug = strings.TrimSpace(slug)
-	if slug == "" {
-		slug = "your-form"
-	}
-	return fmt.Sprintf("/forms/%s/submit?token=YOUR_FORM_TOKEN", slug)
 }
 
 func liveFormAction(slug, token string) string {

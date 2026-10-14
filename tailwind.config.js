@@ -3,10 +3,9 @@ module.exports = {
   content: ["./web/templates/**/*.html"],
   theme: {
     extend: {
-      colors: {
-        ink: "#111827",
-        paper: "#f8fafc",
-        accent: "#ec4899"
+      fontFamily: {
+        sans: ["Geist", "system-ui", "-apple-system", "sans-serif"],
+        mono: ["Geist Mono", "ui-monospace", "Menlo", "Consolas", "monospace"]
       }
     }
   },

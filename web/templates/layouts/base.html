@@ -6,98 +6,206 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{ if .Title }}{{ .Title }} · Formlander{{ else }}Formlander{{ end }}</title>
-    <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
+    <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg?v={{ assetVersion }}">
+    <link rel="preload" href="/assets/fonts/geist.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="stylesheet" href="/assets/app.built.css?v={{ assetVersion }}">
 </head>
 
-<body hx-boost="true" class="min-h-screen bg-gray-50 text-gray-900 flex flex-col">
-    <!-- Loading indicator -->
+<body hx-boost="true" class="flex min-h-screen flex-col bg-stone-100 text-stone-900 antialiased">
     <div id="page-loader"></div>
 
-    <header class="bg-gradient-to-r from-gray-900 to-gray-800 text-white border-b border-gray-700 shadow-lg">
-        <div class="mx-auto w-full max-w-5xl px-6">
-            <div class="flex items-center justify-between py-6">
-                <div>
-                    <a href="/admin" class="flex items-center gap-2.5 text-2xl font-bold tracking-tight">
-                        <img src="/assets/favicon.svg" alt="" width="28" height="28" class="h-7 w-7">
-                        Formlander
-                    </a>
-                    <p class="mt-1 text-xs text-gray-400">Self-hosted form backend</p>
-                </div>
-                {{ if not .HideHeaderActions }}
-                <div class="flex items-center gap-6">
-                    <nav class="flex items-center gap-1">
-                        <a href="/admin"
-                            class="rounded-lg px-3 py-2 text-sm font-medium text-gray-300 transition-colors hover:bg-white/10 hover:text-white">
-                            Dashboard
-                        </a>
-                        <a href="/admin/forms"
-                            class="rounded-lg px-3 py-2 text-sm font-medium text-gray-300 transition-colors hover:bg-white/10 hover:text-white">
-                            Forms
-                        </a>
-                        <a href="/admin/submissions"
-                            class="rounded-lg px-3 py-2 text-sm font-medium text-gray-300 transition-colors hover:bg-white/10 hover:text-white">
-                            Submissions
-                        </a>
-                        <a href="/admin/settings/mailers"
-                            class="rounded-lg px-3 py-2 text-sm font-medium text-gray-300 transition-colors hover:bg-white/10 hover:text-white">
-                            Mailers
-                        </a>
-                        <a href="/admin/settings/captcha"
-                            class="rounded-lg px-3 py-2 text-sm font-medium text-gray-300 transition-colors hover:bg-white/10 hover:text-white">
-                            Captcha
-                        </a>
-                        <a href="/admin/settings"
-                            class="rounded-lg px-3 py-2 text-sm font-medium text-gray-300 transition-colors hover:bg-white/10 hover:text-white">
-                            Settings
-                        </a>
-                    </nav>
-                    <div class="h-6 w-px bg-gray-700"></div>
-                    <form action="/admin/logout" method="post">
-                        <button type="submit"
-                            class="rounded-lg border border-gray-600 bg-gray-700 px-4 py-2 text-sm font-medium text-white transition-all hover:bg-gray-600 hover:shadow focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900">
-                            Sign out
-                        </button>
-                    </form>
-                </div>
-                {{ end }}
-            </div>
+    <header class="bg-stone-950 text-white">
+        <div class="mx-auto flex w-full max-w-6xl flex-wrap items-center gap-x-8 gap-y-1 px-4 py-3 sm:px-6 sm:py-4">
+            <a href="/admin" class="flex items-center gap-2.5 text-lg font-semibold tracking-tight">
+                <img src="/assets/favicon.svg?v={{ assetVersion }}" alt="" width="28" height="28" class="h-7 w-7">
+                Formlander
+            </a>
+            {{ if not .HideHeaderActions }}
+            <nav class="order-last flex w-full items-center gap-1 sm:order-none sm:w-auto" aria-label="Main">
+                <a href="/admin/forms" class="nav-link">Forms</a>
+                <a href="/admin/submissions" class="nav-link">Submissions</a>
+                <a href="/admin/settings" class="nav-link">Settings</a>
+            </nav>
+            <form action="/admin/logout" method="post" class="ml-auto">
+                <button type="submit" class="nav-link">Sign out</button>
+            </form>
+            {{ end }}
         </div>
     </header>
-    <main class="flex-1 w-full max-w-5xl mx-auto px-6 py-12 space-y-10">
+    <main class="mx-auto w-full max-w-6xl flex-1 space-y-8 px-4 py-8 sm:px-6 sm:py-10">
         {{ if .ContentView }}
         {{ render .ContentView . }}
         {{ end }}
     </main>
-    <footer class="border-t border-gray-200 bg-white py-4 text-center text-xs text-gray-500">
-        <span class="font-mono">{ self-hosted }</span> · Made with ❤️ by <a href="https://x.com/karloscodes"
-            target="_blank" class="text-blue-600 hover:text-blue-700">@karloscodes</a>
+    <footer class="py-6 text-center text-xs text-stone-500">
+        Formlander, by <a href="https://x.com/karloscodes" target="_blank" rel="noopener" class="hover:text-stone-900">@karloscodes</a>
     </footer>
     <script src="/assets/vendor/htmx.min.js?v={{ assetVersion }}"></script>
     <script>
-        // Debug: Force show loader and add event listeners
-        console.log('HTMX loaded:', typeof htmx !== 'undefined');
-        console.log('Loader element:', document.getElementById('page-loader'));
+        // The page changes without a full reload, so this script runs again
+        // with each page. The listeners go on once.
+        if (!window.formlanderAdmin) {
+            window.formlanderAdmin = true;
 
-        // Show loader on any htmx request
-        document.body.addEventListener('htmx:beforeRequest', function () {
-            console.log('HTMX request starting');
-            const loader = document.getElementById('page-loader');
-            if (loader) {
-                loader.style.opacity = '1';
-                loader.style.background = '#10b981';
-            }
-        });
+            // A thin bar at the top while a page loads.
+            document.body.addEventListener('htmx:beforeRequest', function () {
+                document.getElementById('page-loader').style.opacity = '1';
+            });
+            document.body.addEventListener('htmx:afterRequest', function () {
+                setTimeout(function () { document.getElementById('page-loader').style.opacity = '0'; }, 300);
+            });
 
-        document.body.addEventListener('htmx:afterRequest', function () {
-            console.log('HTMX request complete');
-            const loader = document.getElementById('page-loader');
-            if (loader) {
-                setTimeout(() => {
-                    loader.style.opacity = '0';
-                }, 300);
-            }
+            // Copy a text and say so on the button, for a moment.
+            window.copyText = function (text, button) {
+                navigator.clipboard.writeText(text).then(function () {
+                    var label = button.textContent;
+                    button.textContent = 'Copied';
+                    setTimeout(function () { button.textContent = label; }, 1500);
+                });
+            };
+
+            // The code of a form, and an example of it. A panel has the source
+            // in a hidden textarea, a place for the code, and an iframe.
+            var formCode = window.formlanderCode = {
+                sdkTag: '\n\n<!-- Formlander SDK: adds automatic retry & loading states -->\n<script src="/assets/formlander.js"><\/script>',
+                // A plain look for the example. :where() keeps these rules weak,
+                // so the styles of a starter template win over them.
+                styles: 'body { margin: 0; padding: 8px; background: transparent; color: #1c1917; font: 15px/1.5 system-ui, -apple-system, sans-serif; }' +
+                    ':where(form) { display: grid; gap: 14px; max-width: 28rem; margin: 0 auto; }' +
+                    ':where(label) { display: grid; gap: 6px; font-size: 14px; font-weight: 500; }' +
+                    ':where(input:not([type=checkbox], [type=radio], [type=hidden], [type=submit]), textarea, select) { box-sizing: border-box; width: 100%; padding: 8px 10px; border: 1px solid #d6d3d1; border-radius: 8px; background: #fff; font: inherit; }' +
+                    ':where(button, input[type=submit]) { justify-self: start; padding: 8px 16px; border: 0; border-radius: 8px; background: #1c1917; color: #fff; font: inherit; font-weight: 500; }' +
+                    '.cf-turnstile { display: flex; align-items: center; justify-content: center; min-height: 65px; border: 1px dashed #a8a29e; border-radius: 8px; color: #78716c; font-size: 13px; }' +
+                    ".cf-turnstile::before { content: 'The captcha shows here'; }",
+
+                // The example is the form code inside an iframe that cannot send
+                // forms. The Turnstile script is left out: the captcha only
+                // works on the allowed sites.
+                show: function (iframe, html) {
+                    var turnstile = /<script[^>]*https:\/\/challenges\.cloudflare\.com\/turnstile\/v0\/api\.js[^>]*><\/script>/gi;
+                    var doc = new DOMParser().parseFromString(html.replaceAll(turnstile, ''), 'text/html');
+                    var styles = '';
+                    doc.querySelectorAll('style').forEach(function (style) { styles += style.textContent + '\n'; style.remove(); });
+                    doc.querySelectorAll('script').forEach(function (script) { script.remove(); });
+                    iframe.srcdoc = '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">' +
+                        '<meta name="viewport" content="width=device-width, initial-scale=1.0">' +
+                        '<style>' + formCode.styles + '</style><style>' + styles + '</style></head><body>' + doc.body.innerHTML + '</body></html>';
+                },
+                // The iframe gets the height of its content, so it has no
+                // scrollbar of its own. A hidden iframe has no height yet.
+                fit: function (iframe) {
+                    if (iframe.offsetParent && iframe.contentWindow) iframe.style.height = iframe.contentWindow.document.documentElement.scrollHeight + 'px';
+                },
+                source: function (panel) {
+                    var sdk = document.querySelector('[data-sdk]');
+                    return panel.querySelector('[data-source]').value + (sdk && sdk.checked ? formCode.sdkTag : '');
+                },
+                render: function (panel) {
+                    var code = panel.querySelector('[data-code]');
+                    code.textContent = formCode.source(panel);
+                    if (window.hljs) {
+                        code.removeAttribute('data-highlighted');
+                        hljs.highlightElement(code);
+                    }
+                    formCode.show(panel.querySelector('[data-preview]'), panel.querySelector('[data-source]').value);
+                },
+                init: function () {
+                    var panels = document.querySelectorAll('[data-code-panel]');
+                    panels.forEach(function (panel) {
+                        panel.querySelector('[data-preview]').addEventListener('load', function () { formCode.fit(this); });
+                        formCode.render(panel);
+                    });
+                    document.querySelectorAll('iframe[data-thumb]').forEach(function (iframe) {
+                        formCode.show(iframe, document.getElementById(iframe.getAttribute('data-thumb')).value);
+                    });
+                    // The highlighter is large, so only a page with code loads it.
+                    if (panels.length && !window.hljs && !formCode.loading) {
+                        formCode.loading = true;
+                        var script = document.createElement('script');
+                        script.src = '/assets/vendor/highlight.min.js?v={{ assetVersion }}';
+                        script.onload = function () { document.querySelectorAll('[data-code-panel]').forEach(formCode.render); };
+                        document.head.appendChild(script);
+                    }
+                }
+            };
+            document.addEventListener('click', function (event) {
+                var tab = event.target.closest('[data-tab]');
+                if (tab) {
+                    var panel = tab.closest('[data-code-panel]');
+                    panel.querySelectorAll('[data-tab]').forEach(function (button) {
+                        button.setAttribute('aria-selected', button === tab ? 'true' : 'false');
+                    });
+                    panel.querySelectorAll('[data-panel]').forEach(function (part) {
+                        part.hidden = part.getAttribute('data-panel') !== tab.getAttribute('data-tab');
+                    });
+                    formCode.fit(panel.querySelector('[data-preview]'));
+                }
+                var copy = event.target.closest('[data-copy-code]');
+                if (copy) window.copyText(formCode.source(copy.closest('[data-code-panel]')), copy);
+            });
+            document.addEventListener('change', function (event) {
+                if (event.target.matches('[data-sdk]')) document.querySelectorAll('[data-code-panel]').forEach(formCode.render);
+            });
+
+            // A search box that searches while you type, a moment after the
+            // last key. The page keeps the focus on the box.
+            var searchTimer;
+            document.addEventListener('input', function (event) {
+                if (!event.target.matches('[data-live-search] input[type=search]')) return;
+                var form = event.target.form;
+                clearTimeout(searchTimer);
+                searchTimer = setTimeout(function () { form.requestSubmit(); }, 350);
+            });
+
+            // "Add a row" copies the <template> that the button names, and puts
+            // the copy before it. "Remove" takes its row away.
+            document.addEventListener('click', function (event) {
+                var add = event.target.closest('[data-add-row]');
+                if (add) {
+                    var template = document.getElementById(add.getAttribute('data-add-row'));
+                    template.parentNode.insertBefore(template.content.cloneNode(true), template);
+                    template.previousElementSibling.querySelector('input').focus();
+                }
+                var remove = event.target.closest('[data-remove-row]');
+                if (remove) remove.closest('[data-row]').remove();
+            });
+
+            // A list with checkboxes: "Select all" ticks every row, and "Delete
+            // selected" works when a row is ticked.
+            document.addEventListener('change', function (event) {
+                var list = event.target.closest('form[data-select-rows]');
+                if (!list) return;
+                var boxes = list.querySelectorAll('input[name="ids"]');
+                if (event.target.matches('[data-select-all]')) {
+                    boxes.forEach(function (box) { box.checked = event.target.checked; });
+                }
+                var ticked = list.querySelectorAll('input[name="ids"]:checked').length;
+                var button = list.querySelector('[data-delete-selected]');
+                button.hidden = ticked === 0;
+                button.textContent = ticked ? 'Delete ' + ticked + ' selected' : 'Delete selected';
+                list.querySelector('[data-select-all]').checked = ticked === boxes.length;
+            });
+
+            // A checkbox with data-reveals shows a part of the form while it is
+            // on. A select with data-chooses shows the part for its value.
+            document.addEventListener('change', function (event) {
+                var box = event.target.closest('input[data-reveals]');
+                if (box) document.getElementById(box.getAttribute('data-reveals')).hidden = !box.checked;
+
+                var select = event.target.closest('select[data-chooses]');
+                if (select) {
+                    document.querySelectorAll('[data-' + select.getAttribute('data-chooses') + ']').forEach(function (part) {
+                        part.hidden = part.getAttribute('data-' + select.getAttribute('data-chooses')) !== select.value;
+                    });
+                }
+            });
+        }
+
+        // These run with each page.
+        document.querySelectorAll('.nav-link[href]').forEach(function (link) {
+            if (location.pathname.indexOf(link.getAttribute('href')) === 0) link.setAttribute('aria-current', 'page');
         });
+        window.formlanderCode.init();
     </script>
 </body>
 

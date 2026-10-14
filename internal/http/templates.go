@@ -7,17 +7,12 @@ import (
 
 // FormTemplate represents a pre-configured form template.
 type FormTemplate struct {
-	ID              string
-	Name            string
-	Description     string
-	Slug            string
-	Icon            string
-	Color           string
-	ComingSoon      bool
-	WIP             bool
-	HTML            string
-	WebhookDelivery forms.WebhookDelivery
-	EmailDelivery   forms.EmailDelivery
+	ID            string
+	Name          string
+	Description   string
+	Slug          string
+	HTML          string
+	EmailDelivery forms.EmailDelivery
 }
 
 // GetFormTemplates returns all available form templates.
@@ -28,8 +23,6 @@ func GetFormTemplates() []FormTemplate {
 			Name:        "Contact Form",
 			Description: "Name, email, and a message.",
 			Slug:        "contact",
-			Icon:        "💬",
-			Color:       "blue",
 			HTML:        contactTemplateHTML,
 			EmailDelivery: forms.EmailDelivery{
 				Enabled: true,
@@ -40,8 +33,6 @@ func GetFormTemplates() []FormTemplate {
 			Name:        "Feedback Form",
 			Description: "A quick rating and a comment.",
 			Slug:        "feedback",
-			Icon:        "💡",
-			Color:       "purple",
 			HTML:        feedbackTemplateHTML,
 			EmailDelivery: forms.EmailDelivery{
 				Enabled: true,
@@ -52,8 +43,6 @@ func GetFormTemplates() []FormTemplate {
 			Name:        "Bug Report",
 			Description: "Severity, steps to reproduce, and what went wrong.",
 			Slug:        "bug-report",
-			Icon:        "🐛",
-			Color:       "red",
 			HTML:        bugTemplateHTML,
 			EmailDelivery: forms.EmailDelivery{
 				Enabled: true,
@@ -64,8 +53,6 @@ func GetFormTemplates() []FormTemplate {
 			Name:        "Newsletter Signup",
 			Description: "An email address and consent to send.",
 			Slug:        "newsletter",
-			Icon:        "📧",
-			Color:       "green",
 			HTML:        newsletterTemplateHTML,
 			EmailDelivery: forms.EmailDelivery{
 				Enabled: true,
@@ -76,23 +63,18 @@ func GetFormTemplates() []FormTemplate {
 			Name:        "Waitlist",
 			Description: "An email, plus a few optional details.",
 			Slug:        "waitlist",
-			Icon:        "⏳",
-			Color:       "yellow",
 			HTML:        waitlistTemplateHTML,
 			EmailDelivery: forms.EmailDelivery{
 				Enabled: true,
 			},
 		},
 		{
-			ID:              "blank",
-			Name:            "Blank Form",
-			Description:     "Two fields. Build the rest yourself.",
-			Slug:            "",
-			Icon:            "📝",
-			Color:           "gray",
-			HTML:            blankTemplateHTML,
-			EmailDelivery:   forms.EmailDelivery{},
-			WebhookDelivery: forms.WebhookDelivery{},
+			ID:            "blank",
+			Name:          "Blank Form",
+			Description:   "Two fields. Build the rest yourself.",
+			Slug:          "",
+			HTML:          blankTemplateHTML,
+			EmailDelivery: forms.EmailDelivery{},
 		},
 	}
 }

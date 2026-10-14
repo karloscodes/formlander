@@ -1,0 +1,94 @@
+{{ define "admin/webhooks/new/content" }}
+<div class="page-settings space-y-6">
+    <div>
+        {{ if .IsEdit }}
+        <a href="/admin/settings/webhooks/{{ .Profile.ID }}" class="back">← {{ if .Profile.Name }}{{ .Profile.Name }}{{ else }}Webhook{{ end }}</a>
+        {{ else }}
+        <a href="/admin/settings/webhooks" class="back">← Webhooks</a>
+        {{ end }}
+        <h1 class="page-title mt-2">{{ if .IsEdit }}Edit{{ else }}New{{ end }} Webhook Profile</h1>
+        <p class="page-note">A URL that receives submissions. One profile can serve many forms.</p>
+    </div>
+
+    {{ if .Error }}
+    <div class="notice notice-bad">{{ .Error }}</div>
+    {{ end }}
+
+    <form method="POST" action="{{ if .IsEdit }}/admin/settings/webhooks/{{ .Profile.ID }}{{ else }}/admin/settings/webhooks{{ end }}" class="space-y-6">
+        <div class="card">
+            <div class="card-head">
+                <h2 class="card-title">Receiver</h2>
+                <p class="card-note">Where each submission goes.</p>
+            </div>
+            <div class="space-y-5 p-5 sm:p-6">
+                <div>
+                    <label for="name" class="field-label">Profile Name</label>
+                    <input type="text" id="name" name="name" value="{{ .Profile.Name }}" required class="field-input" placeholder="My server">
+                    <p class="field-help">Only you see it. It tells your profiles apart.</p>
+                </div>
+                <div>
+                    <label for="url" class="field-label">URL</label>
+                    <input type="url" id="url" name="url" value="{{ .Profile.URL }}" required class="field-input mono" placeholder="https://example.com/hooks/formlander">
+                    <p class="field-help">Formlander sends each submission here as a POST request with a JSON body.</p>
+                </div>
+                <div>
+                    <label for="key" class="field-label">Key or header <span class="font-normal text-stone-500">(when the service gives you one)</span></label>
+                    <input type="text" id="key" name="key" value="{{ .Key }}" autocomplete="off" class="field-input mono" placeholder="Paste what the service shows">
+                    <div class="field-help space-y-1">
+                        <p>Services protect a webhook in different ways. Paste what yours shows:</p>
+                        <ul class="list-disc space-y-1 pl-5">
+                            <li>A key alone, like <code class="mono">abc123</code>. Formlander sends <code class="mono">Authorization: Bearer abc123</code>.</li>
+                            <li>A header line, like <code class="mono">X-API-Key: abc123</code>. Formlander sends that header.</li>
+                            <li>Nothing. Many services (Zapier, Make, Slack) put the secret in the URL and need no key.</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <details class="card" {{ if or .Profile.Secret .Headers }}open{{ end }}>
+            <summary class="cursor-pointer px-5 py-4 text-sm font-medium text-stone-900 sm:px-6">More options <span class="font-normal text-stone-500">: a signature for your own server, more headers</span></summary>
+            <div class="space-y-6 border-t border-stone-100 p-5 sm:p-6">
+                <div>
+                    <label for="secret" class="field-label">Signing Secret</label>
+                    <input type="text" id="secret" name="secret" value="{{ .Profile.Secret }}" autocomplete="off" class="field-input mono" placeholder="A long random text">
+                    <p class="field-help">For a receiver that you wrote yourself. It is not the access key of a service. Each request gets an <code class="mono">{{ .SignedBy }}</code> header with the HMAC-SHA256 of the body in hex. Your server computes the same value with this secret and compares the two.</p>
+                </div>
+
+                <div class="space-y-3">
+                    <p class="field-label">More headers</p>
+                    <p class="field-help">Formlander sends them with each request.</p>
+                    {{ range .Headers }}
+                    <div class="flex flex-wrap items-end gap-2" data-row>
+                        <label class="min-w-0 flex-1 basis-40 text-sm text-stone-700">Name
+                            <input type="text" name="header_name" value="{{ .Name }}" autocomplete="off" class="field-input mono" placeholder="X-Team">
+                        </label>
+                        <label class="min-w-0 flex-1 basis-40 text-sm text-stone-700">Value
+                            <input type="text" name="header_value" value="{{ .Value }}" autocomplete="off" class="field-input mono" placeholder="support">
+                        </label>
+                        <button type="button" class="btn btn-small mb-1" data-remove-row>Remove</button>
+                    </div>
+                    {{ end }}
+                    <template id="header-row">
+                        <div class="flex flex-wrap items-end gap-2" data-row>
+                            <label class="min-w-0 flex-1 basis-40 text-sm text-stone-700">Name
+                                <input type="text" name="header_name" autocomplete="off" class="field-input mono" placeholder="X-Team">
+                            </label>
+                            <label class="min-w-0 flex-1 basis-40 text-sm text-stone-700">Value
+                                <input type="text" name="header_value" autocomplete="off" class="field-input mono" placeholder="support">
+                            </label>
+                            <button type="button" class="btn btn-small mb-1" data-remove-row>Remove</button>
+                        </div>
+                    </template>
+                    <button type="button" class="btn btn-small" data-add-row="header-row">Add a header</button>
+                </div>
+            </div>
+        </details>
+
+        <div class="flex justify-end gap-3">
+            <a href="{{ if .IsEdit }}/admin/settings/webhooks/{{ .Profile.ID }}{{ else }}/admin/settings/webhooks{{ end }}" class="btn">Cancel</a>
+            <button type="submit" class="btn-primary">{{ if .IsEdit }}Save Changes{{ else }}Create Profile{{ end }}</button>
+        </div>
+    </form>
+</div>
+{{ end }}

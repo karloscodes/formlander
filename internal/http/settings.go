@@ -4,10 +4,10 @@ import (
 	"errors"
 	"log/slog"
 
-	"github.com/gofiber/fiber/v2"
 	"github.com/karloscodes/cartridge"
 
 	"formlander/internal/accounts"
+	"formlander/internal/integrations"
 )
 
 // AdminSettingsPage renders the settings page.
@@ -15,23 +15,34 @@ func AdminSettingsPage(ctx *cartridge.Context) error {
 	db := ctx.DB()
 
 	// Get current user
-	userID, ok := GetSession(ctx).GetUserID(ctx.Ctx)
+	userID, ok := GetSession(ctx).GetUserID(ctx)
 	if !ok {
-		return fiber.ErrUnauthorized
+		return cartridge.NewError(401)
 	}
 
 	user, err := accounts.FindByID(db, userID)
 	if err != nil {
-		return fiber.ErrInternalServerError
+		return cartridge.NewError(500)
 	}
 
-	// Base template data
-	data := fiber.Map{
-		"Title":       "Settings",
-		"ContentView": "admin/settings/content",
-		"User":        user,
-	}
+	return renderSettings(ctx, user, cartridge.Map{})
+}
 
+// renderSettings shows the settings page: the account, and the connections
+// with how many profiles each kind has.
+func renderSettings(ctx *cartridge.Context, user *accounts.User, data cartridge.Map) error {
+	db := ctx.DB()
+	var mailers, captchas, webhooks int64
+	db.Model(&integrations.MailerProfile{}).Count(&mailers)
+	db.Model(&integrations.CaptchaProfile{}).Count(&captchas)
+	db.Model(&integrations.WebhookProfile{}).Count(&webhooks)
+
+	data["Title"] = "Settings"
+	data["ContentView"] = "admin/settings/content"
+	data["User"] = user
+	data["MailerCount"] = mailers
+	data["CaptchaCount"] = captchas
+	data["WebhookCount"] = webhooks
 	return ctx.Render("layouts/base", data, "")
 }
 
@@ -49,16 +60,16 @@ func AdminSettingsUpdatePassword(ctx *cartridge.Context) error {
 		return renderSettingsError(ctx, "New passwords do not match")
 	}
 
-	userID, ok := GetSession(ctx).GetUserID(ctx.Ctx)
+	userID, ok := GetSession(ctx).GetUserID(ctx)
 	if !ok {
-		return fiber.ErrUnauthorized
+		return cartridge.NewError(401)
 	}
 
 	db := ctx.DB()
 
 	user, err := accounts.FindByID(db, userID)
 	if err != nil {
-		return fiber.ErrInternalServerError
+		return cartridge.NewError(500)
 	}
 
 	if err := accounts.ChangePassword(ctx.Logger, db, user.Email, currentPassword, newPassword); err != nil {
@@ -69,12 +80,12 @@ func AdminSettingsUpdatePassword(ctx *cartridge.Context) error {
 			return renderSettingsError(ctx, "Current password is incorrect")
 		}
 		ctx.Logger.Error("password change failed in settings", slog.Any("error", err))
-		return fiber.ErrInternalServerError
+		return cartridge.NewError(500)
 	}
 
 	// The change ends every session, including this one. Start a new one so
 	// the person who changed the password stays signed in.
-	if err := GetSession(ctx).SetSession(ctx.Ctx, user.ID); err != nil {
+	if err := GetSession(ctx).SetSession(ctx, user.ID); err != nil {
 		ctx.Logger.Error("failed to renew session after password change", slog.Any("error", err))
 	}
 
@@ -94,16 +105,16 @@ func AdminSettingsUpdateEmail(ctx *cartridge.Context) error {
 		return renderSettingsError(ctx, "Email and current password are required")
 	}
 
-	userID, ok := GetSession(ctx).GetUserID(ctx.Ctx)
+	userID, ok := GetSession(ctx).GetUserID(ctx)
 	if !ok {
-		return fiber.ErrUnauthorized
+		return cartridge.NewError(401)
 	}
 
 	db := ctx.DB()
 
 	user, err := accounts.FindByID(db, userID)
 	if err != nil {
-		return fiber.ErrInternalServerError
+		return cartridge.NewError(500)
 	}
 
 	if err := accounts.ChangeEmail(ctx.Logger, db, user.Email, newEmail, currentPassword); err != nil {
@@ -117,7 +128,7 @@ func AdminSettingsUpdateEmail(ctx *cartridge.Context) error {
 			return renderSettingsError(ctx, "That email is already in use")
 		}
 		ctx.Logger.Error("email change failed in settings", slog.Any("error", err))
-		return fiber.ErrInternalServerError
+		return cartridge.NewError(500)
 	}
 
 	return renderSettingsSuccess(ctx, "Email updated successfully")
@@ -134,29 +145,13 @@ func AdminSettingsUpdateTurnstile(ctx *cartridge.Context) error {
 }
 
 func renderSettingsError(ctx *cartridge.Context, message string) error {
-	db := ctx.DB()
-	userID, _ := GetSession(ctx).GetUserID(ctx.Ctx)
-
-	user, _ := accounts.FindByID(db, userID)
-
-	return ctx.Render("layouts/base", fiber.Map{
-		"Title":       "Settings",
-		"Error":       message,
-		"ContentView": "admin/settings/content",
-		"User":        user,
-	}, "")
+	userID, _ := GetSession(ctx).GetUserID(ctx)
+	user, _ := accounts.FindByID(ctx.DB(), userID)
+	return renderSettings(ctx, user, cartridge.Map{"Error": message})
 }
 
 func renderSettingsSuccess(ctx *cartridge.Context, message string) error {
-	db := ctx.DB()
-	userID, _ := GetSession(ctx).GetUserID(ctx.Ctx)
-
-	user, _ := accounts.FindByID(db, userID)
-
-	return ctx.Render("layouts/base", fiber.Map{
-		"Title":       "Settings",
-		"Success":     message,
-		"ContentView": "admin/settings/content",
-		"User":        user,
-	}, "")
+	userID, _ := GetSession(ctx).GetUserID(ctx)
+	user, _ := accounts.FindByID(ctx.DB(), userID)
+	return renderSettings(ctx, user, cartridge.Map{"Success": message})
 }

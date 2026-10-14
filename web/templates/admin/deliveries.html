@@ -1,0 +1,9 @@
+{{/* One try to send a submission by email or to a webhook: the state, the
+     number of attempts, the time, and the last error. It needs an email
+     event or a webhook event, and it goes inside a flex row. */}}
+{{ define "admin/deliveries/attempt" }}
+<span class="pill {{ if eq .Status "delivered" }}pill-ok{{ else if eq .Status "failed" }}pill-bad{{ else }}pill-warn{{ end }}">{{ if eq .Status "delivered" }}sent{{ else if eq .Status "failed" }}failed{{ else if eq .Status "retrying" }}will try again{{ else if eq .Status "delivering" }}sending{{ else }}waiting{{ end }}</span>
+<span class="text-stone-500">{{ .AttemptCount }} {{ if eq .AttemptCount 1 }}attempt{{ else }}attempts{{ end }}</span>
+<span class="ml-auto text-xs text-stone-400">{{ if .LastAttemptAt }}{{ ago .LastAttemptAt }}{{ end }}</span>
+{{ if .LastAttemptErr }}<p class="w-full break-all text-xs text-red-700">{{ .LastAttemptErr }}</p>{{ end }}
+{{ end }}

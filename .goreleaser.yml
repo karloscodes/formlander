@@ -54,11 +54,11 @@ changelog:
 dockers:
   - image_templates:
       - "karloscodes/formlander:{{ .Version }}-amd64"
-      - "karloscodes/formlander:latest-amd64"
     use: buildx
     dockerfile: Dockerfile
     build_flag_templates:
       - "--platform=linux/amd64"
+      - "--build-arg=COMMIT_SHA={{.ShortCommit}}"
       - "--label=org.opencontainers.image.created={{.Date}}"
       - "--label=org.opencontainers.image.title={{.ProjectName}}"
       - "--label=org.opencontainers.image.revision={{.FullCommit}}"
@@ -73,12 +73,12 @@ dockers:
 
   - image_templates:
       - "karloscodes/formlander:{{ .Version }}-arm64"
-      - "karloscodes/formlander:latest-arm64"
     use: buildx
     goarch: arm64
     dockerfile: Dockerfile
     build_flag_templates:
       - "--platform=linux/arm64"
+      - "--build-arg=COMMIT_SHA={{.ShortCommit}}"
       - "--label=org.opencontainers.image.created={{.Date}}"
       - "--label=org.opencontainers.image.title={{.ProjectName}}"
       - "--label=org.opencontainers.image.revision={{.FullCommit}}"
@@ -91,26 +91,39 @@ dockers:
       - web
       - tailwind.config.js
 
+# A tag with a hyphen (v3.8.0-rc.1) is a release candidate. `skip_push: auto`
+# keeps it off the tags of stable releases, and it moves `rc`:
+#   latest, v3, v3.8   the newest stable release   customer servers follow `latest`
+#   rc                 the newest candidate        your own server follows it
 docker_manifests:
   - name_template: "karloscodes/formlander:{{ .Version }}"
     image_templates:
       - "karloscodes/formlander:{{ .Version }}-amd64"
       - "karloscodes/formlander:{{ .Version }}-arm64"
-  
+
   - name_template: "karloscodes/formlander:v{{ .Major }}"
+    skip_push: auto
     image_templates:
       - "karloscodes/formlander:{{ .Version }}-amd64"
       - "karloscodes/formlander:{{ .Version }}-arm64"
-  
+
   - name_template: "karloscodes/formlander:v{{ .Major }}.{{ .Minor }}"
+    skip_push: auto
     image_templates:
       - "karloscodes/formlander:{{ .Version }}-amd64"
       - "karloscodes/formlander:{{ .Version }}-arm64"
-  
+
   - name_template: "karloscodes/formlander:latest"
+    skip_push: auto
     image_templates:
-      - "karloscodes/formlander:latest-amd64"
-      - "karloscodes/formlander:latest-arm64"
+      - "karloscodes/formlander:{{ .Version }}-amd64"
+      - "karloscodes/formlander:{{ .Version }}-arm64"
+
+  - name_template: "karloscodes/formlander:rc"
+    skip_push: "{{ if .Prerelease }}false{{ else }}true{{ end }}"
+    image_templates:
+      - "karloscodes/formlander:{{ .Version }}-amd64"
+      - "karloscodes/formlander:{{ .Version }}-arm64"
 
 release:
   github:
@@ -123,26 +136,26 @@ release:
 
     Self-hosted form backend with SQLite storage.
 
-    ### One-Line Installation (Recommended)
+    ### Install on your server
 
     ```bash
-    curl -fsSL https://raw.githubusercontent.com/karloscodes/formlander/master/install.sh | sudo bash
+    curl -fsSL https://formlander.com/install | sudo bash -s forms.example.com
     ```
 
-    This installs Formlander with Docker, Caddy reverse proxy, and automatic SSL certificates.
+    It installs Chasen and runs Formlander: HTTPS, live backups of the database, and an update each night. From your computer instead: `chasen deploy karloscodes/formlander --server root@203.0.113.5 --domain forms.example.com --auto-update`. Servers that the older installer set up update themselves as before.
 
     ### Quick Start with Docker (Manual)
 
     ```bash
     docker run -d \
-      -p 8080:8080 \
+      -p 127.0.0.1:8080:8080 \
       -e FORMLANDER_SESSION_SECRET=$(openssl rand -hex 32) \
       -v $(pwd)/storage:/app/storage \
       karloscodes/formlander:{{ .Version }}
     ```
 
     Then visit `http://localhost:8080` and sign in as `admin@formlander.local`.
-    The first password is random: find it with `docker logs <container>` or in `storage/initial-admin-password`.
+    The first password is random: find it in `storage/initial-admin-password`, or with `docker exec <container> cat /app/storage/initial-admin-password`.
   footer: |
     ---
     

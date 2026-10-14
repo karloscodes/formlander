@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	cartridgeconfig "github.com/karloscodes/cartridge/config"
 	"github.com/stretchr/testify/assert"
@@ -41,6 +42,23 @@ func passwordWorks(t *testing.T, db *gorm.DB, password string) bool {
 	return bcrypt.CompareHashAndPassword([]byte(admin.PasswordHash), []byte(password)) == nil
 }
 
+// captureStdout returns what fn writes to stdout.
+func captureStdout(t *testing.T, fn func()) string {
+	t.Helper()
+	r, w, err := os.Pipe()
+	require.NoError(t, err)
+	stdout := os.Stdout
+	os.Stdout = w
+	defer func() { os.Stdout = stdout }()
+
+	fn()
+
+	require.NoError(t, w.Close())
+	out, err := io.ReadAll(r)
+	require.NoError(t, err)
+	return string(out)
+}
+
 func TestEnsureAdminUser(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
@@ -71,6 +89,24 @@ func TestEnsureAdminUser(t *testing.T) {
 		assert.True(t, passwordWorks(t, db, readInitialPassword(t, cfg)))
 	})
 
+	t.Run("ends the sessions opened with the public default password", func(t *testing.T) {
+		db := testsupport.SetupTestDB(t)
+		hash, err := bcrypt.GenerateFromPassword([]byte(accounts.DefaultAdminPassword), bcrypt.MinCost)
+		require.NoError(t, err)
+		require.NoError(t, db.Create(&accounts.User{Email: accounts.DefaultAdminEmail, PasswordHash: string(hash)}).Error)
+		cfg := adminTestConfig(t, cartridgeconfig.Production)
+		issuedBefore := time.Now()
+
+		captureStdout(t, func() {
+			require.NoError(t, ensureAdminUser(db, cfg, logger))
+		})
+
+		admin, err := accounts.FindByEmail(db, accounts.DefaultAdminEmail)
+		require.NoError(t, err)
+		assert.False(t, admin.SessionIsCurrent(issuedBefore))
+		assert.True(t, admin.SessionIsCurrent(time.Now()))
+	})
+
 	t.Run("keeps a password the operator already changed", func(t *testing.T) {
 		db := testsupport.SetupTestDB(t)
 		hash, err := bcrypt.GenerateFromPassword([]byte("operator-chosen"), bcrypt.MinCost)
@@ -83,6 +119,33 @@ func TestEnsureAdminUser(t *testing.T) {
 		require.NoError(t, err)
 		assert.True(t, passwordWorks(t, db, "operator-chosen"))
 		assert.False(t, accounts.HasInitialPassword(cfg.DataDirectory))
+	})
+
+	t.Run("prints where the new password is, not the password", func(t *testing.T) {
+		db := testsupport.SetupTestDB(t)
+		cfg := adminTestConfig(t, cartridgeconfig.Production)
+
+		output := captureStdout(t, func() {
+			require.NoError(t, ensureAdminUser(db, cfg, logger))
+		})
+
+		assert.Contains(t, output, "Password: in "+filepath.Join(cfg.DataDirectory, "initial-admin-password"))
+		assert.NotContains(t, output, readInitialPassword(t, cfg))
+	})
+
+	t.Run("prints where the replaced password is, not the password", func(t *testing.T) {
+		db := testsupport.SetupTestDB(t)
+		hash, err := bcrypt.GenerateFromPassword([]byte(accounts.DefaultAdminPassword), bcrypt.MinCost)
+		require.NoError(t, err)
+		require.NoError(t, db.Create(&accounts.User{Email: accounts.DefaultAdminEmail, PasswordHash: string(hash)}).Error)
+		cfg := adminTestConfig(t, cartridgeconfig.Production)
+
+		output := captureStdout(t, func() {
+			require.NoError(t, ensureAdminUser(db, cfg, logger))
+		})
+
+		assert.Contains(t, output, "Password: in "+filepath.Join(cfg.DataDirectory, "initial-admin-password"))
+		assert.NotContains(t, output, readInitialPassword(t, cfg))
 	})
 
 	t.Run("uses the fixed password in the test environment", func(t *testing.T) {

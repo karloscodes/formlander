@@ -13,8 +13,10 @@ func Migrate(db *gorm.DB) error {
 	return db.AutoMigrate(
 		&accounts.User{},
 		&accounts.Settings{},
+		&accounts.EndedSession{},
 		&integrations.MailerProfile{},
 		&integrations.CaptchaProfile{},
+		&integrations.WebhookProfile{},
 		&forms.Form{},
 		&forms.WebhookDelivery{},
 		&forms.EmailDelivery{},

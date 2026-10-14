@@ -17,20 +17,13 @@ Code is organized into contexts (bounded domains):
 
 Each context owns its domain logic and data access. Avoid cross-context direct database access.
 
-### Cartridge Context Pattern
+### Cartridge
 
-We use `internal/pkg/cartridge.Context` for request-scoped dependency injection:
+The app runs on [cartridge](https://github.com/karloscodes/cartridge) v1, which is built on `net/http`. Follow its [AGENTS.md](https://github.com/karloscodes/cartridge/blob/main/AGENTS.md).
 
-```go
-type Context struct {
-    *fiber.Ctx
-    Logger    *zap.Logger
-    Config    *config.Config
-    DBManager *database.Manager
-}
-```
-
-**Important:** Access dependencies via fields, not `fiber.Ctx.Locals()`. Use `ctx.DB()` for database access.
+- Every handler and middleware is `func(ctx *cartridge.Context) error`.
+- Use `ctx.DB()` for the database, `ctx.Session` for the session, and `GetAppConfig(ctx)` for the Formlander config.
+- Return `cartridge.NewError(code)` to fail with a status.
 
 ### SQLite Write Handling
 
@@ -53,7 +46,7 @@ This handles:
 
 ## Code Style
 
-- Use structured logging with `zap.Logger`
+- Use structured logging with `log/slog`
 - Return errors, don't panic
 - Prefer explicit over clever
 - Comment only when clarification is needed
@@ -161,14 +154,11 @@ err := dbtxn.WithRetry(ctx.Logger, db, func(tx *gorm.DB) error {
 
 ```go
 func HandleSomething(ctx *cartridge.Context) error {
-    db, err := ctx.DB()
-    if err != nil {
-        return err
-    }
-    
+    db := ctx.DB()
+
     // Business logic...
-    
-    return ctx.JSON(fiber.Map{"success": true})
+
+    return ctx.JSON(cartridge.Map{"success": true})
 }
 ```
 
@@ -187,9 +177,7 @@ internal/
 ├── integrations/   # External services
 ├── jobs/           # Background jobs
 └── pkg/
-    ├── cartridge/  # Framework wrapper
-    ├── dbtxn/      # Transaction helpers
-    └── logger/     # Logging setup
+    └── dbtxn/      # Transaction helpers
 ```
 
 ## Key Files
@@ -198,7 +186,6 @@ internal/
 - `internal/routes.go` — Route definitions
 - `internal/database/manager.go` — Database connection pooling
 - `internal/pkg/dbtxn/retry.go` — Write retry logic
-- `internal/pkg/cartridge/context.go` — Request context
 
 ## License
 

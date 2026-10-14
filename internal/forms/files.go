@@ -111,29 +111,34 @@ func ExtractFiles(form *multipart.Form) ([]*UploadedFile, error) {
 	return files, nil
 }
 
-// SaveFiles saves uploaded files to disk and returns file records
-func SaveFiles(dataDir string, formID, submissionID uint, files []*UploadedFile) ([]*SubmissionFile, error) {
+// StageFiles writes uploads to a staging directory before the submission
+// exists, so the write transaction only has to move them: disk writes under
+// the write lock would make every other writer wait. It returns the staging
+// directory and one record per file; MoveStagedFiles fills in the rest.
+func StageFiles(dataDir string, files []*UploadedFile) (string, []*SubmissionFile, error) {
 	if len(files) == 0 {
-		return nil, nil
+		return "", nil, nil
 	}
 
-	// Create upload directory: storage/uploads/{form_id}/{submission_id}/
-	uploadDir := filepath.Join(dataDir, "uploads", fmt.Sprintf("%d", formID), fmt.Sprintf("%d", submissionID))
-	if err := os.MkdirAll(uploadDir, 0755); err != nil {
-		return nil, fmt.Errorf("failed to create upload directory: %w", err)
+	stagingRoot := filepath.Join(dataDir, "uploads", ".staging")
+	if err := os.MkdirAll(stagingRoot, 0755); err != nil {
+		return "", nil, fmt.Errorf("failed to create staging directory: %w", err)
+	}
+	stagingDir, err := os.MkdirTemp(stagingRoot, "submission-")
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to create staging directory: %w", err)
 	}
 
 	var records []*SubmissionFile
-
 	for _, f := range files {
 		// Generate unique filename to avoid collisions
 		filename := uniqueFilename(f.Filename)
-		filePath := filepath.Join(uploadDir, filename)
+		filePath := filepath.Join(stagingDir, filename)
 
-		// Save file
 		dst, err := os.Create(filePath)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create file: %w", err)
+			os.RemoveAll(stagingDir)
+			return "", nil, fmt.Errorf("failed to create file: %w", err)
 		}
 
 		written, err := io.Copy(dst, f.Data)
@@ -145,24 +150,40 @@ func SaveFiles(dataDir string, formID, submissionID uint, files []*UploadedFile)
 		}
 
 		if err != nil {
-			os.Remove(filePath) // Clean up on error
-			return nil, fmt.Errorf("failed to save file: %w", err)
+			os.RemoveAll(stagingDir)
+			return "", nil, fmt.Errorf("failed to save file: %w", err)
 		}
 
-		// Store relative path from data dir
-		relativePath := filepath.Join("uploads", fmt.Sprintf("%d", formID), fmt.Sprintf("%d", submissionID), filename)
-
 		records = append(records, &SubmissionFile{
-			SubmissionID: submissionID,
-			FieldName:    f.FieldName,
-			Filename:     f.Filename, // Original filename for display
-			ContentType:  f.ContentType,
-			Size:         written,
-			StoragePath:  relativePath,
+			FieldName:   f.FieldName,
+			Filename:    f.Filename, // Original filename for display
+			ContentType: f.ContentType,
+			Size:        written,
+			StoragePath: filename, // the name inside stagingDir until MoveStagedFiles
 		})
 	}
 
-	return records, nil
+	return stagingDir, records, nil
+}
+
+// MoveStagedFiles moves staged files into storage/uploads/{form_id}/{submission_id}/
+// and sets their submission ID and storage path. A rename on the same disk
+// is quick, so it can run inside the write transaction. The directory can
+// exist already: SQLite reuses the ID of a deleted last row.
+func MoveStagedFiles(dataDir, stagingDir string, formID, submissionID uint, records []*SubmissionFile) error {
+	relativeDir := filepath.Join("uploads", fmt.Sprintf("%d", formID), fmt.Sprintf("%d", submissionID))
+	if err := os.MkdirAll(filepath.Join(dataDir, relativeDir), 0755); err != nil {
+		return fmt.Errorf("failed to create upload directory: %w", err)
+	}
+	for _, record := range records {
+		relativePath := filepath.Join(relativeDir, record.StoragePath)
+		if err := os.Rename(filepath.Join(stagingDir, record.StoragePath), filepath.Join(dataDir, relativePath)); err != nil {
+			return fmt.Errorf("failed to move file: %w", err)
+		}
+		record.SubmissionID = submissionID
+		record.StoragePath = relativePath
+	}
+	return os.Remove(stagingDir)
 }
 
 // GetFilePath returns the full filesystem path for a submission file

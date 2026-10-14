@@ -1,0 +1,31 @@
+{{/* A list of submissions that the owner can tick and delete. It needs
+     .Submissions and .ReturnTo, the page to come back to after a delete.
+     A row is one line, like a mail inbox: who, what, which form, when. */}}
+{{ define "admin/submissions/list" }}
+<form method="post" action="/admin/submissions/delete" hx-boost="false" data-select-rows>
+    <input type="hidden" name="return_to" value="{{ .ReturnTo }}">
+    <div class="flex min-h-11 items-center justify-between gap-3 border-b border-stone-200 pr-5 sm:pr-6">
+        <label class="flex items-center gap-3 self-stretch pl-5 pr-3 text-xs font-medium uppercase tracking-wider text-stone-500 sm:pl-6">
+            <input type="checkbox" class="check" data-select-all>
+            Select all
+        </label>
+        <button type="submit" class="text-sm font-medium text-red-700 hover:underline" data-delete-selected hidden
+            onclick="return confirm('Delete the selected submissions and their files? You cannot undo it.')">Delete selected</button>
+    </div>
+    <ul class="divide-y divide-stone-100">
+        {{ range .Submissions }}
+        <li class="flex items-stretch transition hover:bg-stone-50 has-[:checked]:bg-orange-50/60">
+            <label class="flex items-center pl-5 pr-3 sm:pl-6">
+                <input type="checkbox" name="ids" value="{{ .ID }}" class="check" aria-label="Select this submission">
+            </label>
+            <a href="/admin/submissions/{{ .ID }}" class="grid min-w-0 flex-1 grid-cols-[1fr_auto] items-baseline gap-x-4 py-2.5 pr-5 text-sm sm:grid-cols-[14rem_1fr_auto_5.5rem] sm:pr-6">
+                <span class="truncate font-medium text-stone-900">{{ if who .DataJSON }}{{ who .DataJSON }}{{ else }}Someone{{ end }}</span>
+                <span class="order-last col-span-2 truncate text-stone-600 sm:order-none sm:col-span-1">{{ if .IsSpam }}<span class="pill pill-warn mr-1">spam</span>{{ end }}{{ gist .DataJSON }}</span>
+                <span class="order-last col-span-2 truncate text-xs text-stone-500 sm:order-none sm:col-span-1 sm:max-w-[10rem]">{{ if .Form }}{{ .Form.Name }}{{ end }}</span>
+                <span class="row-start-1 col-start-2 whitespace-nowrap text-right text-xs tabular-nums text-stone-500 sm:col-start-4" title="{{ .CreatedAt.Format "Jan 2, 2006 15:04 MST" }}">{{ ago .CreatedAt }}</span>
+            </a>
+        </li>
+        {{ end }}
+    </ul>
+</form>
+{{ end }}

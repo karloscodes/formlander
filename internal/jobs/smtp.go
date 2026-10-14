@@ -2,6 +2,7 @@ package jobs
 
 import (
 	"crypto/tls"
+	"mime"
 	"net"
 	"net/mail"
 	"net/smtp"
@@ -104,17 +105,46 @@ func envelopeAddr(s string) string {
 	return strings.TrimSpace(s)
 }
 
+// message is one email, ready for a provider to send.
+type message struct {
+	From    string // header form, e.g. "Name <addr>"
+	To      string
+	ReplyTo string // empty for no Reply-To header
+	Subject string
+	Body    string
+}
+
+// subjectHeader returns a subject as the value of the Subject header. A
+// subject outside ASCII goes out as RFC 2047 encoded words of 75 characters at
+// most. Each word after the first goes on its own line, so a long subject
+// stays below the 998 characters that SMTP allows on a line.
+func subjectHeader(subject string) string {
+	return strings.ReplaceAll(mime.QEncoding.Encode("utf-8", subject), "?= =?", "?=\r\n =?")
+}
+
+// crlf makes every line break of a body CRLF. A bare CR becomes a line break
+// too: the body holds text that visitors chose, and some mail servers read a
+// bare CR next to a dot as the end of the message (SMTP smuggling).
+func crlf(body string) string {
+	body = strings.ReplaceAll(body, "\r\n", "\n")
+	body = strings.ReplaceAll(body, "\r", "\n")
+	return strings.ReplaceAll(body, "\n", "\r\n")
+}
+
 // buildSMTPMessage assembles a minimal RFC 5322 plain-text email message.
 // Header and body line endings are normalized to CRLF as required by SMTP.
-func buildSMTPMessage(from, to, subject, body string) []byte {
+func buildSMTPMessage(m message) []byte {
 	var b strings.Builder
-	b.WriteString("From: " + from + "\r\n")
-	b.WriteString("To: " + to + "\r\n")
-	b.WriteString("Subject: " + subject + "\r\n")
+	b.WriteString("From: " + m.From + "\r\n")
+	b.WriteString("To: " + m.To + "\r\n")
+	if m.ReplyTo != "" {
+		b.WriteString("Reply-To: " + m.ReplyTo + "\r\n")
+	}
+	b.WriteString("Subject: " + subjectHeader(m.Subject) + "\r\n")
 	b.WriteString("Date: " + time.Now().UTC().Format(time.RFC1123Z) + "\r\n")
 	b.WriteString("MIME-Version: 1.0\r\n")
 	b.WriteString("Content-Type: text/plain; charset=\"utf-8\"\r\n")
 	b.WriteString("\r\n")
-	b.WriteString(strings.ReplaceAll(body, "\n", "\r\n"))
+	b.WriteString(crlf(m.Body))
 	return []byte(b.String())
 }

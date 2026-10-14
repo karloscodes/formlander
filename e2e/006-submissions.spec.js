@@ -45,7 +45,7 @@ test.describe("Form Submissions", () => {
     // Check submission in admin
     await helpers.navigateTo("/admin/forms");
     await page.waitForSelector(`text=Test Contact Form`);
-    await page.locator('tr:has-text("Test Contact Form")').first().click();
+    await page.locator('main a:has-text("Test Contact Form")').first().click();
     await page.waitForLoadState("networkidle");
 
     // Should show submission count or content
@@ -134,5 +134,84 @@ test.describe("Form Submissions", () => {
     expect(pageContent).toMatch(/API Tester|api@example\.com/i);
 
     helpers.log("✅ API submission appears in admin");
+  });
+
+  test("5. Delete a submission from its page and from the list", async ({ page }) => {
+    helpers.log("=== Deleting Submissions ===");
+
+    const stamp = Date.now();
+    const first = `delete-one-${stamp}@example.com`;
+    const second = `delete-two-${stamp}@example.com`;
+    for (const email of [first, second]) {
+      const response = await helpers.submitToForm(formSlug, formToken, { name: "To Delete", email });
+      expect(response.status()).toBe(200);
+    }
+
+    // Every delete asks first.
+    page.on("dialog", (dialog) => dialog.accept());
+
+    // From the page of the submission. It goes back to the list.
+    await helpers.navigateTo("/admin/submissions");
+    await page.click(`a:has-text("${first}")`);
+    await page.waitForURL(/\/admin\/submissions\/\d+$/);
+    await expect(page.locator("h1")).toContainText(first);
+    await page.click('main button:has-text("Delete")');
+    await page.waitForURL("**/admin/submissions");
+    await expect(page.locator("body")).not.toContainText(first);
+
+    // From the list: tick it, then delete the selected.
+    await page.locator(`li:has-text("${second}") input[name="ids"]`).check();
+    await expect(page.locator("[data-delete-selected]")).toHaveText("Delete 1 selected");
+    await page.click("[data-delete-selected]");
+    await page.waitForLoadState("networkidle");
+    await expect(page.locator("body")).not.toContainText(second);
+
+    helpers.log("✅ Submissions deleted");
+  });
+
+  test("6. Search, filter, and export the submissions", async ({ page }) => {
+    helpers.log("=== Filtering And Exporting Submissions ===");
+
+    for (const person of ["carol", "dave"]) {
+      const response = await helpers.submitToForm(formSlug, formToken, {
+        email: `${person}@example.com`,
+        message: `A note from ${person}`,
+      });
+      expect(response.status()).toBe(200);
+    }
+
+    await helpers.navigateTo("/admin/submissions");
+    const rows = page.locator('form[data-select-rows] li');
+
+    // The search runs while you type, and the box keeps the focus.
+    await page.locator("#submission-search").pressSequentially("carol@example.com");
+    await page.waitForURL(/q=carol/);
+    await expect(rows.filter({ hasText: "carol@example.com" }).first()).toBeVisible();
+    await expect(rows.filter({ hasText: "dave@example.com" })).toHaveCount(0);
+    await expect(page.locator("#submission-search")).toBeFocused();
+    await expect(page.locator("#submission-search")).toHaveValue("carol@example.com");
+
+    // A time choice is one click, and it keeps the search.
+    await page.click('a.seg-btn:has-text("7 days")');
+    await page.waitForURL(/range=7d/);
+    expect(page.url()).toContain("q=carol");
+    await expect(page.locator('a.seg-btn[aria-current="true"]').first()).toHaveText("7 days");
+
+    // The export has the rows that the filters show.
+    const [download] = await Promise.all([
+      page.waitForEvent("download"),
+      page.click('a:has-text("Export CSV")'),
+    ]);
+    expect(download.suggestedFilename()).toMatch(/^submissions-.*\.csv$/);
+    const csv = require("node:fs").readFileSync(await download.path(), "utf8");
+    expect(csv.split("\n")[0]).toContain("received,form,spam");
+    expect(csv).toContain("carol@example.com");
+    expect(csv).not.toContain("dave@example.com");
+
+    // "Clear the filters" shows everything again.
+    await page.click('a:has-text("Clear the filters")');
+    await expect(rows.filter({ hasText: "dave@example.com" }).first()).toBeVisible();
+
+    helpers.log("✅ Search, filters, and export work");
   });
 });

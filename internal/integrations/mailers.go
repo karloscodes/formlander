@@ -5,10 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"log/slog"
 	"gorm.io/gorm"
-
-	"formlander/internal/pkg/dbtxn"
+	"log/slog"
 )
 
 // MailerProfileParams holds parameters for creating/updating a mailer profile
@@ -78,7 +76,7 @@ func CreateMailerProfile(logger *slog.Logger, db *gorm.DB, params MailerProfileP
 		SMTPEncryption:   strings.TrimSpace(params.SMTPEncryption),
 	}
 
-	if err := dbtxn.WithRetry(logger, db, func(tx *gorm.DB) error {
+	if err := db.Transaction(func(tx *gorm.DB) error {
 		return tx.Create(profile).Error
 	}); err != nil {
 		logger.Error("failed to create mailer profile", slog.Any("error", err))
@@ -120,7 +118,7 @@ func UpdateMailerProfile(logger *slog.Logger, db *gorm.DB, id uint, params Maile
 		}
 	}
 
-	if err := dbtxn.WithRetry(logger, db, func(tx *gorm.DB) error {
+	if err := db.Transaction(func(tx *gorm.DB) error {
 		return tx.Model(profile).Updates(map[string]any{
 			"name":               name,
 			"provider":           strings.TrimSpace(params.Provider),
@@ -146,7 +144,7 @@ func UpdateMailerProfile(logger *slog.Logger, db *gorm.DB, id uint, params Maile
 
 // DeleteMailerProfile deletes a mailer profile
 func DeleteMailerProfile(logger *slog.Logger, db *gorm.DB, id uint) error {
-	return dbtxn.WithRetry(logger, db, func(tx *gorm.DB) error {
+	return db.Transaction(func(tx *gorm.DB) error {
 		return tx.Delete(&MailerProfile{}, id).Error
 	})
 }

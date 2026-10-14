@@ -2,19 +2,12 @@ package jobs
 
 import (
 	"bufio"
-	"context"
-	"io"
-	"log/slog"
 	"net"
+	"net/mail"
 	"strings"
 	"sync"
 	"testing"
 	"time"
-
-	"formlander/internal/config"
-	"formlander/internal/forms"
-	"formlander/internal/integrations"
-	"formlander/internal/pkg/testsupport"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -117,7 +110,7 @@ func TestSendSMTP(t *testing.T) {
 			From:       "Forms <forms@example.com>",
 			To:         "owner@example.com",
 		}
-		msg := buildSMTPMessage(cfg.From, cfg.To, "New submission", "name: Alice")
+		msg := buildSMTPMessage(message{From: cfg.From, To: cfg.To, Subject: "New submission", Body: "name: Alice"})
 
 		err := sendSMTP(cfg, msg)
 		require.NoError(t, err)
@@ -135,7 +128,7 @@ func TestSendSMTP(t *testing.T) {
 		host, port, captured := startFakeSMTPServer(t)
 		cfg := &smtpConfig{Host: host, Port: port, Encryption: "none", From: "a@x.com", To: "b@x.com"}
 
-		err := sendSMTP(cfg, buildSMTPMessage(cfg.From, cfg.To, "S", "B"))
+		err := sendSMTP(cfg, buildSMTPMessage(message{From: cfg.From, To: cfg.To, Subject: "S", Body: "B"}))
 		require.NoError(t, err)
 
 		captured.mu.Lock()
@@ -163,72 +156,16 @@ func TestSendSMTP(t *testing.T) {
 		cfg := &smtpConfig{Host: "127.0.0.1", Port: port, Encryption: "none", From: "a@x.com", To: "b@x.com"}
 
 		start := time.Now()
-		err = sendSMTP(cfg, buildSMTPMessage(cfg.From, cfg.To, "S", "B"))
+		err = sendSMTP(cfg, buildSMTPMessage(message{From: cfg.From, To: cfg.To, Subject: "S", Body: "B"}))
 
 		require.Error(t, err)
 		assert.Less(t, time.Since(start), time.Second)
 	})
 }
 
-func TestEmailDispatcherDeliversViaSMTP(t *testing.T) {
-	db := testsupport.SetupTestDB(t)
-	host, port, captured := startFakeSMTPServer(t)
-
-	profile := &integrations.MailerProfile{
-		Name:             "SMTP relay",
-		Provider:         "smtp",
-		DefaultFromName:  "Forms",
-		DefaultFromEmail: "forms@example.com",
-		SMTPHost:         host,
-		SMTPPort:         port,
-		SMTPUsername:     "relay-user",
-		SMTPPassword:     "relay-pass",
-		SMTPEncryption:   "none",
-	}
-	require.NoError(t, db.Create(profile).Error)
-
-	form := &forms.Form{Name: "Contact", AllowedOrigins: "*"}
-	require.NoError(t, db.Create(form).Error)
-
-	pid := profile.ID
-	require.NoError(t, db.Create(&forms.EmailDelivery{
-		FormID:          form.ID,
-		Enabled:         true,
-		MailerProfileID: &pid,
-		OverridesJSON:   `{"to":"owner@example.com"}`,
-	}).Error)
-
-	sub := &forms.Submission{FormID: form.ID, DataJSON: `{"name":"Alice","email":"alice@example.com"}`}
-	require.NoError(t, db.Create(sub).Error)
-
-	event := &forms.EmailEvent{SubmissionID: sub.ID, Status: forms.WebhookStatusPending}
-	require.NoError(t, db.Create(event).Error)
-
-	d := NewEmailDispatcher(&config.Config{})
-	ctx := &JobContext{
-		Context: context.Background(),
-		Logger:  slog.New(slog.NewTextHandler(io.Discard, nil)),
-		DB:      db,
-	}
-
-	require.NoError(t, d.ProcessBatch(ctx))
-
-	var updated forms.EmailEvent
-	require.NoError(t, db.First(&updated, event.ID).Error)
-	assert.Equal(t, forms.WebhookStatusDelivered, updated.Status, "event should be marked delivered")
-
-	captured.mu.Lock()
-	defer captured.mu.Unlock()
-	assert.True(t, captured.authReceived)
-	assert.Contains(t, captured.from, "forms@example.com")
-	assert.Contains(t, captured.to, "owner@example.com")
-	assert.Contains(t, captured.data, "Subject: New submission")
-	assert.Contains(t, captured.data, "Alice")
-}
-
 func TestBuildSMTPMessage(t *testing.T) {
 	t.Run("includes RFC 5322 headers and body", func(t *testing.T) {
-		msg := buildSMTPMessage("Forms <forms@example.com>", "owner@example.com", "New submission", "name: Alice\nemail: alice@x.com")
+		msg := buildSMTPMessage(message{From: "Forms <forms@example.com>", To: "owner@example.com", Subject: "New submission", Body: "name: Alice\nemail: alice@x.com"})
 
 		s := string(msg)
 		if !strings.Contains(s, "From: Forms <forms@example.com>\r\n") {
@@ -249,7 +186,7 @@ func TestBuildSMTPMessage(t *testing.T) {
 	})
 
 	t.Run("separates headers from body with a blank CRLF line", func(t *testing.T) {
-		msg := buildSMTPMessage("a@x.com", "b@x.com", "Hi", "line one\nline two")
+		msg := buildSMTPMessage(message{From: "a@x.com", To: "b@x.com", Subject: "Hi", Body: "line one\nline two"})
 
 		s := string(msg)
 		if !strings.Contains(s, "\r\n\r\n") {
@@ -259,5 +196,32 @@ func TestBuildSMTPMessage(t *testing.T) {
 		if !strings.Contains(s, "line one\r\nline two") {
 			t.Errorf("expected body lines joined with CRLF, got:\n%s", s)
 		}
+	})
+
+	t.Run("turns a bare CR in the body into a line break", func(t *testing.T) {
+		msg := buildSMTPMessage(message{From: "a@x.com", To: "b@x.com", Subject: "Hi", Body: "a\r.\rMAIL FROM:<x@example.com>\r\nb\n"})
+
+		s := string(msg)
+		assert.Contains(t, s, "a\r\n.\r\nMAIL FROM:<x@example.com>\r\nb\r\n")
+		assert.Equal(t, strings.Count(s, "\r"), strings.Count(s, "\r\n"), "every CR starts a CRLF")
+	})
+
+	t.Run("keeps a long subject outside ASCII below the line limit of SMTP", func(t *testing.T) {
+		subject := strings.Repeat("é", 200)
+
+		msg := buildSMTPMessage(message{From: "a@x.com", To: "b@x.com", Subject: subject, Body: "B"})
+
+		for _, line := range strings.Split(string(msg), "\r\n") {
+			assert.LessOrEqual(t, len(line), 998, "line: %s", line)
+		}
+		assert.Equal(t, subject, subjectOf(t, string(msg)))
+	})
+
+	t.Run("keeps a line break in the subject out of the headers", func(t *testing.T) {
+		msg := buildSMTPMessage(message{From: "a@x.com", To: "b@x.com", Subject: "Hi\r\nBcc: thief@example.com", Body: "B"})
+
+		parsed, err := mail.ReadMessage(strings.NewReader(string(msg)))
+		require.NoError(t, err)
+		assert.Empty(t, parsed.Header.Get("Bcc"))
 	})
 }

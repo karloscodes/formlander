@@ -12,8 +12,6 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 	"log/slog"
-
-	"formlander/internal/pkg/dbtxn"
 )
 
 var (
@@ -173,7 +171,7 @@ func Authenticate(logger *slog.Logger, db *gorm.DB, email, password string) (*Au
 	now := time.Now()
 	user.LastLoginAt = &now
 
-	if err := dbtxn.WithRetry(logger, db, func(tx *gorm.DB) error {
+	if err := db.Transaction(func(tx *gorm.DB) error {
 		return tx.Save(&user).Error
 	}); err != nil {
 		logger.Error("failed to update last login timestamp", slog.Any("error", err), slog.String("email", email))
@@ -230,7 +228,7 @@ func ChangeEmail(logger *slog.Logger, db *gorm.DB, currentEmail, newEmail, curre
 
 	user.Email = newEmail
 
-	if err := dbtxn.WithRetry(logger, db, func(tx *gorm.DB) error {
+	if err := db.Transaction(func(tx *gorm.DB) error {
 		return tx.Save(&user).Error
 	}); err != nil {
 		logger.Error("failed to update email", slog.Any("error", err), slog.String("email", currentEmail))
@@ -273,7 +271,7 @@ func ResetPassword(logger *slog.Logger, db *gorm.DB, email, newPassword string) 
 	changedAt := time.Now()
 	user.PasswordChangedAt = &changedAt
 
-	if err := dbtxn.WithRetry(logger, db, func(tx *gorm.DB) error {
+	if err := db.Transaction(func(tx *gorm.DB) error {
 		return tx.Save(user).Error
 	}); err != nil {
 		logger.Error("failed to update password", slog.Any("error", err), slog.String("email", email))

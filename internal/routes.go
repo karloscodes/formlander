@@ -1,68 +1,68 @@
 package internal
 
 import (
+	"io/fs"
+	"net/http"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/cors"
-	"github.com/gofiber/fiber/v2/middleware/limiter"
 	"github.com/karloscodes/cartridge"
+	ratelimit "github.com/karloscodes/cartridge/middleware"
 
-	"formlander/internal/accounts"
 	"formlander/internal/config"
 	httphandlers "formlander/internal/http"
-	"formlander/internal/middleware"
+	"formlander/web"
 )
 
 // MountRoutes registers all application routes.
 func MountRoutes(s *cartridge.Server, cfg *config.Config) {
 	// Store formlander config and session in all requests for handlers
-	s.App().Use(func(c *fiber.Ctx) error {
-		c.Locals("app_config", cfg)
-		c.Locals("session", s.Session())
-		return c.Next()
+	s.Use(func(ctx *cartridge.Context) error {
+		ctx.Locals("app_config", cfg)
+		return ctx.Next()
 	})
 
 	// Health Check - support both GET and HEAD requests
 	healthHandler := func(ctx *cartridge.Context) error {
-		return ctx.Status(fiber.StatusOK).JSON(fiber.Map{"status": "ok"})
+		return ctx.Status(http.StatusOK).JSON(cartridge.Map{"status": "ok"})
 	}
 	s.Get("/_health", healthHandler)
-	s.App().Head("/_health", func(c *fiber.Ctx) error {
-		return c.Status(fiber.StatusOK).JSON(fiber.Map{"status": "ok"})
-	})
+	s.Head("/_health", healthHandler)
+	// /up is the health path of the Chasen standard, so `chasen deploy
+	// karloscodes/formlander` needs no settings. /_health stays for the
+	// installs of the installer, which check it.
+	s.Get("/up", healthHandler)
+	s.Head("/up", healthHandler)
 
 	s.Get("/", func(ctx *cartridge.Context) error {
 		return ctx.Redirect("/admin")
+	})
+
+	// The SDK runs on the sites of the users, from a URL they paste once.
+	// Other sites may load it, and a new version reaches them within 4 hours:
+	// the other assets carry ?v= and keep the cache of a year.
+	sdk, err := fs.ReadFile(web.Static, "formlander.js")
+	if err != nil {
+		panic(err)
+	}
+	s.Get("/assets/formlander.js", func(ctx *cartridge.Context) error {
+		ctx.Set("Cross-Origin-Resource-Policy", "cross-origin")
+		ctx.Set("Cache-Control", "public, max-age=14400")
+		ctx.Set("Content-Type", "text/javascript; charset=utf-8")
+		return ctx.Send(sdk)
 	})
 
 	// Public demo page
 	s.Get("/_demo", httphandlers.DemoContactForm)
 
 	// Build middleware chain for public routes (rate limiting disabled in dev/test)
-	publicMiddleware := []fiber.Handler{
-		limiter.New(limiter.Config{
-			Max:        30,
-			Expiration: 60 * time.Second,
-			KeyGenerator: func(c *fiber.Ctx) string {
-				return middleware.ClientIP(c)
-			},
-			LimitReached: func(c *fiber.Ctx) error {
-				return c.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{
-					"error": "rate limit exceeded",
-				})
-			},
-			Next: func(c *fiber.Ctx) bool {
-				// Skip rate limiting in dev/test mode
-				return cfg.IsDevelopment() || cfg.IsTest()
-			},
-		}),
+	publicMiddleware := []cartridge.HandlerFunc{
+		ratelimit.RateLimiter(ratelimit.WithMax(30), ratelimit.WithDuration(time.Minute), ratelimit.WithEnv(cfg)),
 	}
 
 	publicConfig := &cartridge.RouteConfig{
 		EnableSecFetchSite: cartridge.Bool(false), // Public APIs accept cross-origin requests
 		EnableCORS:         true,
-		CORSConfig: &cors.Config{
+		CORSConfig: &cartridge.CORSConfig{
 			AllowOrigins: "*",
 			AllowMethods: "POST,OPTIONS",
 			AllowHeaders: "Content-Type, Authorization, User-Agent",
@@ -74,31 +74,25 @@ func MountRoutes(s *cartridge.Server, cfg *config.Config) {
 	s.Post("/forms/:slug/submit", httphandlers.PublicFormSubmission, publicConfig)
 	s.Get("/forms/sent", httphandlers.SubmissionSent)
 	s.Options("/forms/:slug/submit", func(ctx *cartridge.Context) error {
-		return ctx.SendStatus(fiber.StatusNoContent)
+		return ctx.SendStatus(http.StatusNoContent)
 	}, publicConfig)
 
 	s.Get("/admin/login", httphandlers.AdminLoginPage)
 
 	// Rate limit login attempts: 5 per minute per IP (disabled in dev/test mode)
-	loginRateLimiter := limiter.New(limiter.Config{
-		Max:        5,
-		Expiration: 60 * time.Second,
-		KeyGenerator: func(c *fiber.Ctx) string {
-			return middleware.ClientIP(c)
-		},
-		LimitReached: func(c *fiber.Ctx) error {
-			return c.Status(fiber.StatusTooManyRequests).Render("layouts/base", fiber.Map{
+	loginRateLimiter := ratelimit.RateLimiter(
+		ratelimit.WithMax(5),
+		ratelimit.WithDuration(time.Minute),
+		ratelimit.WithEnv(cfg),
+		ratelimit.WithLimitReached(func(ctx *cartridge.Context) error {
+			return ctx.Render("layouts/base", cartridge.Map{
 				"Title":             "Sign in",
 				"Error":             "Too many login attempts. Please try again in a minute.",
 				"HideHeaderActions": true,
 				"ContentView":       "admin/login/content",
 			}, "")
-		},
-		Next: func(c *fiber.Ctx) bool {
-			// Skip rate limiting in dev/test mode
-			return cfg.IsDevelopment() || cfg.IsTest()
-		},
-	})
+		}),
+	)
 
 	// Disable Sec-Fetch-Site enforcement on login: cartridge's strict
 	// middleware rejects requests missing the header (older browsers,
@@ -108,12 +102,12 @@ func MountRoutes(s *cartridge.Server, cfg *config.Config) {
 	// submit credentials they don't already control.
 	s.Post("/admin/login", httphandlers.AdminLoginSubmit, &cartridge.RouteConfig{
 		EnableSecFetchSite: cartridge.Bool(false),
-		CustomMiddleware:   []fiber.Handler{loginRateLimiter},
+		CustomMiddleware:   []cartridge.HandlerFunc{loginRateLimiter},
 	})
 
 	// Auth config for protected routes: a valid session.
 	authConfig := &cartridge.RouteConfig{
-		CustomMiddleware: []fiber.Handler{s.Session().Middleware(), endStaleSessions(s)},
+		CustomMiddleware: []cartridge.HandlerFunc{s.Session().Middleware()},
 	}
 
 	// Protected routes (require a logged-in session).
@@ -125,8 +119,11 @@ func MountRoutes(s *cartridge.Server, cfg *config.Config) {
 	s.Get("/admin/forms/:id", httphandlers.AdminFormShow, authConfig)
 	s.Get("/admin/forms/:id/edit", httphandlers.AdminFormsEdit, authConfig)
 	s.Post("/admin/forms/:id", httphandlers.AdminFormsUpdate, authConfig)
+	s.Get("/admin/submissions/export.csv", httphandlers.SubmissionsExport, authConfig)
 	s.Get("/admin/submissions/:id", httphandlers.AdminSubmissionShow, authConfig)
 	s.Get("/admin/submissions/:id/files/:file_id", httphandlers.AdminSubmissionFileDownload, authConfig)
+	s.Post("/admin/submissions/delete", httphandlers.AdminSubmissionsDelete, authConfig)
+	s.Post("/admin/submissions/:id/delete", httphandlers.AdminSubmissionDelete, authConfig)
 
 	// Settings routes
 	s.Get("/admin/settings", httphandlers.AdminSettingsPage, authConfig)
@@ -143,6 +140,7 @@ func MountRoutes(s *cartridge.Server, cfg *config.Config) {
 	s.Get("/admin/settings/mailers/:id/edit", httphandlers.MailerProfileEdit, authConfig)
 	s.Post("/admin/settings/mailers/:id", httphandlers.MailerProfileUpdate, authConfig)
 	s.Post("/admin/settings/mailers/:id/delete", httphandlers.MailerProfileDelete, authConfig)
+	s.Post("/admin/settings/mailers/:id/test", httphandlers.MailerProfileTest, authConfig)
 
 	// Captcha Profile routes
 	s.Get("/admin/settings/captcha", httphandlers.CaptchaProfileList, authConfig)
@@ -152,25 +150,18 @@ func MountRoutes(s *cartridge.Server, cfg *config.Config) {
 	s.Get("/admin/settings/captcha/:id/edit", httphandlers.CaptchaProfileEdit, authConfig)
 	s.Post("/admin/settings/captcha/:id", httphandlers.CaptchaProfileUpdate, authConfig)
 	s.Post("/admin/settings/captcha/:id/delete", httphandlers.CaptchaProfileDelete, authConfig)
+	s.Post("/admin/settings/captcha/:id/test", httphandlers.CaptchaProfileTest, authConfig)
+
+	// Webhook Profile routes
+	s.Get("/admin/settings/webhooks", httphandlers.WebhookProfileList, authConfig)
+	s.Get("/admin/settings/webhooks/new", httphandlers.WebhookProfileNew, authConfig)
+	s.Post("/admin/settings/webhooks", httphandlers.WebhookProfileCreate, authConfig)
+	s.Get("/admin/settings/webhooks/:id", httphandlers.WebhookProfileShow, authConfig)
+	s.Get("/admin/settings/webhooks/:id/edit", httphandlers.WebhookProfileEdit, authConfig)
+	s.Post("/admin/settings/webhooks/:id", httphandlers.WebhookProfileUpdate, authConfig)
+	s.Post("/admin/settings/webhooks/:id/delete", httphandlers.WebhookProfileDelete, authConfig)
+	s.Post("/admin/settings/webhooks/:id/test", httphandlers.WebhookProfileTest, authConfig)
 
 	// Submissions routes
 	s.Get("/admin/submissions", httphandlers.SubmissionList, authConfig)
-}
-
-// endStaleSessions signs out sessions issued before the last password
-// change, and sessions of users that no longer exist.
-func endStaleSessions(s *cartridge.Server) fiber.Handler {
-	return func(c *fiber.Ctx) error {
-		session := s.Session()
-		userID, ok := session.GetUserID(c)
-		issuedAt, _ := session.IssuedAt(c)
-		if ok {
-			user, err := accounts.FindByID(s.GetDBManager().GetConnection(), userID)
-			if err == nil && user.SessionIsCurrent(issuedAt) {
-				return c.Next()
-			}
-		}
-		session.ClearSession(c)
-		return c.Redirect("/admin/login")
-	}
 }

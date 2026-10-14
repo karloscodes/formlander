@@ -27,7 +27,8 @@ test.describe("Settings Management", () => {
 
     const pageContent = await page.textContent("body");
     expect(pageContent).toContain("Settings");
-    expect(pageContent).toContain("Account");
+    expect(pageContent).toContain("Connections");
+    expect(pageContent).toContain("Password");
 
     helpers.log("✅ Settings page loaded");
   });
@@ -57,7 +58,6 @@ test.describe("Settings Management", () => {
     await page.fill('input[name="domain"]', "mg.example.com");
     await page.fill('input[name="default_from_name"]', "Test Sender");
     await page.fill('input[name="default_from_email"]', `test+${Date.now()}@example.com`);
-    await page.fill('textarea[name="defaults_json"]', '{"tags":["formlander-e2e"]}');
 
     await page.click('form[action="/admin/settings/mailers"] button[type="submit"]');
     await page.waitForURL("**/admin/settings/mailers");
@@ -86,12 +86,16 @@ test.describe("Settings Management", () => {
     const captchaName = `test-turnstile-${Date.now()}`;
     const siteKey = `0xTEST-${Date.now()}`;
 
-    // Fill out the new captcha form manually (select fields need special handling)
+    // The form asks for the two keys that Cloudflare shows. The rest is optional.
     await page.fill('input[name="name"]', captchaName);
-    await page.selectOption('select[name="provider"]', "turnstile");
+    await page.fill('input[name="site_key"]', siteKey);
     await page.fill('input[name="secret_key"]', "1x0000000000000000000000000000000AA");
-    await page.fill('textarea[name="site_keys_json"]', JSON.stringify([{ host_pattern: "*", site_key: siteKey }], null, 2));
-    await page.fill('textarea[name="policy_json"]', JSON.stringify({ required: true, action: "submit" }, null, 2));
+
+    // More options: the look and the language of the widget. No JSON.
+    await page.click('summary:has-text("More options")');
+    await page.selectOption('select[name="theme"]', "dark");
+    await page.selectOption('select[name="size"]', "compact");
+    await page.fill('input[name="language"]', "es");
 
     await page.click('form[action="/admin/settings/captcha"] button[type="submit"]');
     await page.waitForURL("**/admin/settings/captcha");

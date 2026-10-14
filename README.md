@@ -43,30 +43,37 @@ Forms work without the SDK via standard HTML POST. The SDK is purely an enhancem
 
 ## Installation
 
-### One-Line Install (Recommended for VPS/Servers)
+Formlander runs on your own server with [Chasen](https://chasenhq.com): HTTPS, live backups of the database, and an update each night.
 
-Install Formlander with Docker, Caddy reverse proxy, and automatic SSL certificates:
+### On your server
+
+On a fresh Ubuntu or Debian server, as root:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/karloscodes/formlander/master/install.sh | sudo bash
+curl -fsSL https://formlander.com/install | sudo bash -s forms.example.com
 ```
 
-This interactive installer will:
-- Check system requirements (Docker, ports 80/443)
-- Prompt for your domain name
-- Set up Caddy as a reverse proxy with automatic HTTPS
-- Configure automatic daily backups
-- Start the Formlander container
+Put your domain in place of `forms.example.com`. It installs Chasen (and Docker, when the server has none), runs Formlander, and prints the admin email and the first password. Run it again to update Formlander now.
 
-After installation, access your dashboard at `https://your-domain.com`. The installer prints the admin email and a random first password. The password is also in `/var/matcha/formlander/storage/initial-admin-password` until you change it in Settings.
+### From your computer
 
-**Management commands:**
 ```bash
-formlander update              # Update to latest version
-formlander reload              # Reload containers
-formlander restore-db          # Restore from backup
-formlander change-admin-password  # Reset admin password
+curl -fsSL https://chasenhq.com/cli | sh
+chasen deploy karloscodes/formlander --server root@203.0.113.5 --domain forms.example.com --auto-update
 ```
+
+The first deploy installs Chasen on the server through SSH. `--auto-update` gives the same nightly update.
+
+### After the install
+
+- The server needs Ubuntu or Debian, ports 80 and 443 open, and an A record for your domain.
+- Sign in at `https://forms.example.com` as `admin@formlander.local`, then change the password in Settings. To read the first password again: `chasen -a formlander run cat /app/storage/initial-admin-password`.
+- No settings needed: Chasen gives Formlander its session secret and keeps `/app/storage` across deploys. With a bucket (`chasen bucket`), Chasen copies each change of the database to it as it happens, about a second behind. It also takes a checked snapshot every hour and before each deploy. It does not back up `/app/storage/uploads`: back that up yourself if your forms take files.
+- Everyday commands: `chasen -a formlander status`, `logs`, `backups`, `restore`, `rollback`. See [the Chasen docs](https://chasenhq.com/docs/).
+
+### The installer (existing servers)
+
+Servers that the older installer set up keep working as they are, and the install line changes nothing on them: its nightly update, its backups, and the `formlander` commands on the server (`formlander update`, `reload`, `restore-db`, `change-admin-password`). Their first password is in `/var/matcha/formlander/storage/initial-admin-password` until you change it. To move one to Chasen, see [Move to Chasen](https://formlander.com/docs/move-to-chasen/).
 
 ---
 
@@ -86,19 +93,19 @@ echo "Save this secret: $FORMLANDER_SESSION_SECRET"
 
 ```bash
 docker run -d \
-  -p 8080:8080 \
-  -e FORMLANDER_SESSION_SECRET="your-saved-secret-here" \
+  -p 127.0.0.1:8080:8080 \
+  -e FORMLANDER_SESSION_SECRET="$FORMLANDER_SESSION_SECRET" \
   -v $(pwd)/storage:/app/storage \
   karloscodes/formlander:latest
 ```
 
 **Important:** Use the same `FORMLANDER_SESSION_SECRET` value across restarts to prevent logging out all users.
 
-**HTTPS is required.** The Docker image runs in production mode, which marks the session cookie `Secure`. Without TLS in front (Caddy, Nginx, Traefik, etc.) browsers silently drop the cookie and login appears to fail. The bundled `install.sh` sets up Caddy with automatic certificates; if you roll your own with docker-compose, put a TLS terminator in front of `:8080`.
+**HTTPS is required.** The Docker image runs in production mode, which marks the session cookie `Secure`. Without TLS in front (Caddy, Nginx, Traefik, etc.) browsers silently drop the cookie and login appears to fail. The bundled `install.sh` sets up Caddy with automatic certificates; if you roll your own with docker-compose, put a TLS terminator in front of `:8080`. Publish the port on `127.0.0.1` only, as above: Formlander trusts `X-Forwarded-For` from private addresses, so only your proxy should reach it.
 
 Access the admin dashboard at `http://localhost:8080`:
 - Email: `admin@formlander.local`
-- Password: random, generated on first start. Find it with `docker logs <container>`, or in `storage/initial-admin-password`. Change it in Settings after you sign in.
+- Password: random, generated on first start. Find it in `storage/initial-admin-password`, or with `docker exec <container> cat /app/storage/initial-admin-password`. Change it in Settings after you sign in.
 
 ### Running the Binary
 
@@ -124,13 +131,14 @@ Formlander uses [Viper](https://github.com/spf13/viper) for flexible configurati
 - Environment variables always override `.env` file values
 
 **Required Environment Variable (Production Only):**
-- `FORMLANDER_SESSION_SECRET` - HMAC secret for signing session cookies (fixed default in dev/test)
+- `FORMLANDER_SESSION_SECRET` - HMAC secret for signing session cookies, 32 characters or more. Formlander replaces a shorter or public value with a random one.
 
 **Optional Environment Variables:**
 - `FORMLANDER_ENV` - Environment mode: `development`, `production` (default: `development` for binary / `go run`; the Docker image sets `production`)
 - `FORMLANDER_PORT` - HTTP port (default: `8080`)
 - `FORMLANDER_LOG_LEVEL` - Log level: `debug`, `info`, `warn`, `error` (default: `error`)
 - `FORMLANDER_DATA_DIR` - Data directory path (default: `./storage`)
+- `FORMLANDER_LOGS_DIR` - Log files (default: `./storage/logs`; the Docker image sets `/app/logs`). Every line also goes to stdout
 
 > **Note:** In development/test, a fixed default secret is used if not set, allowing sessions to persist across restarts.
 
@@ -140,7 +148,7 @@ Formlander uses [Viper](https://github.com/spf13/viper) for flexible configurati
 ```bash
 FORMLANDER_ENV=production
 FORMLANDER_PORT=8080
-FORMLANDER_SESSION_SECRET=your-secret-here
+FORMLANDER_SESSION_SECRET=<the output of openssl rand -hex 32>
 FORMLANDER_LOG_LEVEL=info
 FORMLANDER_DATA_DIR=./storage
 ```

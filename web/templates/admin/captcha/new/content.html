@@ -1,131 +1,136 @@
 {{ define "admin/captcha/new/content" }}
-<div class="mx-auto max-w-3xl space-y-8 px-4 py-8 sm:px-6 lg:px-8">
-    <!-- Header -->
+<div class="page-settings space-y-6">
     <div>
-        <h1 class="text-3xl font-bold tracking-tight text-gray-900">{{ if .IsEdit }}Edit{{ else }}New{{ end }} Captcha Profile</h1>
-        <p class="mt-2 text-sm text-gray-600">Configure Turnstile settings for multi-domain form protection</p>
+        {{ if .IsEdit }}
+        <a href="/admin/settings/captcha/{{ .Profile.ID }}" class="back">← {{ if .Profile.Name }}{{ .Profile.Name }}{{ else }}Captcha{{ end }}</a>
+        {{ else }}
+        <a href="/admin/settings/captcha" class="back">← Captchas</a>
+        {{ end }}
+        <h1 class="page-title mt-2">{{ if .IsEdit }}Edit{{ else }}New{{ end }} Captcha Profile</h1>
+        <p class="page-note">A captcha stops robots from filling your forms. One profile can protect many forms.</p>
     </div>
 
     {{ if .Error }}
-    <div class="rounded-lg border-2 border-rose-500 bg-rose-50 px-4 py-3">
-        <p class="text-sm font-medium text-rose-900">✗ {{ .Error }}</p>
-    </div>
+    <div class="notice notice-bad">{{ .Error }}</div>
     {{ end }}
 
     <form method="POST" action="{{ if .IsEdit }}/admin/settings/captcha/{{ .Profile.ID }}{{ else }}/admin/settings/captcha{{ end }}" class="space-y-6">
-        <!-- Basic Info -->
-        <div class="rounded-xl border border-gray-200 bg-white shadow-sm">
-            <div class="border-b border-gray-200 px-6 py-4">
-                <h2 class="text-lg font-semibold text-gray-900">Basic Information</h2>
+        <div class="card">
+            <div class="card-head">
+                <h2 class="card-title">1. Make a widget at Cloudflare</h2>
+                <p class="card-note">Free</p>
             </div>
-            <div class="space-y-6 p-6">
+            <ol class="list-decimal space-y-1.5 px-5 py-5 pl-10 text-sm text-stone-700 sm:px-6 sm:pl-11">
+                <li>Open the <a href="https://dash.cloudflare.com/?to=/:account/turnstile" target="_blank" rel="noopener" class="link">Cloudflare dashboard</a> and go to <b>Turnstile</b>.</li>
+                <li>Click <b>Add widget</b>. Add every domain that shows your forms, for example <code class="mono">example.com</code>.</li>
+                <li>Cloudflare shows a <b>Site Key</b> and a <b>Secret Key</b>. Paste both below.</li>
+            </ol>
+        </div>
+
+        <div class="card">
+            <div class="card-head">
+                <h2 class="card-title">2. Paste the keys</h2>
+            </div>
+            <div class="space-y-5 p-5 sm:p-6">
                 <div>
-                    <label for="name" class="block text-sm font-medium text-gray-700">Profile Name</label>
-                    <input type="text" id="name" name="name" value="{{ if .Profile }}{{ .Profile.Name }}{{ end }}" required
-                        class="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 shadow-sm transition-colors focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20">
-                    <p class="mt-1 text-xs text-gray-500">Unique identifier for this profile (e.g., "public_forms")</p>
+                    <label for="name" class="field-label">Profile Name</label>
+                    <input type="text" id="name" name="name" value="{{ .Profile.Name }}" required class="field-input" placeholder="My site">
+                    <p class="field-help">Only you see it. It tells your profiles apart.</p>
+                </div>
+
+                <input type="hidden" name="provider" value="turnstile">
+
+                <div>
+                    <label for="site_key" class="field-label">Site Key</label>
+                    <input type="text" id="site_key" name="site_key" value="{{ .SiteKey }}" class="field-input mono" placeholder="0x4AAAAAAA...">
+                    <p class="field-help">Public. It goes into the code of your form.</p>
                 </div>
 
                 <div>
-                    <label for="provider" class="block text-sm font-medium text-gray-700">Provider</label>
-                    <select id="provider" name="provider" required
-                        class="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 shadow-sm transition-colors focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20">
-                        <option value="turnstile" {{ if and .Profile (eq .Profile.Provider "turnstile") }}selected{{ end }}>Cloudflare Turnstile</option>
+                    <label for="secret_key" class="field-label">Secret Key</label>
+                    <input type="password" id="secret_key" name="secret_key" autocomplete="off" class="field-input mono" placeholder="{{ if .IsEdit }}Leave empty to keep the saved key{{ else }}0x4AAAAAAA...{{ end }}" {{ if not .IsEdit }}required{{ end }}>
+                    <p class="field-help">Private. Formlander uses it to check each captcha with Cloudflare. It never appears in your form code.</p>
+                </div>
+            </div>
+        </div>
+
+        <details class="card" {{ if or .Host .MoreKeys .Policy.Size .Policy.Language (ne .Policy.Theme "auto") (ne .Policy.Action "submit") }}open{{ end }}>
+            <summary class="cursor-pointer px-5 py-4 text-sm font-medium text-stone-900 sm:px-6">More options <span class="font-normal text-stone-500">: the look and the language</span></summary>
+            <div class="space-y-6 border-t border-stone-100 p-5 sm:p-6">
+                <div>
+                    <label for="theme" class="field-label">Theme</label>
+                    <select id="theme" name="theme" class="field-input">
+                        <option value="auto" {{ if eq .Policy.Theme "auto" }}selected{{ end }}>Follow the visitor's device</option>
+                        <option value="light" {{ if eq .Policy.Theme "light" }}selected{{ end }}>Light</option>
+                        <option value="dark" {{ if eq .Policy.Theme "dark" }}selected{{ end }}>Dark</option>
+                    </select>
+                    <p class="field-help">The colours of the captcha box on your site.</p>
+                </div>
+
+                <div>
+                    <label for="size" class="field-label">Size</label>
+                    <select id="size" name="size" class="field-input">
+                        <option value="" {{ if not .Policy.Size }}selected{{ end }}>Normal</option>
+                        <option value="compact" {{ if eq .Policy.Size "compact" }}selected{{ end }}>Compact, for a narrow column</option>
+                        <option value="flexible" {{ if eq .Policy.Size "flexible" }}selected{{ end }}>Flexible, as wide as the form</option>
                     </select>
                 </div>
-            </div>
-        </div>
 
-        <!-- Provider Configuration -->
-        <div class="rounded-xl border border-gray-200 bg-white shadow-sm">
-            <div class="border-b border-gray-200 px-6 py-4">
-                <h2 class="text-lg font-semibold text-gray-900">Provider Configuration</h2>
-            </div>
-            <div class="space-y-6 p-6">
-                <div class="rounded-lg border border-gray-200 bg-gray-50 p-4">
-                    <p class="text-sm font-medium text-gray-900">How to get your keys</p>
-                    <ol class="mt-2 list-decimal space-y-1 pl-5 text-sm text-gray-600">
-                        <li>Sign in to the <a href="https://dash.cloudflare.com/?to=/:account/turnstile" target="_blank" rel="noopener noreferrer" class="font-medium text-blue-600 hover:text-blue-700">Cloudflare dashboard</a> and open <strong>Turnstile</strong>. A free account works.</li>
-                        <li>Click <strong>Add widget</strong>. Add every domain that shows your forms, for example <code class="rounded bg-gray-200 px-1 py-0.5 text-xs">example.com</code>. Keep the widget mode on <strong>Managed</strong>.</li>
-                        <li>Create the widget. Cloudflare shows a <strong>Site Key</strong> and a <strong>Secret Key</strong>.</li>
-                        <li>Paste the Secret Key below. Put the Site Key in <strong>Site Keys</strong>, with the same domain.</li>
-                    </ol>
+                <div>
+                    <label for="language" class="field-label">Language</label>
+                    <input type="text" id="language" name="language" value="{{ .Policy.Language }}" class="field-input" placeholder="The language of the visitor">
+                    <p class="field-help">Leave it empty and Cloudflare uses the language of the visitor. To set one language, type its code: <code class="mono">es</code>, <code class="mono">de</code>, <code class="mono">pt-BR</code>.</p>
                 </div>
 
                 <div>
-                    <label for="secret_key" class="block text-sm font-medium text-gray-700">Secret Key</label>
-                    <input type="password" id="secret_key" name="secret_key" value="{{ if .Profile }}{{ .Profile.SecretKey }}{{ end }}"
-                        class="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 font-mono text-sm shadow-sm transition-colors focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                        placeholder="0x4A...">
-                    <p class="mt-1 text-xs text-gray-500">Formlander uses it to check each captcha with Cloudflare. It never appears in your form code.</p>
+                    <label for="action" class="field-label">Action name</label>
+                    <input type="text" id="action" name="action" value="{{ if ne .Policy.Action "submit" }}{{ .Policy.Action }}{{ end }}" class="field-input mono" placeholder="submit">
+                    <p class="field-help">A label for the Turnstile statistics in Cloudflare. It tells the captchas of this profile apart from others. Most people leave it.</p>
                 </div>
-            </div>
-        </div>
 
-        <!-- Site Keys -->
-        <div class="rounded-xl border border-gray-200 bg-white shadow-sm">
-            <div class="border-b border-gray-200 px-6 py-4">
-                <h2 class="text-lg font-semibold text-gray-900">Site Keys (Multi-Domain)</h2>
-                <p class="mt-1 text-sm text-gray-600">Configure different site keys for different domains</p>
-            </div>
-            <div class="p-6">
-                <label for="site_keys_json" class="block text-sm font-medium text-gray-700">
-                    Site Keys Configuration <span class="font-mono text-xs text-gray-500">[ JSON Array ]</span>
-                </label>
-                <textarea id="site_keys_json" name="site_keys_json" rows="8" required
-                    class="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 font-mono text-sm shadow-sm transition-colors focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                    placeholder='[
-  {"host_pattern": "example.com", "site_key": "0x4A..."},
-  {"host_pattern": "*.example.com", "site_key": "0x4B..."}
-]'>{{ if .Profile }}{{ .Profile.SiteKeysJSON }}{{ end }}</textarea>
-                <div class="mt-2 rounded-lg border border-blue-200 bg-blue-50 p-3">
-                    <p class="text-xs font-medium text-blue-900">Format:</p>
-                    <ul class="mt-1 space-y-1 text-xs text-blue-800">
-                        <li>• <code class="rounded bg-blue-100 px-1 py-0.5">host_pattern</code>: Domain or wildcard pattern (e.g., "example.com", "*.example.com")</li>
-                        <li>• <code class="rounded bg-blue-100 px-1 py-0.5">site_key</code>: Turnstile site key for that domain</li>
-                        <li>• System matches the embedding domain against patterns to select the correct site key</li>
-                    </ul>
+                {{ if or .Host .MoreKeys }}
+                <div>
+                    <p class="field-label">One widget for each domain</p>
+                    <p class="field-help">Skip this when one widget covers all your sites. Use it when you have a different Site Key for each domain: say which domain the Site Key above is for, then add the other domains.</p>
+
+                    <div class="mt-4 space-y-3">
+                        <div>
+                            <label for="host_pattern" class="text-sm text-stone-700">Domain of the Site Key above</label>
+                            <input type="text" id="host_pattern" name="host_pattern" value="{{ .Host }}" class="field-input mono" placeholder="Every site">
+                        </div>
+
+                        {{ range .MoreKeys }}
+                        <div class="flex flex-wrap items-end gap-2" data-row>
+                            <label class="min-w-0 flex-1 basis-40 text-sm text-stone-700">Domain
+                                <input type="text" name="host_pattern" value="{{ .HostPattern }}" class="field-input mono" placeholder="example.org">
+                            </label>
+                            <label class="min-w-0 flex-1 basis-40 text-sm text-stone-700">Site Key
+                                <input type="text" name="site_key" value="{{ .SiteKey }}" class="field-input mono" placeholder="0x4AAAAAAA...">
+                            </label>
+                            <button type="button" class="btn btn-small mb-1" data-remove-row>Remove</button>
+                        </div>
+                        {{ end }}
+                        <template id="site-key-row">
+                            <div class="flex flex-wrap items-end gap-2" data-row>
+                                <label class="min-w-0 flex-1 basis-40 text-sm text-stone-700">Domain
+                                    <input type="text" name="host_pattern" class="field-input mono" placeholder="example.org">
+                                </label>
+                                <label class="min-w-0 flex-1 basis-40 text-sm text-stone-700">Site Key
+                                    <input type="text" name="site_key" class="field-input mono" placeholder="0x4AAAAAAA...">
+                                </label>
+                                <button type="button" class="btn btn-small mb-1" data-remove-row>Remove</button>
+                            </div>
+                        </template>
+                        <button type="button" class="btn btn-small" data-add-row="site-key-row">Add a domain</button>
+                    </div>
                 </div>
+                {{ end }}
             </div>
-        </div>
+        </details>
 
-        <!-- Policy Settings -->
-        <div class="rounded-xl border border-gray-200 bg-white shadow-sm">
-            <div class="border-b border-gray-200 px-6 py-4">
-                <h2 class="text-lg font-semibold text-gray-900">Policy Settings</h2>
-                <p class="mt-1 text-sm text-gray-600">Default verification policy for forms</p>
-            </div>
-            <div class="p-6">
-                <label for="policy_json" class="block text-sm font-medium text-gray-700">
-                    Policy Configuration <span class="font-mono text-xs text-gray-500">{ JSON }</span>
-                </label>
-                <textarea id="policy_json" name="policy_json" rows="6"
-                    class="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 font-mono text-sm shadow-sm transition-colors focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                    placeholder='{"required": true, "action": "form_submit", "theme": "light"}'>{{ if .Profile }}{{ .Profile.PolicyJSON }}{{ end }}</textarea>
-                <div class="mt-2 rounded-lg border border-amber-200 bg-amber-50 p-3">
-                    <p class="text-xs font-medium text-amber-900">Optional Fields:</p>
-                    <ul class="mt-1 space-y-1 text-xs text-amber-800">
-                        <li>• <code class="rounded bg-amber-100 px-1 py-0.5">required</code>: Whether captcha is mandatory (boolean)</li>
-                        <li>• <code class="rounded bg-amber-100 px-1 py-0.5">action</code>: Turnstile action identifier (string)</li>
-                        <li>• <code class="rounded bg-amber-100 px-1 py-0.5">theme</code>: Widget theme: "light", "dark", or "auto"</li>
-                    </ul>
-                </div>
-            </div>
-        </div>
-
-        <!-- Actions -->
         <div class="flex justify-end gap-3">
-            <a href="/admin/settings/captcha"
-                class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-5 py-2.5 text-sm font-medium text-gray-700 shadow-sm transition-all hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
-                Cancel
-            </a>
-            <button type="submit"
-                class="inline-flex items-center rounded-lg border border-transparent bg-blue-600 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition-all hover:bg-blue-700 hover:shadow focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
-                <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-                </svg>
-                {{ if .IsEdit }}Save Changes{{ else }}Create Profile{{ end }}
-            </button>
+            <a href="{{ if .IsEdit }}/admin/settings/captcha/{{ .Profile.ID }}{{ else }}/admin/settings/captcha{{ end }}" class="btn">Cancel</a>
+            <button type="submit" class="btn-primary">{{ if .IsEdit }}Save Changes{{ else }}Create Profile{{ end }}</button>
         </div>
     </form>
 </div>
