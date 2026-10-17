@@ -27,6 +27,8 @@ import (
 	"formlander/internal/config"
 	"formlander/internal/forms"
 	"formlander/internal/integrations"
+	"formlander/internal/server"
+	"formlander/web"
 )
 
 // Smoke tests for the Sec-Fetch-Site boundary on /admin routes.
@@ -70,9 +72,13 @@ func mountTestServer(t *testing.T) *cartridgetestsupport.TestServer {
 
 	// The session check uses the database of the server, which exists once
 	// NewTestServer returns; the check runs only during requests.
+	views := cartridge.DefaultServerConfig()
+	views.ViewsEngine = cartridge.NewHTMLViews(web.Templates, server.TemplateFuncs(), false)
+
 	var ts *cartridgetestsupport.TestServer
 	ts = cartridgetestsupport.NewTestServer(t, cartridgetestsupport.TestServerOptions{
-		Models: models,
+		Models:       models,
+		ServerConfig: views,
 		RouteMountFunc: func(s *cartridge.Server) {
 			sessions, err := cartridge.NewSessionManager(cartridge.SessionConfig{
 				CookieName: "formlander_session",
@@ -1000,8 +1006,12 @@ func TestMailerProfileSendsItsPasswordOnlyToItsServer(t *testing.T) {
 	t.Run("refuses a new host when the password is not typed again", func(t *testing.T) {
 		ts, profile, post := setup(t)
 
-		post(fmt.Sprintf("/admin/settings/mailers/%d", profile.ID), update("smtp.attacker.example", ""))
+		resp := post(fmt.Sprintf("/admin/settings/mailers/%d", profile.ID), update("smtp.attacker.example", ""))
 
+		body, err := io.ReadAll(resp.Body)
+		require.NoError(t, err)
+		assert.Equal(t, 200, resp.StatusCode, "a boosted edit form only shows an error page when the status is 2xx")
+		assert.Contains(t, string(body), "Type the SMTP password again.")
 		after := saved(t, ts, profile.ID)
 		assert.Equal(t, "smtp.example.com", after.SMTPHost)
 		assert.Equal(t, "dummy-secret", after.SMTPPassword)
@@ -1096,6 +1106,39 @@ func signInGet(t *testing.T, ts *cartridgetestsupport.TestServer) func(path stri
 		require.NoError(t, err)
 		return resp
 	}
+}
+
+// A boosted form shows a validation error only when htmx swaps the response.
+// htmx 1.9.12 swaps 2xx and leaves the page unchanged on 4xx.
+func TestValidationErrorsAreVisibleUnderBoost(t *testing.T) {
+	prev := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
+	t.Cleanup(func() { slog.SetDefault(prev) })
+
+	t.Run("a wrong password renders the login error", func(t *testing.T) {
+		ts := mountTestServer(t)
+		seedAdmin(t, ts, "admin@example.com", "a-good-password")
+		req := httptest.NewRequest("POST", "/admin/login", strings.NewReader("email=admin@example.com&password=wrong-password"))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+		resp, err := ts.Server.Test(req)
+
+		require.NoError(t, err)
+		body, err := io.ReadAll(resp.Body)
+		require.NoError(t, err)
+		assert.Equal(t, 200, resp.StatusCode)
+		assert.Contains(t, string(body), "Invalid credentials")
+	})
+
+	t.Run("a new form with no name renders the error", func(t *testing.T) {
+		ts := mountTestServer(t)
+		resp := signIn(t, ts)("/admin/forms", "name=&slug=&allowed_origins=")
+
+		body, err := io.ReadAll(resp.Body)
+		require.NoError(t, err)
+		assert.Equal(t, 200, resp.StatusCode)
+		assert.Contains(t, string(body), "Name is required")
+	})
 }
 
 // The SDK loads on the sites of the users: a browser refuses a script from
