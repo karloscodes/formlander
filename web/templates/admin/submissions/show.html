@@ -10,8 +10,8 @@
         <div class="mt-2 flex flex-wrap items-center justify-between gap-3">
             <h1 class="page-title min-w-0 break-words">{{ if who .Submission.DataJSON }}{{ who .Submission.DataJSON }}{{ else }}Submission {{ .Submission.ID }}{{ end }}{{ if .Submission.IsSpam }} <span class="pill pill-warn align-middle">spam</span>{{ end }}</h1>
             <div class="flex items-center gap-2">
-                {{/* iOS Safari reports the page hostname for a mailto link, so boost would cancel the tap. */}}
-                {{ if .ReplyTo }}<a href="mailto:{{ .ReplyTo }}" hx-boost="false" class="btn-primary">Reply by email</a>{{ end }}
+                {{ if .ReplyTo }}<a href="mailto:{{ .ReplyTo }}" class="btn-primary">Reply by email</a>
+                <button type="button" class="btn btn-small" data-address="{{ .ReplyTo }}" onclick="copyText(this.getAttribute('data-address'), this)">Copy address</button>{{ end }}
                 <form method="post" action="/admin/submissions/{{ .Submission.ID }}/delete" hx-boost="false"
                     onsubmit="return confirm('Delete this submission{{ if .Submission.Files }} and its files{{ end }}? You cannot undo it.')">
                     <input type="hidden" name="return_to" value="{{ .ReturnTo }}">

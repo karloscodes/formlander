@@ -27,7 +27,7 @@
                 <a href="/admin/submissions" class="nav-link">Submissions</a>
                 <a href="/admin/settings" class="nav-link">Settings</a>
             </nav>
-            <form action="/admin/logout" method="post" class="ml-auto" data-clear-history>
+            <form action="/admin/logout" method="post" class="ml-auto">
                 <button type="submit" class="nav-link">Sign out</button>
             </form>
             {{ end }}
@@ -42,19 +42,14 @@
         Formlander, by <a href="https://x.com/karloscodes" target="_blank" rel="noopener" class="hover:text-stone-900">@karloscodes</a>
     </footer>
     <script>
+        // Drop any page htmx saved. This runs on every load, including after
+        // a session expires, so Back cannot restore a snapshot.
+        try { localStorage.removeItem('htmx-history-cache'); } catch (e) {}
+
         // The page changes without a full reload, so this script runs again
         // with each page. The listeners go on once.
         if (!window.formlanderAdmin) {
             window.formlanderAdmin = true;
-
-            // Sign-out drops pages htmx already saved. hx-history="false"
-            // stops new snapshots; this removes the ones from before that,
-            // which hold submissions and secrets after the session ends.
-            document.addEventListener('submit', function (event) {
-                if (event.target.matches('form[data-clear-history]')) {
-                    try { localStorage.removeItem('htmx-history-cache'); } catch (e) {}
-                }
-            }, true);
 
             // A thin bar at the top while a page loads.
             document.body.addEventListener('htmx:beforeRequest', function () {
