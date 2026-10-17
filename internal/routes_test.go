@@ -1006,8 +1006,12 @@ func TestMailerProfileSendsItsPasswordOnlyToItsServer(t *testing.T) {
 	t.Run("refuses a new host when the password is not typed again", func(t *testing.T) {
 		ts, profile, post := setup(t)
 
-		post(fmt.Sprintf("/admin/settings/mailers/%d", profile.ID), update("smtp.attacker.example", ""))
+		resp := post(fmt.Sprintf("/admin/settings/mailers/%d", profile.ID), update("smtp.attacker.example", ""))
 
+		body, err := io.ReadAll(resp.Body)
+		require.NoError(t, err)
+		assert.Equal(t, 200, resp.StatusCode, "a boosted edit form only shows an error page when the status is 2xx")
+		assert.Contains(t, string(body), "Type the SMTP password again.")
 		after := saved(t, ts, profile.ID)
 		assert.Equal(t, "smtp.example.com", after.SMTPHost)
 		assert.Equal(t, "dummy-secret", after.SMTPPassword)
