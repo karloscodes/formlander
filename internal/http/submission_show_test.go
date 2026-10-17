@@ -3,6 +3,7 @@ package http
 import (
 	"bytes"
 	"html/template"
+	"io/fs"
 	"strings"
 	"testing"
 	"time"
@@ -38,21 +39,21 @@ func TestSubmissionShowReplyHref(t *testing.T) {
 
 	doc, err := html.Parse(strings.NewReader(page))
 	require.NoError(t, err)
-	var reply, copy *html.Node
+	var reply, copyButton *html.Node
 	walkElements(doc, func(n *html.Node) {
 		if n.Data == "a" && attr(n, "class") == "btn-primary" {
 			reply = n
 		}
 		if n.Data == "button" && textContent(n) == "Copy address" {
-			copy = n
+			copyButton = n
 		}
 	})
 	require.NotNil(t, reply)
 	assert.Equal(t, "mailto:"+address, attr(reply, "href"))
 	assert.Empty(t, attr(reply, "hx-boost"))
-	require.NotNil(t, copy)
-	assert.Equal(t, address, attr(copy, "data-address"))
-	assert.Contains(t, attr(copy, "onclick"), "copyText")
+	require.NotNil(t, copyButton)
+	assert.Equal(t, address, attr(copyButton, "data-address"))
+	assert.Contains(t, attr(copyButton, "onclick"), "copyText")
 }
 
 func TestAdminLayoutDoesNotCacheHistory(t *testing.T) {
@@ -88,6 +89,27 @@ func TestAdminLayoutDoesNotCacheHistory(t *testing.T) {
 	require.NotNil(t, inline)
 	assert.NotContains(t, inline.FirstChild.Data, "htmx.")
 	assert.NotContains(t, inline.FirstChild.Data, "data-clear-history")
+	assert.Contains(t, inline.FirstChild.Data, "execCommand('copy')")
+	assert.Contains(t, inline.FirstChild.Data, "createElement('textarea')")
+}
+
+// A script in a page template runs before the deferred htmx file, so it
+// cannot call htmx yet. The same check covers the layout and every page.
+func TestTemplatesDoNotCallHtmxBeforeItLoads(t *testing.T) {
+	err := fs.WalkDir(web.Templates, ".", func(path string, entry fs.DirEntry, err error) error {
+		if err != nil || entry.IsDir() || !strings.HasSuffix(path, ".html") {
+			return err
+		}
+		body, err := fs.ReadFile(web.Templates, path)
+		if err != nil {
+			return err
+		}
+		for _, script := range inlineScriptBodies(string(body)) {
+			assert.NotContains(t, script, "htmx.", path)
+		}
+		return nil
+	})
+	require.NoError(t, err)
 }
 
 func TestSubmissionSearchSwapsOnlyTheResults(t *testing.T) {
@@ -131,6 +153,52 @@ func TestSubmissionSearchSwapsOnlyTheResults(t *testing.T) {
 func TestSubmissionsFilterLinksKeepTheSearch(t *testing.T) {
 	assert.Equal(t, "/admin/submissions?q=ada&range=7d", submissionsURL("", "7d", "", "ada", 1))
 	assert.Equal(t, "/admin/submissions?q=ada&spam=no", submissionsURL("", "", "no", "ada", 1))
+}
+
+// A filter link inherits the form's hx-target, so the click swaps
+// #submission-filters and leaves the rest of the form alone. The range and
+// spam fields live in that block, or the next search would send the old ones.
+func TestSubmissionFiltersCarryRangeAndSpam(t *testing.T) {
+	tmpl := parseTemplates(t, "admin/submissions/index.html", "admin/submissions/list.html")
+
+	page := render(t, tmpl, "admin/submissions/index/content", map[string]any{
+		"TotalCount":  int64(0),
+		"SpamCount":   int64(0),
+		"Submissions": []forms.Submission{},
+		"Forms":       []forms.Form{},
+		"Search":      "ada",
+		"Range":       "7d",
+		"Spam":        "no",
+		"Ranges":      []filterLink{{Label: "7 days", URL: submissionsURL("", "7d", "no", "ada", 1), On: true}},
+		"SpamChoices": []filterLink{{Label: "No spam", URL: submissionsURL("", "7d", "no", "ada", 1), On: true}},
+	})
+
+	doc, err := html.Parse(strings.NewReader(page))
+	require.NoError(t, err)
+	form := findElement(doc, func(n *html.Node) bool {
+		return n.Data == "form" && hasAttr(n, "data-live-search")
+	})
+	filters := findElement(form, func(n *html.Node) bool { return attr(n, "id") == "submission-filters" })
+	require.NotNil(t, filters)
+
+	var ranges, spams []*html.Node
+	walkElements(form, func(n *html.Node) {
+		if n.Data != "input" {
+			return
+		}
+		switch attr(n, "name") {
+		case "range":
+			ranges = append(ranges, n)
+		case "spam":
+			spams = append(spams, n)
+		}
+	})
+	require.Len(t, ranges, 1)
+	require.Len(t, spams, 1)
+	assert.True(t, containsElement(filters, ranges[0]))
+	assert.True(t, containsElement(filters, spams[0]))
+	assert.Equal(t, "7d", attr(ranges[0], "value"))
+	assert.Equal(t, "no", attr(spams[0], "value"))
 }
 
 func parseTemplates(t *testing.T, files ...string) *template.Template {
@@ -189,6 +257,37 @@ func hasAttr(n *html.Node, key string) bool {
 		}
 	}
 	return false
+}
+
+// inlineScriptBodies returns the text of every <script> that has no src.
+// A script with a src runs the file, not the body, so it is left out.
+func inlineScriptBodies(src string) []string {
+	var bodies []string
+	rest := src
+	for {
+		lower := strings.ToLower(rest)
+		start := strings.Index(lower, "<script")
+		if start < 0 {
+			return bodies
+		}
+		rest = rest[start:]
+		lower = strings.ToLower(rest)
+		endOpen := strings.Index(lower, ">")
+		if endOpen < 0 {
+			return bodies
+		}
+		open := lower[:endOpen]
+		rest = rest[endOpen+1:]
+		lower = strings.ToLower(rest)
+		end := strings.Index(lower, "</script>")
+		if end < 0 {
+			return bodies
+		}
+		if !strings.Contains(open, "src=") {
+			bodies = append(bodies, rest[:end])
+		}
+		rest = rest[end+len("</script>"):]
+	}
 }
 
 func textContent(n *html.Node) string {

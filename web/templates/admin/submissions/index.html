@@ -36,9 +36,10 @@
                 <option value="{{ .ID }}" {{ if eq $.FormID (printf "%d" .ID) }}selected{{ end }}>{{ .Name }}</option>
                 {{ end }}
             </select>
+            <div id="submission-filters" class="flex flex-wrap items-center gap-x-3 gap-y-2">
+            <!-- These ride with the links. A filter click swaps only this block, so the values stay current. -->
             <input type="hidden" name="range" value="{{ .Range }}">
             <input type="hidden" name="spam" value="{{ .Spam }}">
-            <div id="submission-filters" class="flex flex-wrap items-center gap-x-3 gap-y-2">
             <div class="seg" role="group" aria-label="Time">
                 {{ range .Ranges }}<a href="{{ .URL }}" class="seg-btn" {{ if .On }}aria-current="true"{{ end }}>{{ .Label }}</a>{{ end }}
             </div>

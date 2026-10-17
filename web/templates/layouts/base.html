@@ -59,13 +59,32 @@
                 setTimeout(function () { document.getElementById('page-loader').style.opacity = '0'; }, 300);
             });
 
-            // Copy a text and say so on the button, for a moment.
+            // Copy a text and say so on the button, for a moment. Plain HTTP
+            // has no navigator.clipboard, so a textarea copies there.
             window.copyText = function (text, button) {
-                navigator.clipboard.writeText(text).then(function () {
+                var done = function () {
                     var label = button.textContent;
                     button.textContent = 'Copied';
                     setTimeout(function () { button.textContent = label; }, 1500);
-                });
+                };
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(text).then(done);
+                    return;
+                }
+                var area = document.createElement('textarea');
+                area.value = text;
+                area.setAttribute('readonly', '');
+                area.style.position = 'fixed';
+                area.style.left = '-9999px';
+                document.body.appendChild(area);
+                area.select();
+                var copied = false;
+                try {
+                    copied = document.execCommand('copy');
+                } finally {
+                    document.body.removeChild(area);
+                }
+                if (copied) done();
             };
 
             // The code of a form, and an example of it. A panel has the source
