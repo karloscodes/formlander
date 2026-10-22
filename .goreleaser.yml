@@ -129,6 +129,9 @@ release:
   github:
     owner: karloscodes
     name: formlander
+  # auto follows the current tag: a hyphen makes a prerelease. The Release
+  # workflow sets GORELEASER_CURRENT_TAG, so a stable tag that shares its
+  # commit with an -rc tag is not published as that prerelease.
   prerelease: auto
   mode: replace
   header: |
