@@ -251,7 +251,7 @@ func ChangePassword(logger *slog.Logger, db *gorm.DB, email, currentPassword, ne
 }
 
 // ResetPassword sets a new password without the current one. Only the
-// server operator can call it, through `formlander change-admin-password`.
+// server operator can call it, through `formlander reset-admin-password` in the container.
 func ResetPassword(logger *slog.Logger, db *gorm.DB, email, newPassword string) error {
 	if len(newPassword) < 8 {
 		return ErrWeakPassword

@@ -4,12 +4,10 @@ go 1.26.10
 
 require (
 	github.com/karloscodes/cartridge v1.9.1
-	github.com/karloscodes/matcha v0.12.18
 	github.com/spf13/viper v1.21.0
 	github.com/stretchr/testify v1.11.1
 	golang.org/x/crypto v0.57.0
 	golang.org/x/net v0.60.0
-	golang.org/x/term v0.46.0
 	gorm.io/driver/sqlite v1.6.0
 	gorm.io/gorm v1.31.2
 )

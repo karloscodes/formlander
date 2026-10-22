@@ -4,31 +4,20 @@ before:
   hooks:
     - go mod tidy
 
+# No binaries: Formlander ships as an image, and the Dockerfile builds it.
+# The `formlander-linux-*` binaries of v3.8.0 and before were the older
+# installer. Its servers update themselves from the newest release; with no
+# binary there, they keep the one they have and still pull the new image.
+# A release must never attach a `formlander-linux-*` again: a binary without
+# the installer commands would end the nightly update of those servers.
 builds:
-  - id: formlander
-    main: ./cmd/formlander
-    binary: formlander
-    env:
-      - CGO_ENABLED=0
-    goos:
-      - linux
-    goarch:
-      - amd64
-      - arm64
-    ldflags:
-      - -s -w
-      - -X main.version={{.Version}}
-      - -X main.commit={{.Commit}}
-      - -X main.buildTime={{.Date}}
+  - skip: true
 
-# Create binaries with pattern: formlander-v1.0.0-amd64
 archives:
-  - id: binary
-    format: binary
-    name_template: "{{ .ProjectName }}-linux-{{ .Arch }}"
+  - formats: [none]
 
 checksum:
-  name_template: "checksums.txt"
+  disable: true
 
 changelog:
   sort: asc
@@ -145,7 +134,7 @@ release:
     curl -fsSL https://formlander.com/install | sudo bash -s forms.example.com
     ```
 
-    It installs Chasen and runs Formlander: HTTPS, live backups of the database, and an update each night. From your computer instead: `chasen deploy karloscodes/formlander --server root@203.0.113.5 --domain forms.example.com --auto-update`. Servers that the older installer set up update themselves as before.
+    It installs Chasen and runs Formlander: HTTPS, live backups of the database, and an update each night. From your computer instead: `chasen deploy karloscodes/formlander --server root@203.0.113.5 --domain forms.example.com --auto-update`. Servers that the older installer set up keep their nightly update.
 
     ### Quick Start with Docker (Manual)
 

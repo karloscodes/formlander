@@ -4,6 +4,8 @@
 
 Formlander is a self-hosted form backend written in Go. It uses Phoenix Context Architecture to organize code into bounded contexts with clear separation of concerns.
 
+It ships as an image that Chasen deploys. The `formlander` binary only serves the app (plus `reset-admin-password` inside the container). Since 22 October 2026 (user: remove matcha) it has no installer commands, and releases attach no binaries. Never attach a `formlander-linux-*` binary to a release again: servers of the older installer update themselves from the newest release, and a binary without `update` would end their nightly update. v3.8.0 is the last release with that installer; `e2e/move-to-chasen.sh` sets up its old server from it.
+
 ## Architecture Patterns
 
 ### Phoenix Context Architecture

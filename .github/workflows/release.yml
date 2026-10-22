@@ -217,11 +217,6 @@ jobs:
           echo "- A stable release also moves \`latest\`, \`v<major>\`, and \`v<major>.<minor>\`. A release candidate does not." >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Platforms" >> $GITHUB_STEP_SUMMARY
-          echo "**Binaries:**" >> $GITHUB_STEP_SUMMARY
-          echo "- Linux (amd64, arm64)" >> $GITHUB_STEP_SUMMARY
-          echo "- macOS (amd64, arm64)" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Docker:**" >> $GITHUB_STEP_SUMMARY
           echo "- linux/amd64" >> $GITHUB_STEP_SUMMARY
           echo "- linux/arm64" >> $GITHUB_STEP_SUMMARY
 

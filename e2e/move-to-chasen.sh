@@ -21,7 +21,8 @@ login() {
 
 echo "--- a server of the older installer"
 case "$(uname -m)" in x86_64) arch=amd64 ;; aarch64) arch=arm64 ;; *) fail "no build for $(uname -m)" ;; esac
-curl -fsSL -o /tmp/formlander "https://github.com/karloscodes/formlander/releases/latest/download/formlander-linux-$arch"
+# v3.8.0 is the last release with the binary of the older installer.
+curl -fsSL -o /tmp/formlander "https://github.com/karloscodes/formlander/releases/download/v3.8.0/formlander-linux-$arch"
 sudo install -m 755 /tmp/formlander /usr/local/bin/formlander
 printf '%s\ny\n' "$host" | sudo formlander install >/tmp/old-install.log 2>&1 || { cat /tmp/old-install.log; fail "the older installer failed"; }
 for _ in $(seq 30); do [[ "$(web -o /dev/null -w '%{http_code}' http://127.0.0.1/_health)" == 200 ]] && break; sleep 2; done
