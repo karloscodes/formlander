@@ -107,22 +107,6 @@ Access the admin dashboard at `http://localhost:8080`:
 - Email: `admin@formlander.local`
 - Password: random, generated on first start. Find it in `storage/initial-admin-password`, or with `docker exec <container> cat /app/storage/initial-admin-password`. Change it in Settings after you sign in.
 
-### Running the Binary
-
-1. Download the latest release from the [Releases page](https://github.com/karloscodes/formlander/releases)
-2. Generate and save your session secret:
-   ```bash
-   # Generate once and save this value
-   export FORMLANDER_SESSION_SECRET=$(openssl rand -hex 32)
-   echo "Save this secret: $FORMLANDER_SESSION_SECRET"
-   
-   export FORMLANDER_DATA_DIR=./storage
-   ```
-3. Run the binary:
-   ```bash
-   ./formlander
-   ```
-
 ## Configuration
 
 Formlander uses [Viper](https://github.com/spf13/viper) for flexible configuration. You can configure via:
@@ -171,7 +155,7 @@ FORMLANDER_DATA_DIR=./storage
 
 ## Releases
 
-Formlander uses semantic versioning. Docker images are published via GitHub Releases when version tags are pushed.
+Formlander uses semantic versioning, and each release is a Docker image. A release candidate comes each Monday; after six days it becomes the stable release. A security update ships at once as a patch release. See [Releases](https://formlander.com/docs/releases/).
 
 ### Docker Images
 
@@ -179,14 +163,16 @@ Formlander uses semantic versioning. Docker images are published via GitHub Rele
 # Latest stable release
 docker pull karloscodes/formlander:latest
 
-# Specific version
-docker pull karloscodes/formlander:v1.0.0
+# One version: the tag without the v
+docker pull karloscodes/formlander:3.8.0
 
-# Major version (receives minor + patch updates)
-docker pull karloscodes/formlander:v1
+# A major or minor line: it moves with each stable release in it
+docker pull karloscodes/formlander:v3
+docker pull karloscodes/formlander:v3.8
+
+# The newest release candidate
+docker pull karloscodes/formlander:rc
 ```
-
-**Note:** Docker images are published automatically via GitHub Actions when a version tag (e.g., `v1.0.0`) is pushed to the repository.
 
 ### Building from Source
 
