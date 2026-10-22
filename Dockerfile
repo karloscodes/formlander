@@ -3,7 +3,9 @@
 ###############################################################################
 # Build stage
 ###############################################################################
-FROM golang:1.26.10-alpine AS builder
+# Same Alpine as the runtime stage. golang:1.26.10-alpine tracks a newer
+# Alpine, and this binary is built with CGO, so its musl must match.
+FROM golang:1.26.10-alpine3.23 AS builder
 
 ARG TARGETARCH
 ARG COMMIT_SHA=dev
