@@ -9,9 +9,10 @@
     <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg?v={{ assetVersion }}">
     <link rel="preload" href="/assets/fonts/geist.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="stylesheet" href="/assets/app.built.css?v={{ assetVersion }}">
+    <script src="/assets/vendor/htmx.min.js?v={{ assetVersion }}" defer></script>
 </head>
 
-<body hx-boost="true" class="flex min-h-screen flex-col bg-stone-100 text-stone-900 antialiased">
+<body hx-boost="true" hx-history="false" class="flex min-h-screen flex-col bg-stone-100 text-stone-900 antialiased">
     <div id="page-loader"></div>
 
     <header class="bg-stone-950 text-white">
@@ -40,8 +41,11 @@
     <footer class="py-6 text-center text-xs text-stone-500">
         Formlander, by <a href="https://x.com/karloscodes" target="_blank" rel="noopener" class="hover:text-stone-900">@karloscodes</a>
     </footer>
-    <script src="/assets/vendor/htmx.min.js?v={{ assetVersion }}"></script>
     <script>
+        // Drop any page htmx saved. This runs on every load, including after
+        // a session expires, so Back cannot restore a snapshot.
+        try { localStorage.removeItem('htmx-history-cache'); } catch (e) {}
+
         // The page changes without a full reload, so this script runs again
         // with each page. The listeners go on once.
         if (!window.formlanderAdmin) {
@@ -55,13 +59,32 @@
                 setTimeout(function () { document.getElementById('page-loader').style.opacity = '0'; }, 300);
             });
 
-            // Copy a text and say so on the button, for a moment.
+            // Copy a text and say so on the button, for a moment. Plain HTTP
+            // has no navigator.clipboard, so a textarea copies there.
             window.copyText = function (text, button) {
-                navigator.clipboard.writeText(text).then(function () {
+                var done = function () {
                     var label = button.textContent;
                     button.textContent = 'Copied';
                     setTimeout(function () { button.textContent = label; }, 1500);
-                });
+                };
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(text).then(done);
+                    return;
+                }
+                var area = document.createElement('textarea');
+                area.value = text;
+                area.setAttribute('readonly', '');
+                area.style.position = 'fixed';
+                area.style.left = '-9999px';
+                document.body.appendChild(area);
+                area.select();
+                var copied = false;
+                try {
+                    copied = document.execCommand('copy');
+                } finally {
+                    document.body.removeChild(area);
+                }
+                if (copied) done();
             };
 
             // The code of a form, and an example of it. A panel has the source

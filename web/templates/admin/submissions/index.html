@@ -24,7 +24,8 @@
 
     <div class="card overflow-hidden">
         <!-- The filters. Each one applies at once, and keeps the others. -->
-        <form method="GET" action="/admin/submissions" class="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-stone-200 bg-stone-50 px-5 py-3 sm:px-6" data-live-search>
+        <form method="GET" action="/admin/submissions" class="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-stone-200 bg-stone-50 px-5 py-3 sm:px-6" data-live-search
+            hx-target="#submission-results" hx-select="#submission-results" hx-swap="outerHTML" hx-select-oob="#submission-filters">
             <label class="relative min-w-0 flex-1 basis-60">
                 <svg class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-400" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5 14 14"/></svg>
                 <input type="search" id="submission-search" name="q" value="{{ .Search }}" placeholder="Search a name, an email, or a word" aria-label="Search the submissions" autocomplete="off" class="field-compact w-full pl-9">
@@ -35,6 +36,8 @@
                 <option value="{{ .ID }}" {{ if eq $.FormID (printf "%d" .ID) }}selected{{ end }}>{{ .Name }}</option>
                 {{ end }}
             </select>
+            <div id="submission-filters" class="flex flex-wrap items-center gap-x-3 gap-y-2">
+            <!-- These ride with the links. A filter click swaps only this block, so the values stay current. -->
             <input type="hidden" name="range" value="{{ .Range }}">
             <input type="hidden" name="spam" value="{{ .Spam }}">
             <div class="seg" role="group" aria-label="Time">
@@ -45,8 +48,10 @@
                 {{ range .SpamChoices }}<a href="{{ .URL }}" class="seg-btn" {{ if .On }}aria-current="true"{{ end }}>{{ .Label }}</a>{{ end }}
             </div>
             {{ end }}
+            </div>
         </form>
 
+        <div id="submission-results">
         {{ if .Submissions }}
         {{ template "admin/submissions/list" . }}
 
@@ -65,6 +70,7 @@
             <p class="mt-1 text-sm text-stone-600">{{ if .Filtered }}Change the search, the form, or the time. <a href="/admin/submissions" class="link">Clear the filters</a>{{ else }}They arrive here when someone sends one of your forms.{{ end }}</p>
         </div>
         {{ end }}
+        </div>
     </div>
 </div>
 {{ end }}
