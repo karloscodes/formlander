@@ -2,7 +2,6 @@ package jobs
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -100,11 +99,13 @@ func (d *EmailDispatcher) handleEvent(ctx *JobContext, db *gorm.DB, event *forms
 	if subject == "" {
 		subject = fmt.Sprintf("New submission · %s", form.Name)
 	}
+	fields := submissionFields(event.Submission.DataJSON)
 	err := d.send(ctx, profile, message{
 		To:      overrides.To,
 		ReplyTo: replyTo(event.Submission),
 		Subject: subject,
-		Body:    bodyForEvent(event),
+		Body:    notificationText(form.Name, fields),
+		HTML:    notificationHTML(form.Name, fields),
 	})
 
 	var incomplete configError
@@ -219,6 +220,9 @@ func (d *EmailDispatcher) sendMailgun(ctx context.Context, profile *integrations
 	}
 	values.Set("subject", m.Subject)
 	values.Set("text", m.Body)
+	if m.HTML != "" {
+		values.Set("html", m.HTML)
+	}
 
 	endpoint := fmt.Sprintf("%s/v3/%s/messages", mailgunAPI, profile.Domain)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, strings.NewReader(values.Encode()))
@@ -255,29 +259,4 @@ func (d *EmailDispatcher) markEmailDelivered(ctx *JobContext, db *gorm.DB, event
 	event.LastAttemptAt = &last
 	event.LastAttemptErr = ""
 	event.NextAttemptAt = nil
-}
-
-func bodyForEvent(event *forms.EmailEvent) string {
-	var payload map[string]any
-	if err := json.Unmarshal([]byte(event.Submission.DataJSON), &payload); err != nil {
-		payload = map[string]any{"raw": event.Submission.DataJSON}
-	}
-	return renderEmailBody(payload)
-}
-
-func renderEmailBody(payload map[string]any) string {
-	lines := make([]string, 0, len(payload)*2+2)
-	lines = append(lines, "New submission received:")
-	lines = append(lines, "")
-
-	for key, value := range payload {
-		serialized, err := json.MarshalIndent(value, "", "  ")
-		if err != nil {
-			serialized = []byte(fmt.Sprintf("%v", value))
-		}
-		lines = append(lines, fmt.Sprintf("%s:\n%s", key, string(serialized)))
-		lines = append(lines, "")
-	}
-
-	return strings.Join(lines, "\n")
 }

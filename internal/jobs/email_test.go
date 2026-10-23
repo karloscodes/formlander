@@ -5,6 +5,7 @@ import (
 	"io"
 	"log/slog"
 	"mime"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"net/mail"
@@ -79,6 +80,32 @@ func subjectOf(t *testing.T, data string) string {
 	return subject
 }
 
+// bodiesOf reads the plain-text and HTML bodies of a captured email, by
+// content type, the way a mail client does.
+func bodiesOf(t *testing.T, data string) map[string]string {
+	t.Helper()
+	msg, err := mail.ReadMessage(strings.NewReader(data))
+	require.NoError(t, err)
+	mediaType, params, err := mime.ParseMediaType(msg.Header.Get("Content-Type"))
+	require.NoError(t, err)
+	require.Equal(t, "multipart/alternative", mediaType)
+
+	bodies := map[string]string{}
+	reader := multipart.NewReader(msg.Body, params["boundary"])
+	for {
+		part, err := reader.NextPart()
+		if err == io.EOF {
+			break
+		}
+		require.NoError(t, err)
+		body, err := io.ReadAll(part)
+		require.NoError(t, err)
+		contentType, _, _ := mime.ParseMediaType(part.Header.Get("Content-Type"))
+		bodies[contentType] = strings.ReplaceAll(string(body), "\r\n", "\n")
+	}
+	return bodies
+}
+
 func reloadEmailEvent(t *testing.T, db *gorm.DB, id uint) forms.EmailEvent {
 	t.Helper()
 	var event forms.EmailEvent
@@ -100,6 +127,32 @@ func TestEmailDispatcher(t *testing.T) {
 		assert.Contains(t, captured.to, "owner@example.com")
 		assert.Equal(t, "New submission · Contact", subjectOf(t, captured.data))
 		assert.Contains(t, captured.data, "Alice")
+	})
+
+	t.Run("sends the fields as plain text and as HTML", func(t *testing.T) {
+		host, port, captured := startFakeSMTPServer(t)
+
+		dispatchSubmission(t, smtpProfile(host, port), toOwner, `{"name":"Alice","message":"Hello\nthere","topics":["sales","support"]}`)
+
+		captured.mu.Lock()
+		defer captured.mu.Unlock()
+		bodies := bodiesOf(t, captured.data)
+		assert.Equal(t, "New submission to Contact\n\nmessage:\nHello\nthere\n\nname:\nAlice\n\ntopics:\nsales\nsupport\n", bodies["text/plain"])
+		assert.Contains(t, bodies["text/html"], "<h1 style=\"margin:4px 0 0;font-size:20px;font-weight:600;\">Contact</h1>")
+		assert.Contains(t, bodies["text/html"], ">Hello<br>there</p>")
+		assert.Contains(t, bodies["text/html"], ">sales<br>support</p>")
+	})
+
+	t.Run("escapes markup that a visitor typed", func(t *testing.T) {
+		host, port, captured := startFakeSMTPServer(t)
+
+		dispatchSubmission(t, smtpProfile(host, port), toOwner, `{"name":"<img src=x onerror=alert(1)>"}`)
+
+		captured.mu.Lock()
+		defer captured.mu.Unlock()
+		html := bodiesOf(t, captured.data)["text/html"]
+		assert.Contains(t, html, "&lt;img src=x onerror=alert(1)&gt;")
+		assert.NotContains(t, html, "<img")
 	})
 
 	t.Run("uses the subject that the form sets", func(t *testing.T) {
@@ -143,8 +196,10 @@ func TestEmailDispatcher(t *testing.T) {
 		captured.mu.Lock()
 		defer captured.mu.Unlock()
 		assert.Equal(t, "New submission · Contact", subjectOf(t, captured.data))
-		assert.NotContains(t, captured.data, "Reply-To")
-		assert.NotContains(t, captured.data, "\nBcc:")
+		msg, err := mail.ReadMessage(strings.NewReader(captured.data))
+		require.NoError(t, err)
+		assert.Empty(t, msg.Header.Get("Reply-To"))
+		assert.Empty(t, msg.Header.Get("Bcc"))
 	})
 
 	t.Run("sends without Reply-To when the address is outside ASCII", func(t *testing.T) {
@@ -185,6 +240,8 @@ func TestEmailDispatcher(t *testing.T) {
 		assert.Equal(t, "owner@example.com", posted.Get("to"))
 		assert.Equal(t, "alice@example.com", posted.Get("h:Reply-To"))
 		assert.Equal(t, "Nuevo mensaje · Tienda", posted.Get("subject"))
+		assert.Contains(t, posted.Get("text"), "name:\nAlice")
+		assert.Contains(t, posted.Get("html"), ">Alice</p>")
 	})
 }
 

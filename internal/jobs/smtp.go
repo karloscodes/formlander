@@ -1,11 +1,15 @@
 package jobs
 
 import (
+	"bytes"
 	"crypto/tls"
 	"mime"
+	"mime/multipart"
+	"mime/quotedprintable"
 	"net"
 	"net/mail"
 	"net/smtp"
+	"net/textproto"
 	"strconv"
 	"strings"
 	"time"
@@ -111,7 +115,8 @@ type message struct {
 	To      string
 	ReplyTo string // empty for no Reply-To header
 	Subject string
-	Body    string
+	Body    string // plain text
+	HTML    string // empty for a plain-text email
 }
 
 // subjectHeader returns a subject as the value of the Subject header. A
@@ -131,10 +136,11 @@ func crlf(body string) string {
 	return strings.ReplaceAll(body, "\n", "\r\n")
 }
 
-// buildSMTPMessage assembles a minimal RFC 5322 plain-text email message.
+// buildSMTPMessage assembles an RFC 5322 email message. A message with HTML
+// goes out as multipart/alternative, with the plain text as the first part.
 // Header and body line endings are normalized to CRLF as required by SMTP.
 func buildSMTPMessage(m message) []byte {
-	var b strings.Builder
+	var b bytes.Buffer
 	b.WriteString("From: " + m.From + "\r\n")
 	b.WriteString("To: " + m.To + "\r\n")
 	if m.ReplyTo != "" {
@@ -143,8 +149,31 @@ func buildSMTPMessage(m message) []byte {
 	b.WriteString("Subject: " + subjectHeader(m.Subject) + "\r\n")
 	b.WriteString("Date: " + time.Now().UTC().Format(time.RFC1123Z) + "\r\n")
 	b.WriteString("MIME-Version: 1.0\r\n")
-	b.WriteString("Content-Type: text/plain; charset=\"utf-8\"\r\n")
+	if m.HTML == "" {
+		b.WriteString("Content-Type: text/plain; charset=\"utf-8\"\r\n")
+		b.WriteString("\r\n")
+		b.WriteString(crlf(m.Body))
+		return b.Bytes()
+	}
+
+	parts := multipart.NewWriter(&b)
+	b.WriteString("Content-Type: multipart/alternative; boundary=\"" + parts.Boundary() + "\"\r\n")
 	b.WriteString("\r\n")
-	b.WriteString(crlf(m.Body))
-	return []byte(b.String())
+	writePart(parts, "text/plain", m.Body)
+	writePart(parts, "text/html", m.HTML)
+	_ = parts.Close() // a write to a bytes.Buffer does not fail
+	return b.Bytes()
+}
+
+// writePart adds one body to a multipart message. Quoted-printable keeps every
+// line below the 998 characters that SMTP allows, and it turns a bare CR into
+// a line break, as crlf does.
+func writePart(parts *multipart.Writer, contentType, body string) {
+	w, _ := parts.CreatePart(textproto.MIMEHeader{
+		"Content-Type":              {contentType + "; charset=\"utf-8\""},
+		"Content-Transfer-Encoding": {"quoted-printable"},
+	})
+	encoder := quotedprintable.NewWriter(w)
+	_, _ = encoder.Write([]byte(body)) // a write to a bytes.Buffer does not fail
+	_ = encoder.Close()
 }
