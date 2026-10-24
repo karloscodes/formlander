@@ -32,6 +32,19 @@ jobs:
           go build -o "$RUNNER_TEMP/gosec" github.com/securego/gosec/v2/cmd/gosec
       - name: gosec
         run: $RUNNER_TEMP/gosec -exclude-dir=e2e -severity high -confidence high ./...
+      # govulncheck scans the Go of go.mod, so the image must ship that Go,
+      # built on the Alpine it runs on. The release checks it again; here a
+      # Dockerfile-only bump fails on its pull request.
+      - name: Check the Dockerfile's Go and Alpine
+        run: |
+          set -euo pipefail
+          mod="$(awk '$1 == "go" { print $2; exit }' go.mod)"
+          builder="$(awk '$1 == "FROM" && $2 ~ /^golang:/ { sub(/^golang:/, "", $2); print $2; exit }' Dockerfile)"
+          runtime="$(awk '$1 == "FROM" && $2 ~ /^alpine:/ { sub(/^alpine:/, "", $2); print $2; exit }' Dockerfile)"
+          if [ -z "${mod}" ] || [ "${builder}" != "${mod}-alpine${runtime}" ]; then
+            echo "Dockerfile: golang:${builder:-?} and alpine:${runtime:-?}; want golang:${mod:-?}-alpine${runtime:-?}"
+            exit 1
+          fi
       - name: govulncheck
         run: go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...
       - name: Trivy (dependencies, high and critical)
