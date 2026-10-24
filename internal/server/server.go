@@ -23,16 +23,6 @@ var buildCommit = "dev"
 // TemplateFuncs returns formlander-specific template functions.
 func TemplateFuncs() template.FuncMap {
 	return template.FuncMap{
-		"safeHTML": func(v interface{}) template.HTML {
-			switch val := v.(type) {
-			case template.HTML:
-				return val
-			case string:
-				return template.HTML(val)
-			default:
-				return template.HTML(fmt.Sprint(v))
-			}
-		},
 		"truncateJSON": truncateJSON,
 		"who":          who,
 		"gist":         gist,
