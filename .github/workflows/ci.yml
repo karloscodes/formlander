@@ -59,8 +59,10 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
 
+      - name: Vet
+        run: go vet ./...
       - name: Run unit tests
-        run: make test-unit
+        run: FORMLANDER_ENV=test go test -race ./internal/...
 
   test-e2e:
     name: E2E Tests
