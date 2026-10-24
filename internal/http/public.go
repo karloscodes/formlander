@@ -164,6 +164,9 @@ func extractSubmissionPayload(ctx *cartridge.Context, cfg *config.Config) (map[s
 		if err := json.Unmarshal(ctx.Body(), &result); err != nil {
 			return nil, err
 		}
+		if len(result) > cfg.MaxInputFields {
+			return nil, errors.New("too many fields")
+		}
 	} else {
 		if form := parseMultipart(ctx); form != nil {
 			hasFiles = len(form.File) > 0

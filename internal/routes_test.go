@@ -3,6 +3,7 @@ package internal_test
 import (
 	"bytes"
 	"encoding/csv"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
@@ -1240,5 +1241,25 @@ func TestSubmissionSizes(t *testing.T) {
 		left, err := os.ReadDir(tmp)
 		require.NoError(t, err)
 		assert.Empty(t, left, "temporary multipart files were left behind")
+	})
+
+	t.Run("rejects JSON with more fields than the limit", func(t *testing.T) {
+		ts := setup(t)
+		fields := map[string]string{}
+		for i := range 250 {
+			fields[fmt.Sprintf("f%d", i)] = "x"
+		}
+		payload, _ := json.Marshal(fields)
+		req := httptest.NewRequest("POST", "/forms/contact/submit?token=secret-token", bytes.NewReader(payload))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Origin", "https://example.com")
+
+		resp, err := ts.Server.Test(req)
+
+		require.NoError(t, err)
+		defer resp.Body.Close()
+		b, _ := io.ReadAll(resp.Body)
+		assert.Equal(t, 400, resp.StatusCode)
+		assert.Contains(t, string(b), "too many fields")
 	})
 }
