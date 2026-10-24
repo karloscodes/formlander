@@ -131,6 +131,16 @@ func TestExtractDomain(t *testing.T) {
 			input:    "example.com",
 			expected: "example.com",
 		},
+		{
+			name:     "IPv6 host without port keeps its brackets",
+			input:    "http://[::1]",
+			expected: "[::1]",
+		},
+		{
+			name:     "IPv6 host with port",
+			input:    "http://[::1]:8080",
+			expected: "[::1]",
+		},
 	}
 
 	for _, tt := range tests {

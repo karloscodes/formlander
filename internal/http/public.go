@@ -346,8 +346,12 @@ func extractDomain(urlStr string) string {
 		urlStr = urlStr[:idx]
 	}
 
-	// Remove port
-	if idx := strings.LastIndex(urlStr, ":"); idx >= 0 {
+	// Remove port. An IPv6 literal keeps its brackets and its own colons.
+	if strings.HasPrefix(urlStr, "[") {
+		if end := strings.Index(urlStr, "]"); end >= 0 {
+			urlStr = urlStr[:end+1]
+		}
+	} else if idx := strings.LastIndex(urlStr, ":"); idx >= 0 {
 		urlStr = urlStr[:idx]
 	}
 
