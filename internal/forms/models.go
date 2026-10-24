@@ -193,14 +193,14 @@ func (o EmailOverrides) JSON() string {
 
 // Submission stores the payload received from a public form post.
 type Submission struct {
-	ID        uint   `gorm:"primaryKey"`
-	FormID    uint   `gorm:"index;not null"`
-	Form      *Form  `gorm:"constraint:OnDelete:CASCADE"`
-	DataJSON  string `gorm:"type:text;not null"`
-	IPHash    string `gorm:"size:128;index"`
-	UserAgent string `gorm:"type:text"`
-	IsSpam    bool   `gorm:"index"`
-	CreatedAt time.Time
+	ID        uint      `gorm:"primaryKey"`
+	FormID    uint      `gorm:"index;index:idx_submissions_form_created,priority:1;not null"`
+	Form      *Form     `gorm:"constraint:OnDelete:CASCADE"`
+	DataJSON  string    `gorm:"type:text;not null"`
+	IPHash    string    `gorm:"size:128;index"`
+	UserAgent string    `gorm:"type:text"`
+	IsSpam    bool      `gorm:"index"`
+	CreatedAt time.Time `gorm:"index:idx_submissions_form_created,priority:2"`
 	UpdatedAt time.Time
 
 	WebhookEvents []WebhookEvent
