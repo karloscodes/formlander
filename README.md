@@ -1,51 +1,14 @@
 # Formlander
 
-[![GitHub stars](https://img.shields.io/github/stars/karloscodes/formlander?style=flat-square)](https://github.com/karloscodes/formlander/stargazers)
-[![License](https://img.shields.io/github/license/karloscodes/formlander?style=flat-square)](LICENSE)
-[![Docker Pulls](https://img.shields.io/docker/pulls/karloscodes/formlander?style=flat-square)](https://hub.docker.com/r/karloscodes/formlander)
+[![CI](https://github.com/karloscodes/formlander/actions/workflows/ci.yml/badge.svg)](https://github.com/karloscodes/formlander/actions/workflows/ci.yml) [![Release](https://img.shields.io/github/v/release/karloscodes/formlander)](https://github.com/karloscodes/formlander/releases/latest) [![Docker pulls](https://img.shields.io/docker/pulls/karloscodes/formlander)](https://hub.docker.com/r/karloscodes/formlander) [![License: MIT](https://img.shields.io/github/license/karloscodes/formlander)](LICENSE)
 
-Form backend you actually own. Collect submissions on your server. One Docker command. No SaaS bills.
+Form backend you actually own.
 
-**[Website](https://formlander.com)** · **[Docs](https://formlander.com/docs/)** · **[Deploy](https://formlander.com/docs/deployment/)**
+Formlander takes the form posts of your static or serverless sites on your own server. It stores each submission in one SQLite file, shows it in an admin dashboard, and delivers it to a webhook or by email. No SaaS bills, and nobody else sees your submissions.
 
-## Overview
+**[Website](https://formlander.com)** · **[Docs](https://formlander.com/docs/)**
 
-Formlander enables developers running static or serverless sites to handle form submissions with a single-binary deployment. Store submissions in SQLite, review them in a lightweight admin UI, and route data asynchronously to webhooks or email via Mailgun.
-
-## Features
-
-- **Single-binary deployment** — One executable with SQLite storage, no external dependencies
-- **Admin dashboard** — View and manage forms, submissions, and delivery status
-- **Asynchronous delivery** — Queue webhook and email notifications with retry logic
-- **Spam protection** — Built-in honeypot field and rate limiting
-- **API-first design** — Dashboard consumes the same REST endpoints available for integrations
-- **Your server, your data** — We don't run servers. We can't see your submissions. That's the point.
-
-## JavaScript SDK (Optional)
-
-For improved reliability, include the optional SDK that adds automatic retry with exponential backoff:
-
-```html
-<script src="https://your-formlander.com/assets/formlander.js"></script>
-
-<form action="https://your-formlander.com/forms/contact/submit?token=YOUR_TOKEN" method="post">
-  <input name="email" type="email" required>
-  <button type="submit">Send</button>
-</form>
-```
-
-The SDK auto-detects Formlander forms and enhances them with:
-- **Retry logic** — 3 attempts with exponential backoff on 503/network errors
-- **Graceful degradation** — Falls back to normal form POST if JS fails
-- **Loading states** — Disables form and shows "Sending..." during submission
-
-Forms work without the SDK via standard HTML POST. The SDK is purely an enhancement.
-
-## Installation
-
-Formlander runs on your own server with [Chasen](https://chasenhq.com): HTTPS, live backups of the database, and an update each night.
-
-### On your server
+## Install
 
 On a fresh Ubuntu or Debian server, as root:
 
@@ -53,194 +16,67 @@ On a fresh Ubuntu or Debian server, as root:
 curl -fsSL https://formlander.com/install | sudo bash -s forms.example.com
 ```
 
-Put your domain in place of `forms.example.com`. It installs Chasen (and Docker, when the server has none), runs Formlander, and prints the admin email and the first password. Run it again to update Formlander now.
+It installs [Chasen](https://chasenhq.com) (and Docker, when the server has none) and runs Formlander: HTTPS, live backups of the database, and an update each night. Run it again to update now. The server needs ports 80 and 443 open, and an A record for your domain.
 
-### From your computer
+Sign in at `https://forms.example.com` as `admin@formlander.local`. The installer prints the first password; change it in Settings. To read it again: `chasen -a formlander run cat /app/storage/initial-admin-password`.
+
+From your computer instead:
 
 ```bash
 curl -fsSL https://chasenhq.com/cli | sh
 chasen deploy karloscodes/formlander --server root@203.0.113.5 --domain forms.example.com --auto-update
 ```
 
-The first deploy installs Chasen on the server through SSH. `--auto-update` gives the same nightly update.
+Servers that the older installer set up keep working as they are. The [deployment guide](https://formlander.com/docs/deployment/) has the details.
 
-### After the install
+## Use
 
-- The server needs Ubuntu or Debian, ports 80 and 443 open, and an A record for your domain.
-- Sign in at `https://forms.example.com` as `admin@formlander.local`, then change the password in Settings. To read the first password again: `chasen -a formlander run cat /app/storage/initial-admin-password`.
-- No settings needed: Chasen gives Formlander its session secret and keeps `/app/storage` across deploys. With a bucket (`chasen bucket`), Chasen copies each change of the database to it as it happens, about a second behind. It also takes a checked snapshot every hour and before each deploy. It does not back up `/app/storage/uploads`: back that up yourself if your forms take files.
-- Everyday commands: `chasen -a formlander status`, `logs`, `backups`, `restore`, `rollback`. See [the Chasen docs](https://chasenhq.com/docs/).
+Point a form at your Formlander server:
 
-### The installer (existing servers)
-
-Servers that the older installer set up keep working as they are, and the install line changes nothing on them: its nightly update, its backups, and the `formlander` commands on the server (`formlander update`, `reload`, `restore-db`, `change-admin-password`). Those commands stay at the version of v3.8.0, the last release with the installer: the nightly update still brings each new version of Formlander. Their first password is in `/var/matcha/formlander/storage/initial-admin-password` until you change it. To move one to Chasen, see [Move to Chasen](https://formlander.com/docs/move-to-chasen/).
-
----
-
-## Quick Start (Development/Local)
-
-### Using Docker
-
-**First, generate and save your session secret:**
-
-```bash
-# Generate once and save this value securely
-export FORMLANDER_SESSION_SECRET=$(openssl rand -hex 32)
-echo "Save this secret: $FORMLANDER_SESSION_SECRET"
+```html
+<form action="https://forms.example.com/forms/contact/submit?token=YOUR_TOKEN" method="post">
+  <input name="email" type="email" required>
+  <button type="submit">Send</button>
+</form>
 ```
 
-**Then run the container with your saved secret:**
+A plain HTML post works. The optional script adds retries with backoff on a 503 or a network error, and a "Sending..." state, and falls back to the normal post when JavaScript fails:
 
-```bash
-docker run -d \
-  -p 127.0.0.1:8080:8080 \
-  -e FORMLANDER_SESSION_SECRET="$FORMLANDER_SESSION_SECRET" \
-  -v $(pwd)/storage:/app/storage \
-  karloscodes/formlander:latest
+```html
+<script src="https://forms.example.com/assets/formlander.js"></script>
 ```
 
-**Important:** Use the same `FORMLANDER_SESSION_SECRET` value across restarts to prevent logging out all users.
+## What you get
 
-**HTTPS is required.** The Docker image runs in production mode, which marks the session cookie `Secure`. Without TLS in front (Caddy, Nginx, Traefik, etc.) browsers silently drop the cookie and login appears to fail. The bundled `install.sh` sets up Caddy with automatic certificates; if you roll your own with docker-compose, put a TLS terminator in front of `:8080`. Publish the port on `127.0.0.1` only, as above: Formlander trusts `X-Forwarded-For` from private addresses, so only your proxy should reach it.
-
-Access the admin dashboard at `http://localhost:8080`:
-- Email: `admin@formlander.local`
-- Password: random, generated on first start. Find it in `storage/initial-admin-password`, or with `docker exec <container> cat /app/storage/initial-admin-password`. Change it in Settings after you sign in.
+- **Admin dashboard** - Forms, submissions, and the delivery status of each one.
+- **Delivery** - Webhooks and email (Mailgun), from a queue that retries.
+- **Spam protection** - A honeypot field and rate limiting.
+- **One container** - One Go binary and one SQLite file, with no other service.
 
 ## Configuration
 
-Formlander uses [Viper](https://github.com/spf13/viper) for flexible configuration. You can configure via:
-- Environment variables (prefix: `FORMLANDER_`)
-- `.env` file for easier local development
-- Environment variables always override `.env` file values
-
-**Required Environment Variable (Production Only):**
-- `FORMLANDER_SESSION_SECRET` - HMAC secret for signing session cookies, 32 characters or more. Formlander replaces a shorter or public value with a random one.
-
-**Optional Environment Variables:**
-- `FORMLANDER_ENV` - Environment mode: `development`, `production` (default: `development` for binary / `go run`; the Docker image sets `production`)
-- `FORMLANDER_PORT` - HTTP port (default: `8080`)
-- `FORMLANDER_LOG_LEVEL` - Log level: `debug`, `info`, `warn`, `error` (default: `error`)
-- `FORMLANDER_DATA_DIR` - Data directory path (default: `./storage`)
-- `FORMLANDER_LOGS_DIR` - Log files (default: `./storage/logs`; the Docker image sets `/app/logs`). Every line also goes to stdout
-
-> **Note:** In development/test, a fixed default secret is used if not set, allowing sessions to persist across restarts.
-
-> **HTTPS required when setting `FORMLANDER_ENV=production`.** Production mode marks the session cookie `Secure`, so browsers will not send it back over plain HTTP and login will appear to silently fail. Terminate TLS in front of Formlander (the bundled `install.sh` does this with Caddy automatically). The default is `development`, which is safe for plain-HTTP local testing.
-
-**Or use a .env file** (`.env`):
-```bash
-FORMLANDER_ENV=production
-FORMLANDER_PORT=8080
-FORMLANDER_SESSION_SECRET=<the output of openssl rand -hex 32>
-FORMLANDER_LOG_LEVEL=info
-FORMLANDER_DATA_DIR=./storage
-```
-
-### Building from Source
-
-1. Clone the repository
-2. Build:
-   ```bash
-   make build
-   ```
-3. Generate and save your session secret, then run:
-   ```bash
-   # Generate once and save this value
-   export FORMLANDER_SESSION_SECRET=$(openssl rand -hex 32)
-   echo "Save this secret: $FORMLANDER_SESSION_SECRET"
-   
-   ./bin/formlander
-   ```
-
-## Releases
-
-Formlander uses semantic versioning, and each release is a Docker image. A release candidate comes each Monday; after six days it becomes the stable release. A security update ships at once as a patch release. See [Releases](https://formlander.com/docs/releases/).
-
-### Docker Images
+On Chasen, Formlander needs no settings: Chasen gives it its session secret and keeps `/app/storage` across deploys. To run the image yourself:
 
 ```bash
-# Latest stable release
-docker pull karloscodes/formlander:latest
-
-# One version: the tag without the v
-docker pull karloscodes/formlander:3.8.0
-
-# A major or minor line: it moves with each stable release in it
-docker pull karloscodes/formlander:v3
-docker pull karloscodes/formlander:v3.8
-
-# The newest release candidate
-docker pull karloscodes/formlander:rc
+docker run -d -p 127.0.0.1:8080:8080 \
+  -e FORMLANDER_SESSION_SECRET="$(openssl rand -hex 32)" \
+  -v "$PWD/storage:/app/storage" \
+  karloscodes/formlander:latest
 ```
 
-### Building from Source
-
-If you prefer to run a native binary instead of Docker:
-
-```bash
-git clone https://github.com/karloscodes/formlander.git
-cd formlander
-make build
-export FORMLANDER_SESSION_SECRET=$(openssl rand -hex 32)
-./bin/formlander
-```
-
-**Supported platforms for building from source:**
-- Linux (amd64, arm64)
-- macOS (amd64, arm64)
-
-## Architecture
-
-Formlander follows a **Phoenix Context Architecture**, organizing code into bounded contexts with clear separation of concerns:
-
-```
-[Static Site] --> POST /forms/:slug/submit
-                        |
-                  [Formlander]
-                   /    |    \
-            [SQLite] [Jobs] [Admin UI]
-                      |
-               [Webhook/Email Dispatchers]
-                      |
-            [External Services/Mailgun]
-```
-
-### Key Components
-
-- **HTTP Server** — Fiber-based cartridge wrapper handling public submissions and admin dashboard
-- **Database Layer** — GORM + SQLite with WAL mode
-- **Custom Write Retry Logic** — `dbtxn.WithRetry` ensures writes eventually succeed despite SQLite's single-writer constraint
-- **Job System** — In-process dispatchers for asynchronous webhook and email delivery
-- **Cartridge Context** — Request-scoped dependency injection providing type-safe access to logger, config, and database
-
-### SQLite Write Handling
-
-Due to SQLite's single-writer limitation, all write operations use a custom retry mechanism (`internal/pkg/dbtxn/retry.go`) that:
-- Detects busy/locked database errors
-- Retries with exponential backoff (up to 10 attempts)
-- Adds jitter to prevent thundering herd issues
-- Works alongside WAL mode, busy_timeout pragmas, and immediate transaction locks
-
-This ensures writes eventually succeed even under concurrent load.
+Keep the same `FORMLANDER_SESSION_SECRET` across restarts, or every session ends. The image runs in production mode, which marks the session cookie `Secure`: put HTTPS (Caddy, Nginx, Traefik) in front of it. Other settings: `FORMLANDER_PORT` (8080), `FORMLANDER_LOG_LEVEL` (`error`), `FORMLANDER_DATA_DIR` (`./storage`). The tags `latest`, `3.8.0`, `v3`, `v3.8`, and `rc` (the newest release candidate) are on Docker Hub.
 
 ## Development
 
-Build and run locally:
 ```bash
-make build
-make dev
+make dev      # the dev server
+make test     # the tests
+make build    # the binary, in bin/formlander
+make seed     # sample data
 ```
 
-Run tests:
-```bash
-make test
-```
-
-## Contributing
-
-Contributions are welcome! Please open an issue first to discuss proposed changes, or submit a pull request for bug fixes and improvements.
+The code is in `internal/`: `forms`, `integrations`, `jobs` (delivery), `database`, `http`, and `accounts`.
 
 ## License
 
-Formlander License Agreement — see [LICENSE](LICENSE) file for details.
+MIT. See [LICENSE](LICENSE).
