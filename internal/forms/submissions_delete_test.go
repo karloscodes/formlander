@@ -106,4 +106,22 @@ func TestDeleteSpam(t *testing.T) {
 		assert.Equal(t, 1, deleted)
 		assert.Equal(t, int64(3), countRows(t, db, &forms.Submission{}))
 	})
+
+	t.Run("removes more spam than one SQL statement can name", func(t *testing.T) {
+		db := testsupport.SetupTestDB(t)
+		form := &forms.Form{Name: "flood", Slug: "flood"}
+		require.NoError(t, db.Create(form).Error)
+		const spamRows = 33000
+		spam := make([]forms.Submission, spamRows)
+		for i := range spam {
+			spam[i] = forms.Submission{FormID: form.ID, DataJSON: "{}", IsSpam: true}
+		}
+		require.NoError(t, db.CreateInBatches(spam, 500).Error)
+
+		deleted, err := forms.DeleteSpam(logger, db, t.TempDir(), 0)
+
+		require.NoError(t, err)
+		assert.Equal(t, spamRows, deleted)
+		assert.Equal(t, int64(0), countRows(t, db, &forms.Submission{}))
+	})
 }

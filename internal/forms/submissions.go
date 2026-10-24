@@ -205,6 +205,22 @@ func plainAddress(text string) string {
 // attempts, and their uploaded files. It returns how many it removed. IDs
 // that do not exist are skipped.
 func DeleteSubmissions(logger *slog.Logger, db *gorm.DB, dataDir string, ids []uint) (int, error) {
+	total := 0
+	for start := 0; start < len(ids); start += deleteBatchSize {
+		end := min(start+deleteBatchSize, len(ids))
+		deleted, err := deleteSubmissionBatch(logger, db, dataDir, ids[start:end])
+		total += deleted
+		if err != nil {
+			return total, err
+		}
+	}
+	return total, nil
+}
+
+// deleteBatchSize keeps each IN list far below SQLite's bound-variable limit.
+const deleteBatchSize = 500
+
+func deleteSubmissionBatch(logger *slog.Logger, db *gorm.DB, dataDir string, ids []uint) (int, error) {
 	if len(ids) == 0 {
 		return 0, nil
 	}
