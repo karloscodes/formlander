@@ -9,7 +9,7 @@ name: Install line
 # image not released yet fails here. It installs nothing that is published.
 #
 # Each week, after each release, and by hand: gh workflow run "Install line"
-# The same file is in Formlander and LogNorth; only the URL differs.
+# The same file is in Fusionaly, Formlander, and LogNorth; only the URL differs.
 on:
   schedule:
     - cron: "41 5 * * 2"
