@@ -8,10 +8,12 @@
 # machine: run it on a CI runner or in a throwaway VM, not on your computer.
 #   e2e/move-to-chasen.sh
 set -euo pipefail
+cd "$(dirname "$0")/.."
 
 host=formlander.localhost
-# The install script of this commit, or the one on GitHub when the test runs alone.
-installer="${FORMLANDER_INSTALLER:-https://raw.githubusercontent.com/karloscodes/formlander/main/install.sh}"
+# The install script of this commit. FORMLANDER_INSTALLER picks another, for
+# example https://raw.githubusercontent.com/karloscodes/formlander/main/install.sh.
+installer="${FORMLANDER_INSTALLER:-file://$PWD/install.sh}"
 pass() { echo "ok   - $*"; }
 fail() { echo "FAIL - $*" >&2; exit 1; }
 web() { curl -s -H "Host: $host" "$@"; }

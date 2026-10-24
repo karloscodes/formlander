@@ -103,45 +103,18 @@ jobs:
       - name: Run tests
         run: make test
 
-  # The install test of the Chasen path, before anything is published. No
-  # secrets: the image goes to a registry on the runner.
+  # The install paths with Chasen: see chasen.yml. The commit the tag job
+  # resolved, not the ref this workflow was started on.
   chasen:
-    name: Chasen install test
-    runs-on: ubuntu-latest
     needs: tag
-    permissions:
-      contents: read
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-        with:
-          ref: ${{ needs.tag.outputs.sha }}
-          persist-credentials: false
-
-      - name: Deploy with Chasen, as a new user does
-        run: e2e/chasen.sh
-
-  # The test of install.sh, before anything is published. No secrets.
-  installer:
-    name: Installer test
-    runs-on: ubuntu-latest
-    needs: tag
-    permissions:
-      contents: read
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-        with:
-          ref: ${{ needs.tag.outputs.sha }}
-          persist-credentials: false
-
-      - name: Install on the server, as a new user does
-        run: e2e/installer.sh
+    uses: ./.github/workflows/chasen.yml
+    with:
+      ref: ${{ needs.tag.outputs.sha }}
 
   goreleaser:
     name: Release with GoReleaser
     runs-on: ubuntu-latest
-    needs: [tag, test, chasen, installer]
+    needs: [tag, test, chasen]
     permissions:
       contents: write
     steps:
