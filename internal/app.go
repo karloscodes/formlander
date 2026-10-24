@@ -39,13 +39,7 @@ func NewApp() (*App, error) {
 		// then cannot fail with "database is locked" against each other,
 		// and the admin pages do not wait for a write.
 		cartridge.WithReadPool(),
-		cartridge.WithServerConfig(func(c *cartridge.ServerConfig) {
-			// kamal-proxy (or the operator's TLS proxy) reaches the app from
-			// a private or loopback address and appends the visitor's address
-			// to X-Forwarded-For. The rate limits key on that address.
-			c.ProxyHeader = "X-Forwarded-For"
-			c.TrustedProxies = []string{"127.0.0.0/8", "::1/128", "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "fc00::/7"}
-		}),
+		cartridge.WithServerConfig(ConfigureServer),
 		cartridge.WithTemplateFuncs(server.TemplateFuncs()),
 		cartridge.WithErrorHandler(server.ErrorHandler(slog.Default(), cfg)),
 		cartridge.WithSession("/admin/login"),

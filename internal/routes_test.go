@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -71,8 +72,11 @@ func mountTestServer(t *testing.T) *cartridgetestsupport.TestServer {
 	// The session check uses the database of the server, which exists once
 	// NewTestServer returns; the check runs only during requests.
 	var ts *cartridgetestsupport.TestServer
+	serverConfig := cartridge.DefaultServerConfig()
+	internal.ConfigureServer(serverConfig)
 	ts = cartridgetestsupport.NewTestServer(t, cartridgetestsupport.TestServerOptions{
-		Models: models,
+		Models:       models,
+		ServerConfig: serverConfig,
 		RouteMountFunc: func(s *cartridge.Server) {
 			sessions, err := cartridge.NewSessionManager(cartridge.SessionConfig{
 				CookieName: "formlander_session",
@@ -1134,4 +1138,107 @@ func TestHealthPaths(t *testing.T) {
 			})
 		}
 	}
+}
+
+// filesPost posts one multipart submission with files of the given sizes.
+func filesPost(t *testing.T, ts *cartridgetestsupport.TestServer, sizes ...int) (status int, body string) {
+	t.Helper()
+	var buf bytes.Buffer
+	w := multipart.NewWriter(&buf)
+	require.NoError(t, w.WriteField("name", "Ada"))
+	for i, size := range sizes {
+		fw, err := w.CreateFormFile("files", fmt.Sprintf("part-%d.pdf", i))
+		require.NoError(t, err)
+		_, err = fw.Write(bytes.Repeat([]byte("x"), size))
+		require.NoError(t, err)
+	}
+	require.NoError(t, w.Close())
+	req := httptest.NewRequest("POST", "/forms/contact/submit?token=secret-token", &buf)
+	req.Header.Set("Content-Type", w.FormDataContentType())
+	req.Header.Set("Origin", "https://example.com")
+	resp, err := ts.Server.Test(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+	b, _ := io.ReadAll(resp.Body)
+	return resp.StatusCode, string(b)
+}
+
+func TestSubmissionSizes(t *testing.T) {
+	prev := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
+	t.Cleanup(func() { slog.SetDefault(prev) })
+	const mb = 1 << 20
+	setup := func(t *testing.T) *cartridgetestsupport.TestServer {
+		ts := mountTestServer(t)
+		require.NoError(t, ts.DB.GetConnection().Create(&forms.Form{
+			Name: "Contact", Slug: "contact", Token: "secret-token", AllowedOrigins: "example.com",
+		}).Error)
+		return ts
+	}
+
+	t.Run("accepts a file as large as the per-file limit", func(t *testing.T) {
+		ts := setup(t)
+
+		status, body := filesPost(t, ts, forms.MaxFileSize)
+
+		assert.Equal(t, 200, status, body)
+		var stored forms.SubmissionFile
+		require.NoError(t, ts.DB.GetConnection().First(&stored).Error)
+		assert.Equal(t, int64(forms.MaxFileSize), stored.Size)
+	})
+
+	t.Run("accepts files up to the submission limit together", func(t *testing.T) {
+		ts := setup(t)
+
+		status, body := filesPost(t, ts, 8*mb, 8*mb, 8*mb)
+
+		assert.Equal(t, 200, status, body)
+	})
+
+	t.Run("rejects files over the submission limit together", func(t *testing.T) {
+		ts := setup(t)
+
+		status, body := filesPost(t, ts, 9*mb, 8*mb, 8*mb+mb/2)
+
+		assert.Equal(t, 400, status)
+		assert.Contains(t, body, "25 MB")
+	})
+
+	t.Run("rejects a body over the server limit before it reads it", func(t *testing.T) {
+		ts := setup(t)
+
+		status, _ := filesPost(t, ts, 10*mb, 10*mb, 10*mb)
+
+		assert.Equal(t, 413, status)
+	})
+
+	t.Run("holds a submission without files to 1 MB", func(t *testing.T) {
+		ts := setup(t)
+
+		status, _ := formPost(t, ts, "/forms/contact/submit?token=secret-token", "message="+strings.Repeat("x", 2*mb),
+			map[string]string{"Origin": "https://example.com"})
+
+		assert.Equal(t, 413, status)
+	})
+
+	t.Run("holds the sign-in form to 1 MB", func(t *testing.T) {
+		ts := setup(t)
+
+		status, _ := formPost(t, ts, "/admin/login", "email=a@example.com&password="+strings.Repeat("x", 2*mb), nil)
+
+		assert.Equal(t, 413, status)
+	})
+
+	t.Run("keeps large files out of memory and leaves no temporary file", func(t *testing.T) {
+		ts := setup(t)
+		tmp := t.TempDir()
+		t.Setenv("TMPDIR", tmp)
+
+		status, body := filesPost(t, ts, 4*mb)
+
+		assert.Equal(t, 200, status, body)
+		left, err := os.ReadDir(tmp)
+		require.NoError(t, err)
+		assert.Empty(t, left, "temporary multipart files were left behind")
+	})
 }

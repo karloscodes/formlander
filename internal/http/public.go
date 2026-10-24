@@ -30,6 +30,7 @@ func PublicFormSubmission(ctx *cartridge.Context) error {
 	if slug == "" {
 		return submitError(ctx, nethttp.StatusNotFound, "form not found")
 	}
+	defer removeMultipartFiles(ctx)
 
 	form, err := forms.GetBySlug(db, slug)
 	if err != nil {
@@ -360,14 +361,27 @@ func extractDomain(urlStr string) string {
 
 // parseMultipart returns the parts of a multipart body, or nil for any other
 // body. The server already caps the body size.
+// multipartMemory is how much of a submission's files stays in memory. The
+// rest goes to temporary files, so a 26 MB submission does not take 26 MB of
+// memory. removeMultipartFiles deletes them.
+const multipartMemory = 1 << 20
+
 func parseMultipart(ctx *cartridge.Context) *multipart.Form {
 	req := ctx.Request()
 	if !strings.HasPrefix(req.Header.Get("Content-Type"), "multipart/form-data") {
 		return nil
 	}
-	ctx.Body() // keeps the body readable for later reads
-	if err := req.ParseMultipartForm(32 << 20); err != nil {
+	// No ctx.Body() first: it would copy the whole body into memory. After
+	// the parse, ctx.FormValue still reads the parsed values.
+	if err := req.ParseMultipartForm(multipartMemory); err != nil {
 		return nil
 	}
 	return req.MultipartForm
+}
+
+// removeMultipartFiles deletes the temporary files of a parsed submission.
+func removeMultipartFiles(ctx *cartridge.Context) {
+	if form := ctx.Request().MultipartForm; form != nil {
+		_ = form.RemoveAll()
+	}
 }

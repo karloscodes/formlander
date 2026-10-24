@@ -3,18 +3,58 @@ package internal
 import (
 	"io/fs"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/karloscodes/cartridge"
 	ratelimit "github.com/karloscodes/cartridge/middleware"
 
 	"formlander/internal/config"
+	"formlander/internal/forms"
 	httphandlers "formlander/internal/http"
 	"formlander/web"
 )
 
+// maxBodySize is the body limit of every request but a form submission with
+// files.
+const maxBodySize = 1 << 20
+
+// ConfigureServer sets the server options of the app. The tests use it too.
+func ConfigureServer(c *cartridge.ServerConfig) {
+	// kamal-proxy (or the operator's TLS proxy) reaches the app from
+	// a private or loopback address and appends the visitor's address
+	// to X-Forwarded-For. The rate limits key on that address.
+	c.ProxyHeader = "X-Forwarded-For"
+	c.TrustedProxies = []string{"127.0.0.0/8", "::1/128", "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "fc00::/7"}
+	// A form submission carries its files in the body. limitBodies holds
+	// every other request to maxBodySize.
+	c.BodyLimit = forms.MaxSubmissionFilesSize + maxBodySize
+}
+
+// limitBodies holds every request body to maxBodySize, except a form
+// submission with files, before a handler reads the body into memory.
+func limitBodies(ctx *cartridge.Context) error {
+	r := ctx.Request()
+	if r.Body == nil || isFileSubmission(r) {
+		return ctx.Next()
+	}
+	if r.ContentLength > maxBodySize {
+		return cartridge.NewError(http.StatusRequestEntityTooLarge)
+	}
+	r.Body = http.MaxBytesReader(nil, r.Body, maxBodySize)
+	return ctx.Next()
+}
+
+func isFileSubmission(r *http.Request) bool {
+	return r.Method == http.MethodPost &&
+		strings.HasPrefix(r.URL.Path, "/forms/") && strings.HasSuffix(r.URL.Path, "/submit") &&
+		strings.HasPrefix(r.Header.Get("Content-Type"), "multipart/form-data")
+}
+
 // MountRoutes registers all application routes.
 func MountRoutes(s *cartridge.Server, cfg *config.Config) {
+	s.Use(limitBodies)
+
 	// Store formlander config and session in all requests for handlers
 	s.Use(func(ctx *cartridge.Context) error {
 		ctx.Locals("app_config", cfg)

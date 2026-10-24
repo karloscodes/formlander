@@ -15,6 +15,10 @@ const (
 	MaxFileSize      = 10 * 1024 * 1024 // 10MB
 	MaxFilesPerField = 5
 	MaxTotalFiles    = 10
+
+	// MaxSubmissionFilesSize caps the files of one submission together. The
+	// server reads a submission of this size, so it sets the body limit.
+	MaxSubmissionFilesSize = 25 * 1024 * 1024
 )
 
 // Allowed file extensions (lowercase, with dot)
@@ -77,6 +81,7 @@ func ExtractFiles(form *multipart.Form) ([]*UploadedFile, error) {
 
 	var files []*UploadedFile
 	totalFiles := 0
+	var totalSize int64
 
 	for fieldName, headers := range form.File {
 		if len(headers) > MaxFilesPerField {
@@ -91,6 +96,10 @@ func ExtractFiles(form *multipart.Form) ([]*UploadedFile, error) {
 
 			if err := ValidateFile(header); err != nil {
 				return nil, err
+			}
+			totalSize += header.Size
+			if totalSize > MaxSubmissionFilesSize {
+				return nil, errors.New("the files are over 25 MB together")
 			}
 
 			file, err := header.Open()
