@@ -206,6 +206,18 @@ func DeleteSubmissionFiles(dataDir string, formID, submissionID uint) error {
 	return os.RemoveAll(uploadDir)
 }
 
+// deleteFormUploads removes uploads/{formID}, including a file that has no
+// row, and returns that directory. An empty data directory is an error:
+// the joined path would be relative to the working directory, and the
+// visitor's uploads would stay where they are.
+func deleteFormUploads(dataDir string, formID uint) (string, error) {
+	dir := filepath.Join(dataDir, "uploads", fmt.Sprintf("%d", formID))
+	if dataDir == "" {
+		return dir, errors.New("data directory is empty")
+	}
+	return dir, os.RemoveAll(dir)
+}
+
 // sanitizeFilename removes dangerous characters from filename
 func sanitizeFilename(name string) string {
 	// Get just the base name (no path components)

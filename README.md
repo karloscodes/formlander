@@ -36,11 +36,12 @@ Point a form at your Formlander server:
 ```html
 <form action="https://forms.example.com/forms/contact/submit?token=YOUR_TOKEN" method="post">
   <input name="email" type="email" required>
+  <input type="text" name="__fl_hp" class="formlander-hp" tabindex="-1" autocomplete="off" aria-hidden="true" style="display:none">
   <button type="submit">Send</button>
 </form>
 ```
 
-A plain HTML post works. The optional script adds retries with backoff on a 503 or a network error, and a "Sending..." state, and falls back to the normal post when JavaScript fails:
+A plain HTML post works. Keep the hidden `__fl_hp` field: a robot that fills it is stored as spam and is not delivered. The optional script adds retries with backoff on a 503 or a network error, and a "Sending..." state, and falls back to the normal post when JavaScript fails:
 
 ```html
 <script src="https://forms.example.com/assets/formlander.js"></script>

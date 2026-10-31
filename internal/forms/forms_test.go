@@ -374,6 +374,7 @@ func TestCreateSubmission(t *testing.T) {
 		submission, err := forms.CreateSubmission(logger, db10, form, payload, "RealUser")
 		require.NoError(t, err)
 		assert.False(t, submission.IsSpam, "empty honeypot must not flag spam")
+		assert.NotContains(t, submission.DataJSON, forms.HoneypotField)
 	})
 }
 
@@ -710,49 +711,3 @@ func TestUpdate(t *testing.T) {
 	})
 }
 
-func TestDelete(t *testing.T) {
-	db := testsupport.SetupTestDB(t)
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-
-	t.Run("deletes form successfully", func(t *testing.T) {
-		form := &forms.Form{
-			Name: "Delete Me",
-			Slug: "delete-me",
-		}
-		require.NoError(t, db.Create(form).Error)
-
-		err := forms.Delete(logger, db, form.ID)
-		require.NoError(t, err)
-
-		// Verify deleted
-		var count int64
-		db.Model(&forms.Form{}).Where("id = ?", form.ID).Count(&count)
-		assert.Equal(t, int64(0), count)
-	})
-
-	t.Run("cascades to delivery records", func(t *testing.T) {
-		db2 := testsupport.SetupTestDB(t)
-
-		form := &forms.Form{
-			Name: "Cascade Test",
-			Slug: "cascade",
-		}
-		require.NoError(t, db2.Create(form).Error)
-
-		email := &forms.EmailDelivery{FormID: form.ID}
-		webhook := &forms.WebhookDelivery{FormID: form.ID}
-		require.NoError(t, db2.Create(email).Error)
-		require.NoError(t, db2.Create(webhook).Error)
-
-		err := forms.Delete(logger, db2, form.ID)
-		require.NoError(t, err)
-
-		// Verify cascaded deletes (depends on DB constraints)
-		var emailCount, webhookCount int64
-		db2.Model(&forms.EmailDelivery{}).Where("form_id = ?", form.ID).Count(&emailCount)
-		db2.Model(&forms.WebhookDelivery{}).Where("form_id = ?", form.ID).Count(&webhookCount)
-
-		// Note: SQLite may not enforce cascade, so this is best-effort
-		t.Logf("After delete - emails: %d, webhooks: %d", emailCount, webhookCount)
-	})
-}

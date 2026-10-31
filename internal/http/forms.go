@@ -285,10 +285,16 @@ func AdminFormShow(ctx *cartridge.Context) error {
 	endpoint := fmt.Sprintf("/forms/%s/submit", form.Slug)
 	actionURL, formCode := formCodeFor(ctx, form)
 
+	var submissionCount int64
+	if err := db.Model(&forms.Submission{}).Where("form_id = ?", form.ID).Count(&submissionCount).Error; err != nil {
+		return cartridge.NewError(500)
+	}
+
 	return ctx.Render("layouts/base", cartridge.Map{
 		"Title":          form.Name,
 		"Form":           form,
 		"Submissions":    submissions,
+		"DeleteConfirm":  deleteFormConfirm(submissionCount),
 		"ReturnTo":       fmt.Sprintf("/admin/forms/%d", form.ID),
 		"Endpoint":       endpoint,
 		"ActionURL":      actionURL,
@@ -302,6 +308,33 @@ func AdminFormShow(ctx *cartridge.Context) error {
 		"UseSDK":         form.UseSDK,
 		"ContentView":    "admin/forms/show/content",
 	}, "")
+}
+
+// deleteFormConfirm is the sentence the delete button asks the owner to
+// confirm. It names how many submissions the delete removes.
+func deleteFormConfirm(count int64) string {
+	noun := "submissions"
+	if count == 1 {
+		noun = "submission"
+	}
+	return fmt.Sprintf("Delete this form and its %d %s? You cannot undo it.", count, noun)
+}
+
+// AdminFormDelete removes a form, its submissions, and its uploaded files.
+func AdminFormDelete(ctx *cartridge.Context) error {
+	id, err := strconv.ParseUint(ctx.Params("id"), 10, 32)
+	if err != nil || id == 0 {
+		return cartridge.NewError(404)
+	}
+
+	err = forms.Delete(ctx.Logger, ctx.DB(), GetAppConfig(ctx).DataDirectory, uint(id))
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return cartridge.NewError(404)
+	}
+	if err != nil {
+		return cartridge.NewError(500)
+	}
+	return ctx.Redirect("/admin/forms")
 }
 
 // formCodeFor returns the address a form posts to and the HTML to paste into
@@ -422,10 +455,19 @@ func buildDefaultFormCode(actionURL string, form *forms.Form, embed *captchaEmbe
         <textarea name="message" rows="4"></textarea>
     </label>
 
+    %s
+
     <button type="submit">Send</button>
-</form>`, htmlstd.EscapeString(actionURL), form.ID, publicAttr, tokenAttr)
+</form>`, htmlstd.EscapeString(actionURL), form.ID, publicAttr, tokenAttr, defaultHoneypotField())
 
 	return injectCaptchaSnippet(baseForm, embed)
+}
+
+// defaultHoneypotField is the honeypot from the starter templates. The
+// starter hides it with the formlander-hp rule in its stylesheet. This
+// snippet has no stylesheet, so the same field also carries a style.
+func defaultHoneypotField() string {
+	return strings.TrimSuffix(honeypotField, ">") + ` style="display:none">`
 }
 
 func normalizeFormHTML(rawHTML, actionURL string, form *forms.Form) (string, error) {

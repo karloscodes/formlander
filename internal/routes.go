@@ -15,9 +15,15 @@ import (
 	"formlander/web"
 )
 
-// maxBodySize is the body limit of every request but a form submission with
-// files.
-const maxBodySize = 1 << 20
+const (
+	// maxBodySize is the body limit of every request but a form submission with
+	// files.
+	maxBodySize = 1 << 20
+
+	// submissionRateLimit is how many times one address may post a form in a
+	// minute. The limiter keys on the visitor address.
+	submissionRateLimit = 10
+)
 
 // ConfigureServer sets the server options of the app. The tests use it too.
 func ConfigureServer(c *cartridge.ServerConfig) {
@@ -96,7 +102,7 @@ func MountRoutes(s *cartridge.Server, cfg *config.Config) {
 
 	// Build middleware chain for public routes (rate limiting disabled in dev/test)
 	publicMiddleware := []cartridge.HandlerFunc{
-		ratelimit.RateLimiter(ratelimit.WithMax(30), ratelimit.WithDuration(time.Minute), ratelimit.WithEnv(cfg)),
+		ratelimit.RateLimiter(ratelimit.WithMax(submissionRateLimit), ratelimit.WithDuration(time.Minute), ratelimit.WithEnv(cfg)),
 	}
 
 	publicConfig := &cartridge.RouteConfig{
@@ -159,6 +165,7 @@ func MountRoutes(s *cartridge.Server, cfg *config.Config) {
 	s.Get("/admin/forms/:id", httphandlers.AdminFormShow, authConfig)
 	s.Get("/admin/forms/:id/edit", httphandlers.AdminFormsEdit, authConfig)
 	s.Post("/admin/forms/:id", httphandlers.AdminFormsUpdate, authConfig)
+	s.Post("/admin/forms/:id/delete", httphandlers.AdminFormDelete, authConfig)
 	s.Get("/admin/submissions/export.csv", httphandlers.SubmissionsExport, authConfig)
 	s.Get("/admin/submissions/:id", httphandlers.AdminSubmissionShow, authConfig)
 	s.Get("/admin/submissions/:id/files/:file_id", httphandlers.AdminSubmissionFileDownload, authConfig)
