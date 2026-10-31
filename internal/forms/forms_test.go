@@ -374,6 +374,7 @@ func TestCreateSubmission(t *testing.T) {
 		submission, err := forms.CreateSubmission(logger, db10, form, payload, "RealUser")
 		require.NoError(t, err)
 		assert.False(t, submission.IsSpam, "empty honeypot must not flag spam")
+		assert.NotContains(t, submission.DataJSON, forms.HoneypotField)
 	})
 }
 

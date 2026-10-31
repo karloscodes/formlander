@@ -13,6 +13,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -44,6 +45,14 @@ const testSessionSecret = "a-test-session-secret-of-32-bytes-or-more"
 
 func mountTestServer(t *testing.T) *cartridgetestsupport.TestServer {
 	t.Helper()
+	ts, _ := mountTestServerIn(t, t.TempDir())
+	return ts
+}
+
+// mountTestServerIn is mountTestServer with a chosen data directory. The
+// returned path is the directory the admin routes were given.
+func mountTestServerIn(t *testing.T, dataDir string) (*cartridgetestsupport.TestServer, string) {
+	t.Helper()
 
 	models := []any{
 		&accounts.User{},
@@ -66,7 +75,7 @@ func mountTestServer(t *testing.T) *cartridgetestsupport.TestServer {
 			Environment:    cartridgeconfig.Test,
 			SessionSecret:  testSessionSecret,
 			SessionTimeout: 3600,
-			DataDirectory:  t.TempDir(),
+			DataDirectory:  dataDir,
 		},
 		MaxInputFields: 200,
 	}
@@ -96,7 +105,7 @@ func mountTestServer(t *testing.T) *cartridgetestsupport.TestServer {
 		},
 	})
 
-	return ts
+	return ts, dataDir
 }
 
 func formPost(t *testing.T, ts *cartridgetestsupport.TestServer, path, body string, headers map[string]string) (status int, respBody string) {
@@ -755,6 +764,30 @@ func TestAdminDeletesForm(t *testing.T) {
 		assert.Equal(t, int64(1), countModel(t, db, &integrations.CaptchaProfile{}))
 		assert.Equal(t, int64(1), countModel(t, db, &integrations.WebhookProfile{}))
 		assert.Equal(t, int64(1), countModel(t, db, &integrations.MailerProfile{}))
+	})
+
+	t.Run("removes an uploaded file from the server data directory", func(t *testing.T) {
+		dataDir := t.TempDir()
+		ts, configured := mountTestServerIn(t, dataDir)
+		require.Equal(t, dataDir, configured)
+		db := ts.DB.GetConnection()
+		form := &forms.Form{Name: "Contact", Slug: "contact"}
+		require.NoError(t, db.Create(form).Error)
+		upload := filepath.Join(configured, "uploads", fmt.Sprintf("%d", form.ID), "note.txt")
+		require.NoError(t, os.MkdirAll(filepath.Dir(upload), 0o755))
+		require.NoError(t, os.WriteFile(upload, []byte("a visitor's file"), 0o644))
+		post := signIn(t, ts)
+
+		resp := post(fmt.Sprintf("/admin/forms/%d/delete", form.ID), "")
+		defer resp.Body.Close()
+
+		assert.Equal(t, 302, resp.StatusCode)
+		assert.Equal(t, "/admin/forms", resp.Header.Get("Location"))
+		assert.NoFileExists(t, upload)
+		_, err := os.Stat(filepath.Dir(upload))
+		assert.True(t, os.IsNotExist(err))
+		var gone forms.Form
+		assert.ErrorIs(t, db.First(&gone, form.ID).Error, gorm.ErrRecordNotFound)
 	})
 
 	t.Run("answers 404 for a form that does not exist", func(t *testing.T) {

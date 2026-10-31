@@ -21,16 +21,15 @@ func TestFormPagesRenderDeleteAndCaptchaHint(t *testing.T) {
 
 	var show bytes.Buffer
 	err := views.Render(&show, "layouts/base", map[string]any{
-		"Title":           "Contact",
-		"Form":            form,
-		"Submissions":     []forms.Submission{},
-		"SubmissionCount": int64(2),
-		"DeleteConfirm":   deleteFormConfirm(2),
-		"ActionURL":       "https://forms.example.com/forms/contact/submit?token=tok",
-		"Token":           "tok",
-		"FormCode":        "<form></form>",
-		"CodeSplit":       true,
-		"ContentView":     "admin/forms/show/content",
+		"Title":         "Contact",
+		"Form":          form,
+		"Submissions":   []forms.Submission{},
+		"DeleteConfirm": deleteFormConfirm(2),
+		"ActionURL":     "https://forms.example.com/forms/contact/submit?token=tok",
+		"Token":         "tok",
+		"FormCode":      "<form></form>",
+		"CodeSplit":     true,
+		"ContentView":   "admin/forms/show/content",
 	})
 	require.NoError(t, err)
 	page := show.String()
@@ -86,11 +85,4 @@ func TestDeleteFormConfirmNamesTheCount(t *testing.T) {
 	assert.Equal(t, "Delete this form and its 0 submissions? You cannot undo it.", deleteFormConfirm(0))
 	assert.Equal(t, "Delete this form and its 1 submission? You cannot undo it.", deleteFormConfirm(1))
 	assert.Equal(t, "Delete this form and its 12 submissions? You cannot undo it.", deleteFormConfirm(12))
-
-	page, err := os.ReadFile("../../web/templates/admin/forms/show.html")
-	require.NoError(t, err)
-	body := string(page)
-	assert.Contains(t, body, "{{ .DeleteConfirm }}")
-	assert.Contains(t, body, `/admin/forms/{{ .Form.ID }}/delete`)
-	assert.Contains(t, body, `href="/admin/settings/captcha"`)
 }

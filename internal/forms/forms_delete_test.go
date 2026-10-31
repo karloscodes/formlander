@@ -1,6 +1,7 @@
 package forms_test
 
 import (
+	"bytes"
 	"io"
 	"log/slog"
 	"os"
@@ -41,15 +42,19 @@ func TestDelete(t *testing.T) {
 
 	t.Run("returns not found when the form does not exist", func(t *testing.T) {
 		db := testsupport.SetupTestDB(t)
+		kept := &forms.Form{Name: "Keep", Slug: "keep"}
+		require.NoError(t, db.Create(kept).Error)
 
 		err := forms.Delete(logger, db, t.TempDir(), 0)
 		assert.ErrorIs(t, err, gorm.ErrRecordNotFound)
+		assert.Equal(t, int64(1), countRows(t, db, &forms.Form{}))
 
 		err = forms.Delete(logger, db, t.TempDir(), 42)
 		assert.ErrorIs(t, err, gorm.ErrRecordNotFound)
+		assert.Equal(t, int64(1), countRows(t, db, &forms.Form{}))
 	})
 
-	t.Run("still removes the rows when no data directory is given", func(t *testing.T) {
+	t.Run("logs an error when no data directory is given, and still removes the rows", func(t *testing.T) {
 		db := testsupport.SetupTestDB(t)
 		dataDir := t.TempDir()
 		form := &forms.Form{Name: "Contact", Slug: "contact"}
@@ -57,12 +62,17 @@ func TestDelete(t *testing.T) {
 		kept := filepath.Join(dataDir, "uploads", strconv.FormatUint(uint64(form.ID), 10), "note.txt")
 		require.NoError(t, os.MkdirAll(filepath.Dir(kept), 0o755))
 		require.NoError(t, os.WriteFile(kept, []byte("stay"), 0o644))
+		var logs bytes.Buffer
+		logged := slog.New(slog.NewTextHandler(&logs, nil))
 
-		err := forms.Delete(logger, db, "", form.ID)
+		err := forms.Delete(logged, db, "", form.ID)
 
 		require.NoError(t, err)
 		assert.FileExists(t, kept)
 		assert.Equal(t, int64(0), countRows(t, db, &forms.Form{}))
+		assert.Contains(t, logs.String(), "level=ERROR")
+		assert.Contains(t, logs.String(), "data directory is empty")
+		assert.Contains(t, logs.String(), "path="+filepath.Join("uploads", strconv.FormatUint(uint64(form.ID), 10)))
 	})
 }
 

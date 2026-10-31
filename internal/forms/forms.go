@@ -242,25 +242,19 @@ func Delete(logger *slog.Logger, db *gorm.DB, dataDir string, id uint) error {
 		}
 		return err
 	}
-	if err := deleteFormUploads(dataDir, id); err != nil {
-		// The rows are gone. A file that stays behind is only wasted space.
-		logger.Warn("delete form files failed", slog.Uint64("form_id", uint64(id)), slog.Any("error", err))
+	// The rows are already committed. What remains is the visitor's uploads.
+	uploadPath, err := deleteFormUploads(dataDir, id)
+	if err != nil {
+		logger.Error("delete form files failed",
+			slog.String("path", uploadPath),
+			slog.Uint64("form_id", uint64(id)),
+			slog.Any("error", err),
+		)
 	}
 	return nil
 }
 
 func deleteFormRows(db *gorm.DB, id uint) error {
-	if id == 0 {
-		return gorm.ErrRecordNotFound
-	}
-	var count int64
-	if err := db.Model(&Form{}).Where("id = ?", id).Count(&count).Error; err != nil {
-		return err
-	}
-	if count == 0 {
-		return gorm.ErrRecordNotFound
-	}
-
 	return db.Transaction(func(tx *gorm.DB) error {
 		// Children first. With foreign keys on, submissions cannot go while
 		// an event or a file row still points at them, and the form cannot
@@ -276,7 +270,14 @@ func deleteFormRows(db *gorm.DB, id uint) error {
 				return err
 			}
 		}
-		return tx.Delete(&Form{}, id).Error
+		deleted := tx.Where("id = ?", id).Delete(&Form{})
+		if deleted.Error != nil {
+			return deleted.Error
+		}
+		if deleted.RowsAffected == 0 {
+			return gorm.ErrRecordNotFound
+		}
+		return nil
 	})
 }
 
