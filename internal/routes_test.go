@@ -31,6 +31,8 @@ import (
 	"formlander/internal/config"
 	"formlander/internal/forms"
 	"formlander/internal/integrations"
+	"formlander/internal/server"
+	"formlander/web"
 )
 
 // Smoke tests for the Sec-Fetch-Site boundary on /admin routes.
@@ -85,6 +87,7 @@ func mountTestServerIn(t *testing.T, dataDir string) (*cartridgetestsupport.Test
 	var ts *cartridgetestsupport.TestServer
 	serverConfig := cartridge.DefaultServerConfig()
 	internal.ConfigureServer(serverConfig)
+	serverConfig.ViewsEngine = cartridge.NewHTMLViews(web.Templates, server.TemplateFuncs(), false)
 	ts = cartridgetestsupport.NewTestServer(t, cartridgetestsupport.TestServerOptions{
 		Models:       models,
 		ServerConfig: serverConfig,
@@ -1031,6 +1034,77 @@ func TestAdminMailerProfileKeepsSecrets(t *testing.T) {
 	assert.Equal(t, 465, profile.SMTPPort)
 	assert.Equal(t, "pass", profile.SMTPPassword, "an empty password field keeps the saved password")
 	assert.Equal(t, `{"tags":["a"]}`, profile.DefaultsJSON)
+}
+
+// The admin is boosted, and htmx shows a 2xx response only: a 400 would leave
+// the owner on the form with no message.
+func TestMailerFormShowsItsErrorUnderBoost(t *testing.T) {
+	prev := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
+	t.Cleanup(func() { slog.SetDefault(prev) })
+
+	ts := mountTestServer(t)
+	saved := &integrations.MailerProfile{
+		Name: "Relay", Provider: "smtp", DefaultFromEmail: "forms@example.com",
+		SMTPHost: "smtp.example.com", SMTPPort: 587, SMTPUsername: "user", SMTPPassword: "pass",
+	}
+	require.NoError(t, ts.DB.GetConnection().Create(saved).Error)
+	post := signIn(t, ts)
+
+	resp := post(fmt.Sprintf("/admin/settings/mailers/%d", saved.ID),
+		"name=Relay&provider=smtp&default_from_email=forms%40example.com&smtp_host=smtp.other.example&smtp_port=587&smtp_username=user&smtp_password=")
+
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	assert.Equal(t, 200, resp.StatusCode)
+	assert.Contains(t, string(body), "Type the SMTP password again")
+}
+
+// htmx keeps a copy of each page in the browser. After a session ends, Back must
+// ask the server, not show admin pages from that copy.
+func TestAdminPagesStayOutOfTheBrowserCopy(t *testing.T) {
+	ts := mountTestServer(t)
+	get := signInGet(t, ts)
+
+	resp := get("/admin/submissions")
+
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	assert.Equal(t, 200, resp.StatusCode)
+	assert.Contains(t, string(body), `hx-history="false"`, "htmx saves no new copy")
+	assert.Contains(t, string(body), "localStorage.removeItem('htmx-history-cache')", "a copy from before is dropped")
+}
+
+func TestSubmissionOffersToCopyTheAddress(t *testing.T) {
+	prev := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
+	t.Cleanup(func() { slog.SetDefault(prev) })
+
+	ts := mountTestServer(t)
+	db := ts.DB.GetConnection()
+	form := &forms.Form{Name: "Contact", Slug: "contact", AllowedOrigins: "example.com"}
+	require.NoError(t, db.Create(form).Error)
+	withAddress, err := forms.CreateSubmission(slog.Default(), db, form, map[string]any{"email": "ada@example.com"}, "test")
+	require.NoError(t, err)
+	without, err := forms.CreateSubmission(slog.Default(), db, form, map[string]any{"name": "Grace"}, "test")
+	require.NoError(t, err)
+	get := signInGet(t, ts)
+
+	t.Run("next to the reply link when there is an address", func(t *testing.T) {
+		body, err := io.ReadAll(get(fmt.Sprintf("/admin/submissions/%d", withAddress.ID)).Body)
+		require.NoError(t, err)
+
+		assert.Contains(t, string(body), `href="mailto:ada@example.com"`)
+		assert.Contains(t, string(body), `data-address="ada@example.com"`)
+		assert.Contains(t, string(body), "Copy address")
+	})
+
+	t.Run("not at all when there is none", func(t *testing.T) {
+		body, err := io.ReadAll(get(fmt.Sprintf("/admin/submissions/%d", without.ID)).Body)
+		require.NoError(t, err)
+
+		assert.NotContains(t, string(body), "Copy address")
+	})
 }
 
 func TestAdminExportsSubmissions(t *testing.T) {

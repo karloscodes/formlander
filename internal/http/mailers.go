@@ -206,7 +206,7 @@ func MailerProfileUpdate(ctx *cartridge.Context) error {
 	}
 	params := mailerParamsFromForm(ctx, existing)
 	if params.Provider != "mailgun" && existing.SMTPPassword != "" && strings.TrimSpace(params.SMTPPassword) == "" {
-		ctx.Status(nethttp.StatusBadRequest)
+		// 200, not 400: the admin is boosted, and htmx shows a 2xx response only.
 		return renderMailerForm(ctx, existing.ID, params, "Type the SMTP password again. Formlander sends a saved password only to the server it was saved for.")
 	}
 

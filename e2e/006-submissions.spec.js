@@ -78,6 +78,30 @@ test.describe("Form Submissions", () => {
     helpers.log("✅ Submission list displayed correctly");
   });
 
+  test("2b. Copy an address where the browser has no clipboard", async ({ page }) => {
+    // Plain HTTP has no navigator.clipboard, and the copy falls back to a textarea.
+    await page.addInitScript(() => {
+      Object.defineProperty(Navigator.prototype, "clipboard", { get: () => undefined });
+    });
+    const response = await helpers.submitToForm(formSlug, formToken, {
+      name: "Eve Adams",
+      email: "eve@example.com",
+      message: "Please write back",
+    });
+    expect(response.status()).toBe(200);
+
+    await helpers.navigateTo("/admin/submissions");
+    await page.click('a[href^="/admin/submissions/"]:has-text("eve@example.com")');
+    const copy = page.locator('button:has-text("Copy address")');
+    await expect(copy).toHaveAttribute("data-address", "eve@example.com");
+
+    await copy.click();
+
+    await expect(page.locator('button:has-text("Copied")')).toBeVisible();
+    // The page came through htmx, and htmx kept no copy of it in the browser.
+    expect(await page.evaluate(() => localStorage.getItem("htmx-history-cache"))).toBeNull();
+  });
+
   test("3. Test rate limiting", async ({ page }) => {
     helpers.log("=== Testing Rate Limiting ===");
 
