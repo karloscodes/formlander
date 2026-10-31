@@ -52,7 +52,7 @@ FROM alpine:3.24
 WORKDIR /app
 
 # Install minimal runtime dependencies
-RUN apk add --no-cache ca-certificates tzdata curl && \
+RUN apk upgrade --no-cache && apk add --no-cache ca-certificates tzdata curl && \
   mkdir -p /app/storage /app/logs
 
 COPY --from=builder /src/formlander /usr/local/bin/formlander
