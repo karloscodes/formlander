@@ -9,57 +9,10 @@ permissions:
   contents: read
 
 jobs:
-  # Blocking: a high finding fails the build. Justify a false positive in the
-  # code with "#nosec Gxxx -- why", never by making the scan non-blocking.
-  security-scan:
-    name: Security Scan
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-      - uses: actions/setup-go@v7
-        with:
-          go-version-file: go.mod
-      # gosec v2.29.0 pins a golang.org/x/tools too old to read Go 1.27
-      # packages. Built with x/tools v0.52.0, as in chasen, it reads both.
-      - name: Build gosec
-        run: |
-          cd "$(mktemp -d)"
-          go mod init gosec-build
-          go get github.com/securego/gosec/v2/cmd/gosec@v2.29.0 golang.org/x/tools@v0.52.0
-          go build -o "$RUNNER_TEMP/gosec" github.com/securego/gosec/v2/cmd/gosec
-      - name: gosec
-        run: $RUNNER_TEMP/gosec -exclude-dir=e2e -severity high -confidence high ./...
-      # govulncheck scans the Go of go.mod, so the image must ship that Go,
-      # built on the Alpine it runs on. The release checks it again; here a
-      # Dockerfile-only bump fails on its pull request.
-      - name: Check the Dockerfile's Go and Alpine
-        run: |
-          set -euo pipefail
-          mod="$(awk '$1 == "go" { print $2; exit }' go.mod)"
-          builder="$(awk '$1 == "FROM" && $2 ~ /^golang:/ { sub(/^golang:/, "", $2); print $2; exit }' Dockerfile)"
-          runtime="$(awk '$1 == "FROM" && $2 ~ /^alpine:/ { sub(/^alpine:/, "", $2); print $2; exit }' Dockerfile)"
-          if [ -z "${mod}" ] || [ "${builder}" != "${mod}-alpine${runtime}" ]; then
-            echo "Dockerfile: golang:${builder:-?} and alpine:${runtime:-?}; want golang:${mod:-?}-alpine${runtime:-?}"
-            exit 1
-          fi
-      - name: govulncheck
-        run: go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...
-      - name: Trivy (dependencies, high and critical)
-        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
-        with:
-          scan-type: 'fs'
-          scan-ref: '.'
-          severity: 'CRITICAL,HIGH'
-          ignore-unfixed: true
-          exit-code: '1'
-
   test-unit:
     name: Unit Tests
     runs-on: ubuntu-latest
-    needs: security-scan
+    needs: [security, dependencies]
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -87,7 +40,7 @@ jobs:
   test-e2e:
     name: E2E Tests
     runs-on: ubuntu-latest
-    needs: security-scan
+    needs: [security, dependencies]
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -128,25 +81,37 @@ jobs:
           path: e2e/test-results/
           retention-days: 7
 
-  gitleaks:
-    name: gitleaks
+  security:
+    uses: karloscodes/workflows/.github/workflows/go-security.yml@v1.1.0
+    with:
+      gosec-flags: "-exclude-dir=e2e"
+      check-dockerfile: true
+
+  dependencies:
+    name: Trivy (dependencies)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
         with:
-          fetch-depth: 0
-      - name: Scan the history for secrets
-        run: |
-          curl -sSfLO https://github.com/gitleaks/gitleaks/releases/download/v8.28.0/gitleaks_8.28.0_linux_x64.tar.gz
-          echo "a65b5253807a68ac0cafa4414031fd740aeb55f54fb7e55f386acb52e6a840eb  gitleaks_8.28.0_linux_x64.tar.gz" | sha256sum -c -
-          tar -xzf gitleaks_8.28.0_linux_x64.tar.gz gitleaks
-          ./gitleaks git --redact --verbose .
+          persist-credentials: false
+      - name: Trivy (dependencies, high and critical)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          severity: 'CRITICAL,HIGH'
+          ignore-unfixed: true
+          exit-code: '1'
+
+  gitleaks:
+    uses: karloscodes/workflows/.github/workflows/gitleaks.yml@v1.1.0
+
   # The one check to require on main: it passes when every job above passed
   # (or was skipped on a fork).
   test:
     name: test
     if: always()
-    needs: [gitleaks, security-scan, test-unit, test-e2e]
+    needs: [gitleaks, security, test-unit, test-e2e, dependencies]
     runs-on: ubuntu-latest
     steps:
       - run: |
