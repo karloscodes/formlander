@@ -53,6 +53,7 @@
                         {{ else }}<p class="mt-1 text-red-700">This profile has no site key for the allowed sites.</p>{{ end }}
                         {{ else }}
                         <span class="pill">Off</span>
+                        <p class="mt-1 text-stone-500">Turnstile stops robots. <a href="/admin/settings/captcha" class="link">Captcha settings</a></p>
                         {{ end }}
                     </dd>
                 </div>
@@ -139,5 +140,12 @@
         {{ end }}
     </div>
     {{ end }}
+
+    <div class="flex flex-wrap items-center justify-between gap-3 px-1">
+        <p class="text-sm text-stone-500">{{ .DeleteConfirm }}</p>
+        <form method="POST" action="/admin/forms/{{ .Form.ID }}/delete" hx-boost="false" onsubmit="return confirm('{{ .DeleteConfirm }}')">
+            <button type="submit" class="btn-danger btn-small">Delete form</button>
+        </form>
+    </div>
 </div>
 {{ end }}

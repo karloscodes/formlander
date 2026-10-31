@@ -23,6 +23,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/bcrypt"
+	"gorm.io/gorm"
 
 	"formlander/internal"
 	"formlander/internal/accounts"
@@ -197,6 +198,7 @@ func TestRoutesSecFetchSiteBoundary(t *testing.T) {
 	}{
 		{"POST /admin/logout", "/admin/logout", ""},
 		{"POST /admin/forms", "/admin/forms", "name=test"},
+		{"POST /admin/forms/:id/delete", "/admin/forms/1/delete", ""},
 		{"POST /admin/settings/password", "/admin/settings/password", ""},
 		{"POST /admin/submissions/:id/delete", "/admin/submissions/1/delete", ""},
 		{"POST /admin/submissions/delete", "/admin/submissions/delete", "ids=1"},
@@ -688,6 +690,102 @@ func TestAdminDeletesSubmissions(t *testing.T) {
 		assert.Equal(t, 302, status)
 		assert.Len(t, remaining(t, ts), 3)
 	})
+}
+
+func TestAdminDeletesForm(t *testing.T) {
+	prev := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
+	t.Cleanup(func() { slog.SetDefault(prev) })
+
+	seed := func(t *testing.T, ts *cartridgetestsupport.TestServer) (target, other *forms.Form) {
+		t.Helper()
+		db := ts.DB.GetConnection()
+		captcha := &integrations.CaptchaProfile{Name: "Turnstile", Provider: "turnstile", SecretKey: "secret"}
+		hook := &integrations.WebhookProfile{Name: "Hook", URL: "https://example.com/hook"}
+		mailer := &integrations.MailerProfile{Name: "Mail", Provider: "smtp", SMTPHost: "smtp.example.com"}
+		require.NoError(t, db.Create(captcha).Error)
+		require.NoError(t, db.Create(hook).Error)
+		require.NoError(t, db.Create(mailer).Error)
+
+		target = &forms.Form{Name: "Contact", Slug: "contact", CaptchaProfileID: &captcha.ID}
+		require.NoError(t, db.Create(target).Error)
+		require.NoError(t, db.Create(&forms.WebhookDelivery{FormID: target.ID, Enabled: true, WebhookProfileID: &hook.ID}).Error)
+		require.NoError(t, db.Create(&forms.EmailDelivery{
+			FormID: target.ID, Enabled: true, MailerProfileID: &mailer.ID, OverridesJSON: `{"to":"owner@example.com"}`,
+		}).Error)
+		require.NoError(t, db.Preload("WebhookDelivery").Preload("EmailDelivery").First(target, target.ID).Error)
+		submission, err := forms.CreateSubmission(slog.Default(), db, target, map[string]any{"name": "Ada"}, "test")
+		require.NoError(t, err)
+		require.NoError(t, db.Create(&forms.SubmissionFile{
+			SubmissionID: submission.ID, FieldName: "cv", Filename: "cv.txt", StoragePath: "uploads/x/cv.txt", Size: 4,
+		}).Error)
+
+		other = &forms.Form{Name: "Other", Slug: "other"}
+		require.NoError(t, db.Create(other).Error)
+		require.NoError(t, db.Create(&forms.WebhookDelivery{FormID: other.ID, Enabled: true, WebhookProfileID: &hook.ID}).Error)
+		require.NoError(t, db.Preload("WebhookDelivery").First(other, other.ID).Error)
+		_, err = forms.CreateSubmission(slog.Default(), db, other, map[string]any{"name": "Grace"}, "test")
+		require.NoError(t, err)
+		return target, other
+	}
+
+	t.Run("deletes the form and what belongs to it, and keeps the rest", func(t *testing.T) {
+		ts := mountTestServer(t)
+		target, other := seed(t, ts)
+		post := signIn(t, ts)
+
+		resp := post(fmt.Sprintf("/admin/forms/%d/delete", target.ID), "")
+		defer resp.Body.Close()
+
+		assert.Equal(t, 302, resp.StatusCode)
+		assert.Equal(t, "/admin/forms", resp.Header.Get("Location"))
+		db := ts.DB.GetConnection()
+		var gone forms.Form
+		assert.ErrorIs(t, db.First(&gone, target.ID).Error, gorm.ErrRecordNotFound)
+		var left []forms.Form
+		require.NoError(t, db.Find(&left).Error)
+		require.Len(t, left, 1)
+		assert.Equal(t, other.ID, left[0].ID)
+		assert.Equal(t, int64(1), countModel(t, db, &forms.Submission{}))
+		assert.Equal(t, int64(1), countModel(t, db, &forms.WebhookDelivery{}))
+		assert.Equal(t, int64(0), countModel(t, db, &forms.EmailDelivery{}))
+		assert.Equal(t, int64(1), countModel(t, db, &forms.WebhookEvent{}))
+		assert.Equal(t, int64(0), countModel(t, db, &forms.EmailEvent{}))
+		assert.Equal(t, int64(0), countModel(t, db, &forms.SubmissionFile{}))
+		assert.Equal(t, int64(1), countModel(t, db, &integrations.CaptchaProfile{}))
+		assert.Equal(t, int64(1), countModel(t, db, &integrations.WebhookProfile{}))
+		assert.Equal(t, int64(1), countModel(t, db, &integrations.MailerProfile{}))
+	})
+
+	t.Run("answers 404 for a form that does not exist", func(t *testing.T) {
+		ts := mountTestServer(t)
+		post := signIn(t, ts)
+
+		resp := post("/admin/forms/999/delete", "")
+		defer resp.Body.Close()
+
+		assert.Equal(t, 404, resp.StatusCode)
+	})
+
+	t.Run("refuses a visitor who is not signed in", func(t *testing.T) {
+		ts := mountTestServer(t)
+		target, _ := seed(t, ts)
+
+		status, _ := formPost(t, ts, fmt.Sprintf("/admin/forms/%d/delete", target.ID), "",
+			map[string]string{"Sec-Fetch-Site": "same-origin"})
+
+		assert.Equal(t, 302, status)
+		var still forms.Form
+		require.NoError(t, ts.DB.GetConnection().First(&still, target.ID).Error)
+		assert.Equal(t, target.ID, still.ID)
+	})
+}
+
+func countModel(t *testing.T, db *gorm.DB, model any) int64 {
+	t.Helper()
+	var count int64
+	require.NoError(t, db.Model(model).Count(&count).Error)
+	return count
 }
 
 func TestAdminWebhookProfiles(t *testing.T) {

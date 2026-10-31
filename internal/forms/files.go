@@ -206,6 +206,18 @@ func DeleteSubmissionFiles(dataDir string, formID, submissionID uint) error {
 	return os.RemoveAll(uploadDir)
 }
 
+// deleteFormUploads removes uploads/{formID}, including a file that has no
+// row. An empty dataDir deletes nothing: the path would otherwise be
+// relative to the working directory. Form ids come from SQLite
+// AUTOINCREMENT, which does not reuse an id, but a restored database can,
+// and a directory left behind would then belong to the new form.
+func deleteFormUploads(dataDir string, formID uint) error {
+	if dataDir == "" || formID == 0 {
+		return nil
+	}
+	return os.RemoveAll(filepath.Join(dataDir, "uploads", fmt.Sprintf("%d", formID)))
+}
+
 // sanitizeFilename removes dangerous characters from filename
 func sanitizeFilename(name string) string {
 	// Get just the base name (no path components)

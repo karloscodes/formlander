@@ -1,12 +1,14 @@
 package forms
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"unicode/utf8"
 
-	"gorm.io/gorm"
 	"log/slog"
+
+	"gorm.io/gorm"
 )
 
 // CreateParams holds parameters for creating a new form
@@ -222,9 +224,58 @@ func GetEmailEvents(db *gorm.DB, formID uint, limit int) ([]EmailEvent, error) {
 	return events, nil
 }
 
-// Delete deletes a form
-func Delete(logger *slog.Logger, db *gorm.DB, id uint) error {
+// Delete removes a form and everything that belongs to it: submissions, their
+// delivery attempts and file rows, the form's webhook and email delivery
+// rows, and the directory uploads/{id}.
+//
+// The connection does not turn foreign keys on, and the submission, event,
+// and file constraints that do exist omit ON DELETE CASCADE, so those rows
+// are deleted here. Delivery rows do cascade, and are deleted here too, so
+// the result does not depend on the pragma. The upload directory goes as
+// well: a file can outlive its row, and a database that reuses the id would
+// otherwise hand the old files to the next form. Captcha, mailer, and
+// webhook profiles the form used stay.
+func Delete(logger *slog.Logger, db *gorm.DB, dataDir string, id uint) error {
+	if err := deleteFormRows(db, id); err != nil {
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			logger.Error("delete form failed", slog.Any("error", err), slog.Uint64("form_id", uint64(id)))
+		}
+		return err
+	}
+	if err := deleteFormUploads(dataDir, id); err != nil {
+		// The rows are gone. A file that stays behind is only wasted space.
+		logger.Warn("delete form files failed", slog.Uint64("form_id", uint64(id)), slog.Any("error", err))
+	}
+	return nil
+}
+
+func deleteFormRows(db *gorm.DB, id uint) error {
+	if id == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	var count int64
+	if err := db.Model(&Form{}).Where("id = ?", id).Count(&count).Error; err != nil {
+		return err
+	}
+	if count == 0 {
+		return gorm.ErrRecordNotFound
+	}
+
 	return db.Transaction(func(tx *gorm.DB) error {
+		// Children first. With foreign keys on, submissions cannot go while
+		// an event or a file row still points at them, and the form cannot
+		// go while a submission still points at it.
+		for _, child := range []any{&WebhookEvent{}, &EmailEvent{}, &SubmissionFile{}} {
+			err := tx.Where("submission_id IN (SELECT id FROM submissions WHERE form_id = ?)", id).Delete(child).Error
+			if err != nil {
+				return err
+			}
+		}
+		for _, child := range []any{&Submission{}, &WebhookDelivery{}, &EmailDelivery{}} {
+			if err := tx.Where("form_id = ?", id).Delete(child).Error; err != nil {
+				return err
+			}
+		}
 		return tx.Delete(&Form{}, id).Error
 	})
 }
