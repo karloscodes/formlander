@@ -1,6 +1,6 @@
 module formlander
 
-go 1.26.10
+go 1.26.11
 
 require (
 	github.com/karloscodes/cartridge v1.9.1
