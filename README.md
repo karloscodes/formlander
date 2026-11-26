@@ -2,9 +2,11 @@
 
 [![CI](https://github.com/karloscodes/formlander/actions/workflows/ci.yml/badge.svg)](https://github.com/karloscodes/formlander/actions/workflows/ci.yml) [![Release](https://img.shields.io/github/v/release/karloscodes/formlander)](https://github.com/karloscodes/formlander/releases/latest) [![Docker pulls](https://img.shields.io/docker/pulls/karloscodes/formlander)](https://hub.docker.com/r/karloscodes/formlander) [![License: MIT](https://img.shields.io/github/license/karloscodes/formlander)](LICENSE)
 
-Form backend you actually own.
+Form backend for static sites, on your server.
 
-Formlander takes the form posts of your static or serverless sites on your own server. It stores each submission in one SQLite file, shows it in an admin dashboard, and delivers it to a webhook or by email. No SaaS bills, and nobody else sees your submissions.
+Point an HTML form at your own server. Formlander stores each submission in one SQLite file, shows it in an admin dashboard, and can forward it by email (SMTP or Mailgun) or webhook. It is one Docker image, MIT licensed. There is no Formlander subscription.
+
+Use it if you run a static or serverless site and want the submissions on a server you control. If you do not want to run a server, a hosted form service such as Formspree is the better fit today. Formlander Cloud, a hosted version, has a [waitlist](https://formlander.com/cloud/).
 
 **[Website](https://formlander.com)** · **[Docs](https://formlander.com/docs/)**
 
@@ -50,7 +52,7 @@ A plain HTML post works. Keep the hidden `__fl_hp` field: a robot that fills it 
 ## What you get
 
 - **Admin dashboard** - Forms, submissions, and the delivery status of each one.
-- **Delivery** - Webhooks and email (Mailgun), from a queue that retries.
+- **Delivery** - Webhooks and email (SMTP or Mailgun), from a queue that retries.
 - **Spam protection** - A honeypot field and rate limiting.
 - **One container** - One Go binary and one SQLite file, with no other service.
 
