@@ -6,7 +6,7 @@ Form backend for static sites, on your server.
 
 Point an HTML form at your own server. Formlander stores each submission in one SQLite file, shows it in an admin dashboard, and can forward it by email (SMTP or Mailgun) or webhook. It is one Docker image, MIT licensed. There is no Formlander subscription.
 
-Use it if you run a static or serverless site and want the submissions on a server you control. If you do not want to run a server, Formlander Cloud is a waitlist; a hosted form service such as Formspree is the better fit today.
+Use it if you run a static or serverless site and want the submissions on a server you control. If you do not want to run a server, a hosted form service such as Formspree is the better fit today. Formlander Cloud, a hosted version, has a [waitlist](https://formlander.com/cloud/).
 
 **[Website](https://formlander.com)** · **[Docs](https://formlander.com/docs/)**
 
